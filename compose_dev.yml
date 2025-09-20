@@ -1,16 +1,16 @@
 services:
-  app:
+  shell:
     image: node:22
-    container_name: node22
+    container_name: runestone_shell
     working_dir: /app
     user: "${LOCAL_UID}:${LOCAL_GID}"
     volumes:
-      - .:/app
+      - ./:/app
     env_file:
       - .env
     tty: true
     stdin_open: true
     command: sh -c "npm install && npm run dev"
     ports:
-      - "${PORT}:${PORT}"
+      - "${WEB_APP_PORT}:${WEB_APP_PORT}"
 

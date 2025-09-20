@@ -1,12 +1,15 @@
 import { fileURLToPath, URL } from 'node:url'
 
-import { defineConfig, loadEnv } from 'vite'
+import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
+import { config } from '@runestone/config'
 
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), '')
   return {
+    define: {
+      __APP_CONFIG__: JSON.stringify(config.web_app),
+    },
     plugins: [
       vue(),
       vueDevTools(),
@@ -17,7 +20,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
-      port: env.PORT ? Number(env.PORT) : 5173,
+      port: config.web_app.port ?? 5173,
     },
   }
 })

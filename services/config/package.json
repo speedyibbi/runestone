@@ -1,0 +1,17 @@
+{
+  "name": "@runestone/config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "tsc -p tsconfig.json --watch",
+    "build": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "^24.5.2",
+    "dotenv": "^17.2.2",
+    "typescript": "^5.0.0"
+  }
+}
