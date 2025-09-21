@@ -7,7 +7,7 @@
   ],
   "scripts": {
     "build": "npm run build --if-present --workspaces",
-    "dev": "concurrently \"npm run dev -w @runestone/config\" \"npm run dev -w @runestone/web_app\"",
+    "dev": "concurrently \"npm run dev -w @runestone/config\" \"npm run dev -w @runestone/server\" \"npm run dev -w @runestone/web_app\"",
     "lint": "npm run lint --if-present --workspaces"
   },
   "devDependencies": {

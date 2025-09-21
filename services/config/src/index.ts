@@ -33,6 +33,9 @@ dotenv.config({ path: envPath });
 
 export const config = Object.freeze({
   global: {},
+  server: {
+    port: Number(process.env.SERVER_PORT) ?? 5000,
+  },
   web_app: {
     port: Number(process.env.WEB_APP_PORT) ?? 3000,
   },
