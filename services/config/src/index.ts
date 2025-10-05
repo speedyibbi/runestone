@@ -32,7 +32,16 @@ const envPath = path.join(rootDir, ".env");
 dotenv.config({ path: envPath });
 
 export const config = Object.freeze({
-  global: {},
+  global: {
+    environment: process.env.ENVIRONMENT,
+  },
+  aws: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    region: process.env.AWS_REGION,
+    bucket: process.env.AWS_S3_BUCKET,
+    endpoint: process.env.AWS_ENDPOINT,
+  },
   server: {
     port: Number(process.env.SERVER_PORT) ?? 5000,
     secret: process.env.SERVER_SECRET ?? 'secret',
