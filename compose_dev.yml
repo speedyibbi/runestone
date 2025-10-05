@@ -4,8 +4,6 @@ services:
     container_name: runestone_shell
     working_dir: /app
     user: "${LOCAL_UID}:${LOCAL_GID}"
-    volumes:
-      - ./:/app
     env_file:
       - .env
     tty: true
@@ -14,4 +12,18 @@ services:
     ports:
       - "${SERVER_PORT}:${SERVER_PORT}"
       - "${WEB_APP_PORT}:${WEB_APP_PORT}"
-
+    volumes:
+      - ./:/app
+  localstack:
+    image: localstack/localstack
+    container_name: localstack_main
+    env_file:
+      - .env
+    ports:
+      - "127.0.0.1:4566:4566"
+      - "127.0.0.1:4510-4559:4510-4559"
+    volumes:
+      - "./.localstack/volume:/var/lib/localstack"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    environment:
+      - DEBUG=0
