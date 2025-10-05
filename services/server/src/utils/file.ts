@@ -1,7 +1,7 @@
 import path from "path";
 import {
   S3Client,
-  HeadObjectCommand,
+  GetObjectCommand,
   PutObjectCommand,
   DeleteObjectCommand,
 } from "@aws-sdk/client-s3";
@@ -10,15 +10,15 @@ import {
 } from "@aws-sdk/s3-request-presigner";
 import { config } from "@runestone/config"
 
-const bucket = config.aws.bucket;
+const bucket = config.aws.bucket ?? '';
 
 const s3 = new S3Client({
-  region: config.aws.region,
-  endpoint: config.aws.endpoint,
+  region: config.aws.region ?? '',
+  endpoint: config.aws.endpoint ?? '',
   forcePathStyle: true,
   credentials: {
-    accessKeyId: config.aws.accessKeyId,
-    secretAccessKey: config.aws.secretAccessKey,
+    accessKeyId: config.aws.accessKeyId ?? '',
+    secretAccessKey: config.aws.secretAccessKey ?? '',
   },
 });
 
