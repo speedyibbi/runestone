@@ -1,12 +1,17 @@
 import crypto from 'crypto'
 import { FastifyPluginCallback, FastifyRequest, FastifyReply } from "fastify";
 import { config } from '@runestone/config'
+import { deleteFile, getFile, upsertFile } from '../../utils/file.js'
 import schema from './schema.js'
 
 declare module "fastify" {
   interface FastifyRequest {
     hmac: string | null;
   }
+}
+
+interface Query {
+  path: string;
 }
 
 export default <FastifyPluginCallback>function (fastify, options, done) {
@@ -24,8 +29,22 @@ export default <FastifyPluginCallback>function (fastify, options, done) {
     done()
   })
 
-  fastify.get('/plugin', { schema }, (request: FastifyRequest, reply: FastifyReply) => {
-    return request.hmac
+  fastify.get('/', { schema }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const { path } = request.query as Query;
+
+    return await getFile(`${request.hmac}/${path}`);
+  })
+
+  fastify.post('/', { schema }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const { path } = request.query as Query;
+
+    return await upsertFile(`${request.hmac}/${path}`);
+  })
+
+  fastify.delete('/', { schema }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const { path } = request.query as Query;
+
+    return await deleteFile(`${request.hmac}/${path}`);
   })
 
   done()

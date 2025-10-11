@@ -1,10 +1,10 @@
 import fastify from 'fastify'
 import { config } from '@runestone/config'
-import main from './plugins/main/index.js'
+import fileManager from './plugins/fm/index.js'
 
 const server = fastify()
 
-server.register(main)
+server.register(fileManager, { prefix: '/file' })
 
 server.listen({ port: config.server.port ?? 8080, host: "0.0.0.0" }, (err, address) => {
   if (err) {
