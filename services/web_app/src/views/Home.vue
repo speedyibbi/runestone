@@ -1,10 +1,15 @@
 <script lang="ts" setup>
 import { onMounted } from 'vue'
+import { useLookupStore } from '@/stores/lookup'
 import FileService from '@/services/file'
 
-onMounted(async () => {
-  const file = await FileService.upsertFile('test.txt')
-  console.log(file)
+const lookupStore = useLookupStore()
+
+onMounted( () => {
+  lookupStore.setLookupKey('test')
+  FileService.upsertFile('test').then((link) => {
+    console.log(link)
+  })
 })
 </script>
 

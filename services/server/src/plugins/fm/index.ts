@@ -32,19 +32,25 @@ export default <FastifyPluginCallback>function (fastify, options, done) {
   fastify.get('/', { schema }, async (request: FastifyRequest, reply: FastifyReply) => {
     const { path } = request.query as Query;
 
-    return await getFile(`${request.hmac}/${path}`);
+    return {
+      signedURL: await getFile(`${request.hmac}/${path}`),
+    };
   })
 
   fastify.post('/', { schema }, async (request: FastifyRequest, reply: FastifyReply) => {
     const { path } = request.query as Query;
 
-    return await upsertFile(`${request.hmac}/${path}`);
+    return {
+      signedURL: await upsertFile(`${request.hmac}/${path}`),
+    };
   })
 
   fastify.delete('/', { schema }, async (request: FastifyRequest, reply: FastifyReply) => {
     const { path } = request.query as Query;
 
-    return await deleteFile(`${request.hmac}/${path}`);
+    return {
+      signedURL: await deleteFile(`${request.hmac}/${path}`),
+    };
   })
 
   done()

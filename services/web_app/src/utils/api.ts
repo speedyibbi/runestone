@@ -29,23 +29,16 @@ const buildUrl = (endpoint: string, urlParams?: Record<string, string>, querystr
   return url;
 };
 
-const buildHeaders = (headers?: Record<string, string>): HeadersInit => {
-  const defaultHeaders: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
-  
-  return headers ? { ...defaultHeaders, ...headers } : defaultHeaders;
-};
-
 const buildRequest = (config: RequestConfig, method: string): Request => {
   const url = buildUrl(config.endpoint, config.urlParams, config.querystring);
-  const headers = buildHeaders(config.headers);
-  
-  return new Request(url, {
-    method,
-    headers,
-    body: config.body ? JSON.stringify(config.body) : undefined,
-  });
+  const headers = { ...config.headers};
+  const body = config.body ? JSON.stringify(config.body) : undefined;
+
+  if (body && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  return new Request(url, { method, headers, body });
 };
 
 export const get = async (config: RequestConfig): Promise<Response> => {
