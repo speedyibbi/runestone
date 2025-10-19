@@ -20,7 +20,12 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       port: config.web_app.port ?? 5173,
+      proxy: {
+        '/api': {
+          target: `${config.server.host}:${config.server.port}`,
+          changeOrigin: true,
+        },
+      },
     },
-  }
-})
-
+  };
+});
