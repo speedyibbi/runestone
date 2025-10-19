@@ -1,4 +1,4 @@
-import { del, get, post } from "@/utils/api"
+import { del, get, post, put } from "@/utils/api"
 import { useLookupStore } from "@/stores/lookup"
 
 export default class FileService {
@@ -9,7 +9,7 @@ export default class FileService {
   }
 
   static async getFile(path: string) {
-    const response = await get({
+    let response = await get({
       endpoint: this.basePath,
       headers: {
         'x-lookup': this.lookup,
@@ -23,13 +23,21 @@ export default class FileService {
       throw new Error('Failed to get file')
     }
 
-    const {signedURL} = await response.json()
+    const { signedURL } = await response.json()
 
-    return signedURL
+    response = await get({
+      endpoint: signedURL,
+    })
+
+    if (!response.ok) {
+      throw new Error('Failed to get file')
+    }
+
+    return response
   }
 
-  static async upsertFile(path: string) {
-    const response = await post({
+  static async upsertFile(path: string, file: File) {
+    let response = await post({
       endpoint: this.basePath,
       headers: {
         'x-lookup': this.lookup,
@@ -40,16 +48,25 @@ export default class FileService {
     });
 
     if (!response.ok) {
-      throw new Error('Failed to upsert file')
+      throw new Error('Failed to save file')
     }
 
-    const {signedURL} = await response.json()
+    const { signedURL } = await response.json()
 
-    return signedURL
+    response = await put({
+      endpoint: signedURL,
+      body: file,
+    })
+
+    if (!response.ok) {
+      throw new Error('Failed to save file')
+    }
+
+    return response
   }
 
   static async deleteFile(path: string) {
-    const response = await del({
+    let response = await del({
       endpoint: this.basePath,
       headers: {
         'x-lookup': this.lookup,
@@ -63,8 +80,16 @@ export default class FileService {
       throw new Error('Failed to delete file')
     }
 
-    const {signedURL} = await response.json()
+    const { signedURL } = await response.json()
 
-    return signedURL
+    response = await del({
+      endpoint: signedURL,
+    })
+
+    if (!response.ok) {
+      throw new Error('Failed to delete file')
+    }
+
+    return response
   }
 }
