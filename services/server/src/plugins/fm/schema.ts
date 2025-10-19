@@ -1,20 +1,20 @@
 const headersSchema = {
-  type: 'object',
+  type: "object",
   properties: {
-    'x-lookup': { type: 'string' }
+    "x-lookup": { type: "string" },
   },
-  required: ['x-lookup']
-}
+  required: ["x-lookup"],
+};
 
 const querystringSchema = {
-  type: 'object',
+  type: "object",
   properties: {
-    path: { type: 'string' },
+    path: { type: "string" },
   },
-  required: ['path']
-}
+  required: ["path"],
+};
 
 export default {
   headers: headersSchema,
-  querystring: querystringSchema
-}
+  querystring: querystringSchema,
+};

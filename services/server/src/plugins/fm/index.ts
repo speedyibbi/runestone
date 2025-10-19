@@ -1,8 +1,8 @@
-import crypto from 'crypto'
+import crypto from "crypto";
 import { FastifyPluginCallback, FastifyRequest, FastifyReply } from "fastify";
-import { config } from '@runestone/config'
-import { deleteFile, getFile, upsertFile } from '../../utils/file.js'
-import schema from './schema.js'
+import { config } from "@runestone/config";
+import { deleteFile, getFile, upsertFile } from "../../utils/file.js";
+import schema from "./schema.js";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -15,43 +15,59 @@ interface Query {
 }
 
 export default <FastifyPluginCallback>function (fastify, options, done) {
-  fastify.decorateRequest('hmac', null);
+  fastify.decorateRequest("hmac", null);
 
-  fastify.addHook('preHandler', (request: FastifyRequest, reply: FastifyReply, done) => {
-    const { 'x-lookup': lookup } = request.headers;
+  fastify.addHook(
+    "preHandler",
+    (request: FastifyRequest, reply: FastifyReply, done) => {
+      const { "x-lookup": lookup } = request.headers;
 
-    const hmac = crypto.createHmac('sha256', Buffer.from(config.server.secret, 'utf8'))
-    .update(Array.isArray(lookup) ? lookup[0] : lookup ?? '')
-    .digest('hex');
-    
-    request.hmac = hmac
+      const hmac = crypto
+        .createHmac("sha256", Buffer.from(config.server.secret, "utf8"))
+        .update(Array.isArray(lookup) ? lookup[0] : (lookup ?? ""))
+        .digest("hex");
 
-    done()
-  })
+      request.hmac = hmac;
 
-  fastify.get('/', { schema }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const { path } = request.query as Query;
+      done();
+    },
+  );
 
-    return {
-      signedURL: await getFile(`${request.hmac}/${path}`),
-    };
-  })
+  fastify.get(
+    "/",
+    { schema },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { path } = request.query as Query;
 
-  fastify.post('/', { schema }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const { path } = request.query as Query;
+      return {
+        signedURL: await getFile(`${request.hmac}/${path}`),
+      };
+    },
+  );
 
-    return {
-      signedURL: await upsertFile(`${request.hmac}/${path}`),
-    };
-  })
+  fastify.post(
+    "/",
+    { schema },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { path } = request.query as Query;
 
-  fastify.delete('/', { schema }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const { path } = request.query as Query;
+      return {
+        signedURL: await upsertFile(`${request.hmac}/${path}`),
+      };
+    },
+  );
 
-    return {
-      signedURL: await deleteFile(`${request.hmac}/${path}`),
-    };
-  })
+  fastify.delete(
+    "/",
+    { schema },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { path } = request.query as Query;
 
-  done()
-}
+      return {
+        signedURL: await deleteFile(`${request.hmac}/${path}`),
+      };
+    },
+  );
+
+  done();
+};

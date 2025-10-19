@@ -1,5 +1,5 @@
-import { del, get, post, put } from "@/utils/api"
-import { useLookupStore } from "@/stores/lookup"
+import { del, get, post, put } from '@/utils/api'
+import { useLookupStore } from '@/stores/lookup'
 
 export default class FileService {
   private static readonly basePath = '/api/file'
@@ -17,7 +17,7 @@ export default class FileService {
       querystring: {
         path,
       },
-    });
+    })
 
     if (!response.ok) {
       throw new Error('Failed to get file')
@@ -45,7 +45,7 @@ export default class FileService {
       querystring: {
         path,
       },
-    });
+    })
 
     if (!response.ok) {
       throw new Error('Failed to save file')
@@ -74,7 +74,7 @@ export default class FileService {
       querystring: {
         path,
       },
-    });
+    })
 
     if (!response.ok) {
       throw new Error('Failed to delete file')

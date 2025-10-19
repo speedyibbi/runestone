@@ -9,7 +9,7 @@ const selectedFile = ref<File | null>(null)
 const uploading = ref(false)
 const uploadMessage = ref('')
 
-onMounted( () => {
+onMounted(() => {
   lookupStore.setLookupKey('test')
 })
 
@@ -33,7 +33,7 @@ const uploadFile = async () => {
     const result = await FileService.upsertFile(filePath.value, selectedFile.value)
     uploadMessage.value = `File uploaded successfully!`
     console.log('Upload result:', result)
-    
+
     // Reset form
     filePath.value = ''
     selectedFile.value = null
@@ -53,7 +53,7 @@ const uploadFile = async () => {
     <div class="content">
       <img src="/logo.png" alt="logo" />
       <h1>Runestone</h1>
-      
+
       <div class="upload-form">
         <h2>File Upload</h2>
         <div class="form-group">
@@ -66,18 +66,13 @@ const uploadFile = async () => {
             :disabled="uploading"
           />
         </div>
-        
+
         <div class="form-group">
           <label for="fileInput">Select File:</label>
-          <input
-            id="fileInput"
-            type="file"
-            @change="handleFileSelect"
-            :disabled="uploading"
-          />
+          <input id="fileInput" type="file" @change="handleFileSelect" :disabled="uploading" />
           <span v-if="selectedFile" class="file-name">{{ selectedFile.name }}</span>
         </div>
-        
+
         <button
           @click="uploadFile"
           :disabled="uploading || !filePath || !selectedFile"
@@ -85,8 +80,12 @@ const uploadFile = async () => {
         >
           {{ uploading ? 'Uploading...' : 'Upload File' }}
         </button>
-        
-        <p v-if="uploadMessage" class="message" :class="{ error: uploadMessage.includes('failed') }">
+
+        <p
+          v-if="uploadMessage"
+          class="message"
+          :class="{ error: uploadMessage.includes('failed') }"
+        >
           {{ uploadMessage }}
         </p>
       </div>
@@ -159,8 +158,8 @@ label {
   font-weight: 600;
 }
 
-input[type="text"],
-input[type="file"] {
+input[type='text'],
+input[type='file'] {
   padding: 0.75rem;
   border: 1px solid #ccaaff;
   border-radius: 6px;
@@ -169,13 +168,13 @@ input[type="file"] {
   font-size: 1rem;
 }
 
-input[type="text"]:focus {
+input[type='text']:focus {
   outline: none;
   border-color: #ffffff;
   box-shadow: 0 0 10px rgba(204, 170, 255, 0.5);
 }
 
-input[type="file"]::file-selector-button {
+input[type='file']::file-selector-button {
   padding: 0.5rem 1rem;
   background-color: #ccaaff;
   color: #000015;
@@ -186,7 +185,7 @@ input[type="file"]::file-selector-button {
   margin-right: 1rem;
 }
 
-input[type="file"]::file-selector-button:hover {
+input[type='file']::file-selector-button:hover {
   background-color: #ffffff;
 }
 
