@@ -25,17 +25,19 @@ export interface EncryptedData {
  * Uses Argon2id for key derivation and AES-256-GCM for encryption
  */
 export default class CryptoService {
-  private static readonly AES_KEY_LENGTH = 256 // bits
-  private static readonly AES_ALGORITHM = 'AES-GCM'
-  private static readonly IV_LENGTH = 12 // 96 bits for GCM (recommended)
-  private static readonly TAG_LENGTH = 128 // bits
-  private static readonly KEK_LENGTH = 256 // bits
+  private static readonly AES_KEY_LENGTH = __APP_CONFIG__.crypto.aes.keyLength
+  private static readonly AES_ALGORITHM = __APP_CONFIG__.crypto.aes.algorithm
+  private static readonly IV_LENGTH = __APP_CONFIG__.crypto.aes.ivLength
+  private static readonly TAG_LENGTH = __APP_CONFIG__.crypto.aes.tagLength
+  private static readonly KEK_LENGTH = __APP_CONFIG__.crypto.kek.length
+  private static readonly SALT_LENGTH = __APP_CONFIG__.crypto.kdf.saltLength
 
   /**
    * Generate random salt for KDF
    */
-  static generateSalt(length = 16): Uint8Array {
-    return crypto.getRandomValues(new Uint8Array(length))
+  static generateSalt(length?: number): Uint8Array {
+    const saltLength = length ?? this.SALT_LENGTH
+    return crypto.getRandomValues(new Uint8Array(saltLength))
   }
 
   /**
