@@ -49,8 +49,32 @@ export const config = Object.freeze({
   },
   web_app: {
     port: Number(process.env.WEB_APP_PORT) ?? 3000,
+    crypto: {
+      aes: {
+        keyLength: Number(process.env.CRYPTO_AES_KEY_LENGTH) ?? 256, // bits
+        algorithm: process.env.CRYPTO_AES_ALGORITHM ?? 'AES-GCM',
+        ivLength: Number(process.env.CRYPTO_AES_IV_LENGTH) ?? 12, // bytes (96 bits for GCM)
+        tagLength: Number(process.env.CRYPTO_AES_TAG_LENGTH) ?? 128, // bits
+      },
+      kek: {
+        length: Number(process.env.CRYPTO_KEK_LENGTH) ?? 256, // bits
+      },
+      kdf: {
+        saltLength: Number(process.env.CRYPTO_KDF_SALT_LENGTH) ?? 16, // bytes
+        defaultIterations: Number(process.env.CRYPTO_KDF_ITERATIONS) ?? 3,
+        defaultMemory: Number(process.env.CRYPTO_KDF_MEMORY) ?? 65536, // KiB (64 MiB)
+        defaultParallelism: Number(process.env.CRYPTO_KDF_PARALLELISM) ?? 4,
+      },
+    },
+    notebook: {
+      manifest: {
+        version: Number(process.env.NOTEBOOK_MANIFEST_VERSION) ?? 1,
+      },
+      meta: {
+        version: Number(process.env.NOTEBOOK_META_VERSION) ?? 1,
+      },
+    },
   },
 });
 
 export type Config = typeof config;
-
