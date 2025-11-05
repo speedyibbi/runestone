@@ -73,6 +73,9 @@ export const config = Object.freeze({
       meta: {
         version: Number(process.env.NOTEBOOK_META_VERSION) ?? 1,
       },
+      opfs: {
+        directory: process.env.NOTEBOOK_OPFS_DIRECTORY ?? 'notebooks',
+      }
     },
   },
 });
