@@ -49,6 +49,7 @@ export interface SyncOptions {
 export default class SyncService {
   private static currentSync: Map<string, Promise<SyncResult>> = new Map()
   private static syncStatus: Map<string, SyncStatus> = new Map()
+  private static abortControllers: Map<string, AbortController> = new Map()
   private static readonly IV_LENGTH = __APP_CONFIG__.crypto.aes.ivLength
   private static readonly TAG_LENGTH = __APP_CONFIG__.crypto.aes.tagLength
 
@@ -94,6 +95,11 @@ export default class SyncService {
       return existingSync
     }
 
+    // Create abort controller for this sync operation
+    const abortController = new AbortController()
+    const signal = abortController.signal
+    this.abortControllers.set(notebookId, abortController)
+
     const startTime = Date.now()
     const errors: string[] = []
 
@@ -113,7 +119,7 @@ export default class SyncService {
         })
         this.notifyProgress(notebookId, onProgress)
 
-        const remoteManifest = await NotebookService.getManifest(notebookId, fek)
+        const remoteManifest = await NotebookService.getManifest(notebookId, fek, signal)
 
         // Step 2: Get local manifest from OPFS
         const localManifestEncrypted = await OPFSService.getManifest(notebookId)
@@ -156,6 +162,7 @@ export default class SyncService {
             notebookId,
             fek,
             syncActions.toDownload,
+            signal,
             (current, total) => {
               this.updateStatus(notebookId, {
                 progress: {
@@ -176,6 +183,7 @@ export default class SyncService {
             notebookId,
             fek,
             syncActions.toUpload,
+            signal,
             (current, total) => {
               this.updateStatus(notebookId, {
                 progress: {
@@ -201,6 +209,7 @@ export default class SyncService {
           fek,
           localManifest,
           remoteManifest,
+          signal,
         )
 
         const duration = Date.now() - startTime
@@ -224,12 +233,17 @@ export default class SyncService {
         }
       } catch (error) {
         const duration = Date.now() - startTime
-        const errorMessage = error instanceof Error ? error.message : String(error)
+        const isAborted = error instanceof Error && error.name === 'AbortError'
+        const errorMessage = isAborted
+          ? 'Sync cancelled'
+          : error instanceof Error
+            ? error.message
+            : String(error)
         errors.push(errorMessage)
 
         this.updateStatus(notebookId, {
           inProgress: false,
-          error: errorMessage,
+          error: isAborted ? null : errorMessage,
           progress: { phase: 'idle', current: 0, total: 0 },
         })
         this.notifyProgress(notebookId, onProgress)
@@ -244,6 +258,7 @@ export default class SyncService {
         }
       } finally {
         this.currentSync.delete(notebookId)
+        this.abortControllers.delete(notebookId)
       }
     })()
 
@@ -343,10 +358,16 @@ export default class SyncService {
     notebookId: string,
     fek: CryptoKey,
     entries: ManifestEntry[],
+    signal: AbortSignal,
     onProgress: (current: number, total: number) => void,
     errors: string[],
   ): Promise<void> {
     for (let i = 0; i < entries.length; i++) {
+      // Check for cancellation before each blob
+      if (signal.aborted) {
+        throw new DOMException('Sync cancelled', 'AbortError')
+      }
+
       const entry = entries[i]
       try {
         // Check if blob already exists in OPFS and has correct hash
@@ -376,7 +397,7 @@ export default class SyncService {
 
         // Download encrypted blob directly from server
         const blobPath = `${notebookId}/blobs/${entry.uuid}.enc`
-        const response = await FileService.getFile(blobPath)
+        const response = await FileService.getFile(blobPath, signal)
         const encryptedBlob = await response.arrayBuffer()
 
         // Save encrypted blob directly to OPFS (no need to decrypt/re-encrypt)
@@ -384,6 +405,10 @@ export default class SyncService {
 
         onProgress(i + 1, entries.length)
       } catch (error) {
+        // If aborted, rethrow to stop the loop
+        if (error instanceof Error && error.name === 'AbortError') {
+          throw error
+        }
         const errorMessage = `Failed to download blob ${entry.uuid}: ${error}`
         errors.push(errorMessage)
         console.error(errorMessage)
@@ -398,10 +423,16 @@ export default class SyncService {
     notebookId: string,
     fek: CryptoKey,
     entries: ManifestEntry[],
+    signal: AbortSignal,
     onProgress: (current: number, total: number) => void,
     errors: string[],
   ): Promise<void> {
     for (let i = 0; i < entries.length; i++) {
+      // Check for cancellation before each blob
+      if (signal.aborted) {
+        throw new DOMException('Sync cancelled', 'AbortError')
+      }
+
       const entry = entries[i]
       try {
         // Get blob from OPFS
@@ -427,10 +458,14 @@ export default class SyncService {
         )
 
         // Upload to server (NotebookService.uploadBlob expects decrypted data)
-        await NotebookService.uploadBlob(notebookId, entry.uuid, decrypted, fek)
+        await NotebookService.uploadBlob(notebookId, entry.uuid, decrypted, fek, signal)
 
         onProgress(i + 1, entries.length)
       } catch (error) {
+        // If aborted, rethrow to stop the loop
+        if (error instanceof Error && error.name === 'AbortError') {
+          throw error
+        }
         const errorMessage = `Failed to upload blob ${entry.uuid}: ${error}`
         errors.push(errorMessage)
         console.error(errorMessage)
@@ -446,7 +481,13 @@ export default class SyncService {
     fek: CryptoKey,
     localManifest: Manifest | null,
     remoteManifest: Manifest,
+    signal: AbortSignal,
   ): Promise<Manifest> {
+    // Check for cancellation
+    if (signal.aborted) {
+      throw new DOMException('Sync cancelled', 'AbortError')
+    }
+
     // Start with remote manifest as base
     const manager = new ManifestManager(remoteManifest)
 
@@ -458,7 +499,7 @@ export default class SyncService {
     const mergedManifest = manager.getManifest()
 
     // Save to remote server
-    await NotebookService.putManifest(notebookId, mergedManifest, fek)
+    await NotebookService.putManifest(notebookId, mergedManifest, fek, signal)
 
     // Encrypt and save to OPFS
     const manifestText = JSON.stringify(mergedManifest, null, 2)
@@ -503,14 +544,18 @@ export default class SyncService {
    * Cancel ongoing sync operation
    */
   static cancelSync(notebookId: string): void {
-    // Note: This is a placeholder - actual cancellation would require
-    // abort controllers for fetch operations
+    const abortController = this.abortControllers.get(notebookId)
+    if (abortController) {
+      // Abort all in-flight requests
+      abortController.abort()
+    }
+
+    // Update status immediately
     this.updateStatus(notebookId, {
       inProgress: false,
-      error: 'Sync cancelled',
+      error: null,
       progress: { phase: 'idle', current: 0, total: 0 },
     })
-    this.currentSync.delete(notebookId)
   }
 
   /**
@@ -529,4 +574,3 @@ export default class SyncService {
     return 0
   }
 }
-

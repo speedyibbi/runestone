@@ -20,9 +20,10 @@ export default class FileService {
    * Get a file from the file manager
    * Requests a signed URL from the server, then fetches the file directly from the file manager
    * @param path - The path to the file
+   * @param signal - Optional AbortSignal for cancellation
    * @returns Response object containing the file data
    */
-  static async getFile(path: string) {
+  static async getFile(path: string, signal?: AbortSignal) {
     let response = await get({
       endpoint: this.basePath,
       headers: {
@@ -31,6 +32,7 @@ export default class FileService {
       querystring: {
         path,
       },
+      signal,
     })
 
     if (!response.ok) {
@@ -41,6 +43,7 @@ export default class FileService {
 
     response = await get({
       endpoint: signedURL,
+      signal,
     })
 
     if (!response.ok) {
@@ -55,9 +58,10 @@ export default class FileService {
    * Requests a signed URL from the server, then uploads the file directly to the file manager
    * @param path - The path where the file should be stored
    * @param file - The file to upload
+   * @param signal - Optional AbortSignal for cancellation
    * @returns Response object from the upload operation
    */
-  static async upsertFile(path: string, file: File) {
+  static async upsertFile(path: string, file: File, signal?: AbortSignal) {
     let response = await post({
       endpoint: this.basePath,
       headers: {
@@ -66,6 +70,7 @@ export default class FileService {
       querystring: {
         path,
       },
+      signal,
     })
 
     if (!response.ok) {
@@ -77,6 +82,7 @@ export default class FileService {
     response = await put({
       endpoint: signedURL,
       body: file,
+      signal,
     })
 
     if (!response.ok) {
@@ -90,9 +96,10 @@ export default class FileService {
    * Delete a file from the file manager
    * Requests a signed URL from the server, then deletes the file directly from the file manager
    * @param path - The path to the file to delete
+   * @param signal - Optional AbortSignal for cancellation
    * @returns Response object from the delete operation
    */
-  static async deleteFile(path: string) {
+  static async deleteFile(path: string, signal?: AbortSignal) {
     let response = await del({
       endpoint: this.basePath,
       headers: {
@@ -101,6 +108,7 @@ export default class FileService {
       querystring: {
         path,
       },
+      signal,
     })
 
     if (!response.ok) {
@@ -111,6 +119,7 @@ export default class FileService {
 
     response = await del({
       endpoint: signedURL,
+      signal,
     })
 
     if (!response.ok) {

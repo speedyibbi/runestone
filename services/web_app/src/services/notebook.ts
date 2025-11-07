@@ -121,9 +121,10 @@ export default class NotebookService {
   static async getManifest(
     notebookId: string,
     fek: CryptoKey,
+    signal?: AbortSignal,
   ): Promise<Manifest> {
     const path = this.getNotebookPath(notebookId, 'manifest.json.enc')
-    const response = await FileService.getFile(path)
+    const response = await FileService.getFile(path, signal)
     const encryptedData = await response.arrayBuffer()
 
     // Extract nonce, ciphertext, and tag
@@ -154,6 +155,7 @@ export default class NotebookService {
     notebookId: string,
     manifest: Manifest,
     fek: CryptoKey,
+    signal?: AbortSignal,
   ): Promise<void> {
     const manifestText = JSON.stringify(manifest, null, 2)
     const manifestBytes = new TextEncoder().encode(manifestText)
@@ -178,7 +180,7 @@ export default class NotebookService {
 
     const path = this.getNotebookPath(notebookId, 'manifest.json.enc')
     const blob = new Blob([combined], { type: 'application/octet-stream' })
-    await FileService.upsertFile(path, blob as File)
+    await FileService.upsertFile(path, blob as File, signal)
   }
 
   /**
@@ -189,6 +191,7 @@ export default class NotebookService {
     uuid: string,
     data: ArrayBuffer | Uint8Array,
     fek: CryptoKey,
+    signal?: AbortSignal,
   ): Promise<void> {
     const encrypted = await CryptoService.encryptBlob(data, fek)
 
@@ -210,7 +213,7 @@ export default class NotebookService {
 
     const path = this.getBlobPath(notebookId, uuid)
     const blob = new Blob([combined], { type: 'application/octet-stream' })
-    await FileService.upsertFile(path, blob as File)
+    await FileService.upsertFile(path, blob as File, signal)
   }
 
   /**
@@ -220,9 +223,10 @@ export default class NotebookService {
     notebookId: string,
     uuid: string,
     fek: CryptoKey,
+    signal?: AbortSignal,
   ): Promise<ArrayBuffer> {
     const path = this.getBlobPath(notebookId, uuid)
-    const response = await FileService.getFile(path)
+    const response = await FileService.getFile(path, signal)
     const encryptedData = await response.arrayBuffer()
 
     // Extract nonce, ciphertext, and tag

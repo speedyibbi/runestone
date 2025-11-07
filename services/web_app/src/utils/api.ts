@@ -3,7 +3,8 @@ interface RequestConfig {
   headers?: Record<string, string>
   urlParams?: Record<string, string>
   querystring?: Record<string, string>
-  body?: any
+  body?: BodyInit | null
+  signal?: AbortSignal
 }
 
 const buildUrl = (
@@ -42,10 +43,20 @@ const buildRequest = (config: RequestConfig, method: string): Request => {
     headers['Content-Type'] = 'application/json'
   }
 
-  return new Request(url, { method, headers, body })
+  const requestInit: RequestInit = { method, headers }
+
+  if (body) {
+    requestInit.body = body
+  }
+
+  if (config.signal) {
+    requestInit.signal = config.signal
+  }
+
+  return new Request(url, requestInit)
 }
 
-export const get = async (config: RequestConfig): Promise<Response> => {
+export const get = async (config: Omit<RequestConfig, 'body'>): Promise<Response> => {
   const request = buildRequest(config, 'GET')
   return await fetch(request)
 }
