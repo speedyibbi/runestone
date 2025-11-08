@@ -301,40 +301,4 @@ export default class CryptoService {
     const encrypted = this.unpackEncrypted(packedData)
     return await this.decryptBlob(encrypted, fek)
   }
-
-  /**
-   * Convert Uint8Array to base64 string
-   */
-  static toBase64(data: Uint8Array | ArrayBuffer): string {
-    const bytes = data instanceof ArrayBuffer ? new Uint8Array(data) : data
-    return btoa(String.fromCharCode(...bytes))
-  }
-
-  /**
-   * Convert base64 string to Uint8Array
-   */
-  static fromBase64(base64: string): Uint8Array {
-    const binary = atob(base64)
-    const bytes = new Uint8Array(binary.length)
-    for (let i = 0; i < binary.length; i++) {
-      bytes[i] = binary.charCodeAt(i)
-    }
-    return bytes
-  }
-
-  /**
-   * Convert ArrayBuffer to base64 string
-   */
-  static arrayBufferToBase64(buffer: ArrayBuffer): string {
-    return this.toBase64(new Uint8Array(buffer))
-  }
-
-  /**
-   * Convert base64 string to ArrayBuffer
-   */
-  static base64ToArrayBuffer(base64: string): ArrayBuffer {
-    const bytes = this.fromBase64(base64)
-    // Ensure we have a proper ArrayBuffer (not SharedArrayBuffer)
-    return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer
-  }
 }

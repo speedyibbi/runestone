@@ -1,3 +1,5 @@
+import { toArrayBuffer } from '@/utils/helpers'
+
 /**
  * OPFSService provides simple primitives for interacting with Origin Private File System
  */
@@ -52,17 +54,7 @@ export default class OPFSService {
     const writable = await fileHandle.createWritable()
 
     try {
-      // Ensure we have a proper ArrayBuffer-backed Uint8Array
-      let dataBuffer: ArrayBuffer
-      if (data instanceof Uint8Array) {
-        dataBuffer = data.buffer.slice(
-          data.byteOffset,
-          data.byteOffset + data.byteLength,
-        ) as ArrayBuffer
-      } else {
-        dataBuffer = data
-      }
-
+      const dataBuffer = toArrayBuffer(data)
       await writable.write(new Uint8Array(dataBuffer))
       await writable.close()
     } catch (error) {
