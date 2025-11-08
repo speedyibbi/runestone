@@ -245,6 +245,64 @@ export default class CryptoService {
   }
 
   /**
+   * Pack EncryptedData into storage format: nonce + ciphertext + tag
+   */
+  static packEncrypted(encrypted: EncryptedData): Uint8Array {
+    const combined = new Uint8Array(
+      encrypted.nonce.byteLength +
+        encrypted.ciphertext.byteLength +
+        encrypted.tag.byteLength,
+    )
+    combined.set(encrypted.nonce, 0)
+    combined.set(
+      new Uint8Array(encrypted.ciphertext),
+      encrypted.nonce.byteLength,
+    )
+    combined.set(
+      encrypted.tag,
+      encrypted.nonce.byteLength + encrypted.ciphertext.byteLength,
+    )
+    return combined
+  }
+
+  /**
+   * Unpack storage format into EncryptedData: nonce + ciphertext + tag
+   */
+  static unpackEncrypted(data: ArrayBuffer): EncryptedData {
+    const nonceLength = this.IV_LENGTH
+    const tagLength = this.TAG_LENGTH / 8 // Convert bits to bytes
+    const tagStart = data.byteLength - tagLength
+
+    const nonce = new Uint8Array(data.slice(0, nonceLength))
+    const ciphertext = data.slice(nonceLength, tagStart)
+    const tag = new Uint8Array(data.slice(tagStart))
+
+    return { ciphertext, nonce, tag }
+  }
+
+  /**
+   * Encrypt data and pack into storage format
+   */
+  static async encryptAndPack(
+    data: ArrayBuffer | Uint8Array,
+    fek: CryptoKey,
+  ): Promise<Uint8Array> {
+    const encrypted = await this.encryptBlob(data, fek)
+    return this.packEncrypted(encrypted)
+  }
+
+  /**
+   * Unpack storage format and decrypt data
+   */
+  static async unpackAndDecrypt(
+    packedData: ArrayBuffer,
+    fek: CryptoKey,
+  ): Promise<ArrayBuffer> {
+    const encrypted = this.unpackEncrypted(packedData)
+    return await this.decryptBlob(encrypted, fek)
+  }
+
+  /**
    * Convert Uint8Array to base64 string
    */
   static toBase64(data: Uint8Array | ArrayBuffer): string {
