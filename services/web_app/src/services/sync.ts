@@ -561,16 +561,54 @@ export default class SyncService {
   /**
    * Clean up orphaned blobs after sync
    */
-  static async cleanupOrphanedBlobs(notebookId: string): Promise<number> {
+  static async cleanupOrphanedBlobs(
+    notebookId: string,
+    fek: CryptoKey,
+  ): Promise<number> {
     // Get manifest from OPFS
     const manifestEncrypted = await OPFSService.getManifest(notebookId)
     if (!manifestEncrypted) {
+      // No manifest means no blobs to clean up
       return 0
     }
 
-    // We need FEK to decrypt, but we can't store it
-    // This method should be called after sync when FEK is available
-    // For now, return 0 - caller should handle this differently
-    return 0
+    // Decrypt manifest
+    const nonceLength = this.IV_LENGTH
+    const tagLength = this.TAG_LENGTH / 8
+    const tagStart = manifestEncrypted.byteLength - tagLength
+
+    const nonce = new Uint8Array(manifestEncrypted.slice(0, nonceLength))
+    const ciphertext = manifestEncrypted.slice(nonceLength, tagStart)
+    const tag = new Uint8Array(manifestEncrypted.slice(tagStart))
+
+    const decrypted = await CryptoService.decryptBlob(
+      { ciphertext, nonce, tag },
+      fek,
+    )
+    const manifestText = new TextDecoder().decode(decrypted)
+    const manifest = JSON.parse(manifestText) as Manifest
+
+    // Get all blob UUIDs from OPFS
+    const allBlobUuids = await OPFSService.listBlobs(notebookId)
+
+    // Create a Set of UUIDs that are in the manifest
+    const manifestUuids = new Set<string>()
+    for (const entry of manifest.entries) {
+      manifestUuids.add(entry.uuid)
+    }
+
+    // Find orphaned blobs (exist in OPFS but not in manifest)
+    const orphanedBlobs = allBlobUuids.filter((uuid) => !manifestUuids.has(uuid))
+
+    // Delete orphaned blobs
+    let deletedCount = 0
+    for (const uuid of orphanedBlobs) {
+      const deleted = await OPFSService.deleteBlob(notebookId, uuid)
+      if (deleted) {
+        deletedCount++
+      }
+    }
+
+    return deletedCount
   }
 }
