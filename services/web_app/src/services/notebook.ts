@@ -56,6 +56,14 @@ export interface NotebookLoadResult {
 }
 
 /**
+ * Notebook rekey result
+ */
+export interface NotebookRekeyResult {
+  notebookId: string
+  meta: MetaJson
+}
+
+/**
  * NotebookService handles notebook initialization and loading
  * Orchestrates crypto bootstrap and initial setup
  */
@@ -195,6 +203,78 @@ export default class NotebookService {
       notebookId,
       fek,
       meta,
+    }
+  }
+
+  /**
+   * Re-key an existing notebook with a new passphrase
+   * This changes the passphrase used to encrypt the FEK without re-encrypting
+   * all the notebook data. Only the meta.json is updated with new KDF params
+   * and a new encrypted FEK.
+   */
+  static async rekeyNotebook(
+    notebookId: string,
+    fek: CryptoKey,
+    newPassphrase: string,
+    kdfParams?: KDFParams,
+    signal?: AbortSignal,
+  ): Promise<NotebookRekeyResult> {
+    // Get current meta.json to preserve user_id
+    const currentMeta = await CacheService.getMeta(notebookId)
+    
+    if (!currentMeta) {
+      throw new Error('Cannot rekey: notebook meta.json not found in cache')
+    }
+
+    // Generate NEW salt for new passphrase (critical for security)
+    const newSalt = CryptoService.generateSalt()
+
+    // KDF parameters (use provided or defaults)
+    const iterations = kdfParams?.iterations ?? this.DEFAULT_KDF_ITERATIONS
+    const memory = kdfParams?.memory ?? this.DEFAULT_KDF_MEMORY
+    const parallelism = kdfParams?.parallelism ?? this.DEFAULT_KDF_PARALLELISM
+
+    // Derive NEW KEK from new passphrase
+    const newKek = await CryptoService.deriveKEK(newPassphrase, newSalt, {
+      iterations,
+      memory,
+      parallelism,
+    })
+
+    // Re-encrypt the SAME FEK with the NEW KEK
+    const encryptedFEK = await CryptoService.encryptFEK(fek, newKek)
+
+    // Create updated meta.json
+    const newMeta: MetaJson = {
+      version: this.META_VERSION,
+      user_id: currentMeta.user_id,
+      kdf: {
+        algorithm: 'argon2id',
+        salt: toBase64(newSalt),
+        iterations,
+        memory,
+        parallelism,
+      },
+      encrypted_fek: {
+        ciphertext: arrayBufferToBase64(encryptedFEK.ciphertext),
+        nonce: toBase64(encryptedFEK.nonce),
+        tag: toBase64(encryptedFEK.tag),
+      },
+      encryption: {
+        cipher: 'aes-256-gcm',
+        tag_length: this.TAG_LENGTH / 8,
+      },
+    }
+
+    // Upload new meta.json to remote
+    await RemoteService.putMeta(notebookId, newMeta, signal)
+
+    // Update cache
+    await CacheService.saveMeta(notebookId, newMeta)
+
+    return {
+      notebookId,
+      meta: newMeta,
     }
   }
 }
