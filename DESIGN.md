@@ -62,7 +62,7 @@
       "type": "note",
       "title": "Meeting notes",
       "version": 2,
-      "last_modified": "2025-09-14T12:02:00Z",
+      "last_updated": "2025-09-14T12:02:00Z",
       "hash": "sha256-98af...d0c",
       "size": 2456
     },
@@ -71,7 +71,7 @@
       "type": "image",
       "title": "Architecture diagram.png",
       "version": 1,
-      "last_modified": "2025-09-13T18:45:00Z",
+      "last_updated": "2025-09-13T18:45:00Z",
       "hash": "sha256-bf10...a93",
       "size": 158432
     }
@@ -86,10 +86,10 @@
 * **S3 paths**:
 
   ```
-  notebooks/<notebook_id>/meta.json
-  notebooks/<notebook_id>/manifest.json.enc
-  notebooks/<notebook_id>/blobs/<uuid>.enc
-  notebooks/<notebook_id>/search.db.enc (optional)
+  <notebook_id>/meta.json
+  <notebook_id>/manifest.json.enc
+  <notebook_id>/blobs/<uuid>.enc
+  <notebook_id>/search.db.enc (optional)
   ```
 
 ## 5. Client Workflow
@@ -118,7 +118,7 @@
 ## 6. Conflict Handling
 
 * **Strategy**: Last-Write-Wins (LWW).
-* Each entry has `last_modified` timestamp.
+* Each entry has `last_updated` timestamp.
 * When manifests differ:
 
   * If remote > local → overwrite local.
@@ -129,12 +129,11 @@
 
 ```
 opfs/
-  notebooks/
-    <notebook_id>/
-      blobs/
-        <uuid>.enc         # encrypted blob
-      manifest.json.enc     # latest manifest
-      search.db.enc         # local FTS index, encrypted
+  <notebook_id>/
+    blobs/
+      <uuid>.enc         # encrypted blob
+    manifest.json.enc     # latest manifest
+    search.db.enc         # local FTS index, encrypted
 ```
 
 ## 8. Search (FTS)
