@@ -251,9 +251,9 @@ export default class NotebookService {
   /**
    * Delete a blob
    */
-  static async deleteBlob(notebookId: string, uuid: string): Promise<void> {
+  static async deleteBlob(notebookId: string, uuid: string, signal?: AbortSignal): Promise<void> {
     const path = this.getBlobPath(notebookId, uuid)
-    await FileService.deleteFile(path)
+    await FileService.deleteFile(path, signal)
   }
 
   /**
