@@ -4,7 +4,7 @@ import { useLookupStore } from '@/stores/lookup'
 /**
  * FileService handles file operations via signed URLs
  * Uses the server's file manager API to get pre-signed URLs
- * le operations go through the server which authenticates via lookup key
+ * All operations go through the server which authenticates via lookup key
  */
 export default class FileService {
   private static readonly basePath = '/api/file' // Server endpoint for file operations
@@ -19,9 +19,6 @@ export default class FileService {
   /**
    * Get a file from the file manager
    * Requests a signed URL from the server, then fetches the file directly from the file manager
-   * @param path - The path to the file
-   * @param signal - Optional AbortSignal for cancellation
-   * @returns Response object containing the file data
    */
   static async getFile(path: string, signal?: AbortSignal) {
     let response = await get({
@@ -56,10 +53,6 @@ export default class FileService {
   /**
    * Upload or update a file in the file manager
    * Requests a signed URL from the server, then uploads the file directly to the file manager
-   * @param path - The path where the file should be stored
-   * @param file - The file to upload
-   * @param signal - Optional AbortSignal for cancellation
-   * @returns Response object from the upload operation
    */
   static async upsertFile(path: string, file: File, signal?: AbortSignal) {
     let response = await post({
@@ -95,9 +88,6 @@ export default class FileService {
   /**
    * Delete a file from the file manager
    * Requests a signed URL from the server, then deletes the file directly from the file manager
-   * @param path - The path to the file to delete
-   * @param signal - Optional AbortSignal for cancellation
-   * @returns Response object from the delete operation
    */
   static async deleteFile(path: string, signal?: AbortSignal) {
     let response = await del({
