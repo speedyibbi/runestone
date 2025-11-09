@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { FastifyPluginCallback, FastifyRequest, FastifyReply } from "fastify";
 import { config } from "@runestone/config";
-import { deleteFile, getFile, upsertFile } from "../../utils/file.js";
+import { deleteFile, getFile, listFiles, upsertFile } from "../../utils/file.js";
 import schema from "./schema.js";
 
 declare module "fastify" {
@@ -66,6 +66,18 @@ export default <FastifyPluginCallback>function (fastify, options, done) {
       return {
         signedURL: await deleteFile(`${request.hmac}/${path}`),
       };
+    },
+  );
+
+  fastify.get(
+    "/list",
+    { schema },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { path } = request.query as Query;
+      
+      const prefix = `${request.hmac}/${path}${path.endsWith('/') ? '' : '/'}`;
+      
+      return await listFiles(prefix);
     },
   );
 

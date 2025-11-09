@@ -118,4 +118,27 @@ export default class FileService {
 
     return response
   }
+
+  /**
+   * List files in a directory
+   * Requests a list of files from the server, then lists the files directly from the file manager
+   */
+  static async listFiles(path: string, signal?: AbortSignal) {
+    let response = await get({
+      endpoint: this.basePath,
+      headers: {
+        'x-lookup': this.lookup,
+      },
+      querystring: {
+        path,
+      },
+      signal,
+    })
+
+    if (!response.ok) {
+      throw new Error('Failed to list files')
+    }
+
+    return response
+  }
 }
