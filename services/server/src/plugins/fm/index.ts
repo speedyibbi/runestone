@@ -77,7 +77,12 @@ export default <FastifyPluginCallback>function (fastify, options, done) {
       
       const prefix = `${request.hmac}/${path}${path.endsWith('/') ? '' : '/'}`;
       
-      return await listFiles(prefix);
+      const result = await listFiles(prefix);
+      
+      return {
+        files: result.files.map(f => f.split('/').pop()),
+        directories: result.directories.map(d => d.split('/').pop()),
+      };
     },
   );
 
