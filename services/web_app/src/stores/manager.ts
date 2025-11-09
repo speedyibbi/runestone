@@ -7,6 +7,12 @@ import SyncService, { type SyncProgress, type SyncResult } from '@/services/sync
 import ManifestService, { type Manifest, type ManifestEntry } from '@/services/manifest'
 
 /**
+ * Maximum number of decrypted blobs to keep in memory cache
+ * Using LRU eviction policy when limit is reached
+ */
+const MAX_DECRYPTED_BLOBS_CACHE_SIZE = __APP_CONFIG__.notebook.blobs.maxSize
+
+/**
  * Manager Store State Interface
  */
 interface ManagerState {
@@ -17,6 +23,7 @@ interface ManagerState {
 
   // Decrypted data (in memory only)
   decryptedManifest: Manifest | null
+  // LRU cache: Map maintains insertion order, oldest items are first
   decryptedBlobs: Map<
     string,
     {
@@ -75,6 +82,18 @@ export const useManagerStore = defineStore('manager', {
      */
     isSyncing: (state): boolean => {
       return state.syncStatus === 'syncing'
+    },
+
+    /**
+     * Get decrypted blobs cache statistics
+     */
+    cacheStats: (state): { size: number; maxSize: number; usage: string } => {
+      const size = state.decryptedBlobs.size
+      return {
+        size,
+        maxSize: MAX_DECRYPTED_BLOBS_CACHE_SIZE,
+        usage: `${size}/${MAX_DECRYPTED_BLOBS_CACHE_SIZE} (${Math.round((size / MAX_DECRYPTED_BLOBS_CACHE_SIZE) * 100)}%)`,
+      }
     },
   },
 
@@ -159,6 +178,35 @@ export const useManagerStore = defineStore('manager', {
       this.syncStatus = 'idle'
       this.lastSyncTime = null
       this.syncProgress = null
+    },
+
+    /**
+     * Mark a blob as recently used in LRU cache (internal helper)
+     * Moves item to end of Map to maintain LRU order
+     */
+    markBlobAsUsed(uuid: string): void {
+      const cached = this.decryptedBlobs.get(uuid)
+      if (cached) {
+        // Delete and re-insert to move to end (most recently used)
+        this.decryptedBlobs.delete(uuid)
+        this.decryptedBlobs.set(uuid, {
+          ...cached,
+          timestamp: Date.now(),
+        })
+      }
+    },
+
+    /**
+     * Evict least recently used blob from cache if size limit exceeded (internal helper)
+     */
+    evictLRUBlobIfNeeded(): void {
+      if (this.decryptedBlobs.size >= MAX_DECRYPTED_BLOBS_CACHE_SIZE) {
+        // Map maintains insertion order, so first key is least recently used
+        const firstKey = this.decryptedBlobs.keys().next().value
+        if (firstKey) {
+          this.decryptedBlobs.delete(firstKey)
+        }
+      }
     },
 
     /**
@@ -258,12 +306,14 @@ export const useManagerStore = defineStore('manager', {
     },
 
     /**
-     * Get decrypted blob content (with in-memory caching)
+     * Get decrypted blob content (with in-memory LRU caching)
      */
     async getBlob(uuid: string, signal?: AbortSignal): Promise<ArrayBuffer> {
       // Check in-memory cache first
       const cached = this.decryptedBlobs.get(uuid)
       if (cached) {
+        // Mark as recently used (LRU)
+        this.markBlobAsUsed(uuid)
         return cached.content
       }
 
@@ -280,6 +330,9 @@ export const useManagerStore = defineStore('manager', {
 
       // Decrypt blob
       const decrypted = await CryptoService.unpackAndDecrypt(encryptedBlob, this.fek)
+
+      // Evict LRU item if cache is full
+      this.evictLRUBlobIfNeeded()
 
       // Store in memory cache
       this.decryptedBlobs.set(uuid, {
@@ -314,6 +367,9 @@ export const useManagerStore = defineStore('manager', {
         CacheService.saveBlob(this.activeNotebookId, uuid, encrypted),
         RemoteService.putBlob(this.activeNotebookId, uuid, encrypted, signal),
       ])
+
+      // Evict LRU item if cache is full (before adding new item)
+      this.evictLRUBlobIfNeeded()
 
       // Update in-memory cache
       this.decryptedBlobs.set(uuid, {
