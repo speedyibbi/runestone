@@ -77,6 +77,9 @@ export const config = Object.freeze({
       meta: {
         version: Number(process.env.NOTEBOOK_META_VERSION) ?? 1,
       },
+      blobs: {
+        maxSize: Number(process.env.NOTEBOOK_BLOBS_CACHE_MAX_SIZE) ?? 50,
+      },
     },
   },
 });
