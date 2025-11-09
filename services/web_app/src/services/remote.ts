@@ -100,4 +100,22 @@ export default class RemoteService {
     const path = this.getBlobPath(notebookId, uuid)
     await FileService.deleteFile(path, signal)
   }
+
+  /**
+   * List all notebooks
+   */
+  static async listNotebooks(signal?: AbortSignal): Promise<string[]> {
+    const result = await FileService.listFiles('', signal)
+
+    // Extract notebook IDs from directory paths
+    const notebookIds = result.directories
+      .map((dir: string) => {
+        // Remove trailing slash and get the directory name
+        const trimmed = dir.endsWith('/') ? dir.slice(0, -1) : dir
+        return trimmed
+      })
+      .filter((id: string) => id) // Filter out empty strings
+
+    return notebookIds
+  }
 }

@@ -238,4 +238,70 @@ export default class CacheService {
 
     return deletedCount
   }
+
+  /**
+   * METADATA CACHING (localStorage with TTL)
+   * For lightweight, frequently-accessed data with expiration
+   */
+
+  private static readonly NOTEBOOK_LIST_CACHE_KEY = __APP_CONFIG__.notebook.cache.key
+  private static readonly CACHE_TTL_MS = __APP_CONFIG__.notebook.cache.ttl // milliseconds
+
+  /**
+   * Get cached notebook list if still valid
+   */
+  static getCachedNotebookList(): string[] | null {
+    try {
+      const cached = localStorage.getItem(this.NOTEBOOK_LIST_CACHE_KEY)
+      if (!cached) return null
+
+      const data: { notebookIds: string[]; timestamp: number } = JSON.parse(cached)
+      const now = Date.now()
+
+      // Check if cache is still valid
+      if (now - data.timestamp < this.CACHE_TTL_MS) {
+        return data.notebookIds
+      }
+
+      // Cache expired, remove it
+      localStorage.removeItem(this.NOTEBOOK_LIST_CACHE_KEY)
+      return null
+    } catch (error) {
+      console.error('Failed to read notebook list cache:', error)
+      return null
+    }
+  }
+
+  /**
+   * Cache notebook list with current timestamp
+   */
+  static cacheNotebookList(notebookIds: string[]): void {
+    try {
+      const data = {
+        notebookIds,
+        timestamp: Date.now(),
+      }
+      localStorage.setItem(this.NOTEBOOK_LIST_CACHE_KEY, JSON.stringify(data))
+    } catch (error) {
+      console.error('Failed to cache notebook list:', error)
+    }
+  }
+
+  /**
+   * Clear the notebook list cache
+   */
+  static clearNotebookListCache(): void {
+    localStorage.removeItem(this.NOTEBOOK_LIST_CACHE_KEY)
+  }
+
+  /**
+   * Add a notebook ID to the cached list
+   */
+  static addNotebookToCache(notebookId: string): void {
+    const cached = this.getCachedNotebookList()
+    if (cached && !cached.includes(notebookId)) {
+      cached.push(notebookId)
+      this.cacheNotebookList(cached)
+    }
+  }
 }

@@ -148,6 +148,9 @@ export default class NotebookService {
     // Cache encrypted manifest locally
     await CacheService.saveManifest(notebookId, encryptedManifest)
 
+    // Add to notebook list cache
+    CacheService.addNotebookToCache(notebookId)
+
     return {
       notebookId,
       fek,
@@ -204,6 +207,31 @@ export default class NotebookService {
       fek,
       meta,
     }
+  }
+
+  /**
+   * Discover all notebooks for the current user
+   * Orchestrates between remote fetching and local caching
+   */
+  static async discoverNotebooks(
+    forceRefresh = false,
+    signal?: AbortSignal,
+  ): Promise<string[]> {
+    // Check cache first unless force refresh
+    if (!forceRefresh) {
+      const cached = CacheService.getCachedNotebookList()
+      if (cached) {
+        return cached
+      }
+    }
+
+    // Fetch from remote
+    const notebookIds = await RemoteService.listNotebooks(signal)
+
+    // Cache the result
+    CacheService.cacheNotebookList(notebookIds)
+
+    return notebookIds
   }
 
   /**
