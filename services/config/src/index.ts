@@ -67,15 +67,16 @@ export const config = Object.freeze({
       },
     },
     notebook: {
+      cache: {
+        key: process.env.NOTEBOOK_LIST_CACHE_KEY ?? 'notebook-list',
+        ttl: Number(process.env.NOTEBOOK_LIST_CACHE_TTL) ?? 5 * 60 * 1000, // milliseconds (5 minutes)
+      },
       manifest: {
         version: Number(process.env.NOTEBOOK_MANIFEST_VERSION) ?? 1,
       },
       meta: {
         version: Number(process.env.NOTEBOOK_META_VERSION) ?? 1,
       },
-      opfs: {
-        directory: process.env.NOTEBOOK_OPFS_DIRECTORY ?? 'notebooks',
-      }
     },
   },
 });
