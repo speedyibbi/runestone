@@ -7,7 +7,13 @@ import ManifestService, { type Manifest, type ManifestEntry } from '@/services/m
  * Sync progress information
  */
 export interface SyncProgress {
-  phase: 'idle' | 'fetching_manifest' | 'comparing' | 'downloading' | 'uploading' | 'saving_manifest'
+  phase:
+    | 'idle'
+    | 'fetching_manifest'
+    | 'comparing'
+    | 'downloading'
+    | 'uploading'
+    | 'saving_manifest'
   current: number
   total: number
 }
@@ -150,10 +156,7 @@ export default class SyncService {
       // Encrypt merged manifest
       const mergedManifestText = JSON.stringify(mergedManifest, null, 2)
       const mergedManifestBytes = new TextEncoder().encode(mergedManifestText)
-      const encryptedMergedManifest = await CryptoService.encryptAndPack(
-        mergedManifestBytes,
-        fek,
-      )
+      const encryptedMergedManifest = await CryptoService.encryptAndPack(mergedManifestBytes, fek)
 
       // Save to both remote and cache
       await Promise.all([

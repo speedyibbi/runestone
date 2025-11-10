@@ -42,10 +42,7 @@ export default class RemoteService {
   /**
    * Get manifest.json.enc (returns encrypted data)
    */
-  static async getManifest(
-    notebookId: string,
-    signal?: AbortSignal,
-  ): Promise<ArrayBuffer> {
+  static async getManifest(notebookId: string, signal?: AbortSignal): Promise<ArrayBuffer> {
     const path = this.getPath(notebookId, 'manifest.json.enc')
     const response = await FileService.getFile(path, signal)
     return await response.arrayBuffer()

@@ -172,7 +172,7 @@ export default class NotebookService {
     // If not in cache, fetch from remote
     if (!meta) {
       meta = await RemoteService.getMeta(notebookId, signal)
-      
+
       // Cache it for future use
       await CacheService.saveMeta(notebookId, meta)
     }
@@ -213,10 +213,7 @@ export default class NotebookService {
    * Discover all notebooks for the current user
    * Orchestrates between remote fetching and local caching
    */
-  static async discoverNotebooks(
-    forceRefresh = false,
-    signal?: AbortSignal,
-  ): Promise<string[]> {
+  static async discoverNotebooks(forceRefresh = false, signal?: AbortSignal): Promise<string[]> {
     // Check cache first unless force refresh
     if (!forceRefresh) {
       const cached = CacheService.getCachedNotebookList()
@@ -249,7 +246,7 @@ export default class NotebookService {
   ): Promise<NotebookRekeyResult> {
     // Get current meta.json to preserve user_id
     const currentMeta = await CacheService.getMeta(notebookId)
-    
+
     if (!currentMeta) {
       throw new Error('Cannot rekey: notebook meta.json not found in cache')
     }

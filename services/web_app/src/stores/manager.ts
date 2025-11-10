@@ -108,11 +108,7 @@ export const useManagerStore = defineStore('manager', {
     /**
      * Create a new notebook and automatically unlock it
      */
-    async createNotebook(
-      email: string,
-      passphrase: string,
-      signal?: AbortSignal,
-    ): Promise<string> {
+    async createNotebook(email: string, passphrase: string, signal?: AbortSignal): Promise<string> {
       const { notebookId, fek, meta } = await NotebookService.initializeNotebook(
         email,
         passphrase,
@@ -262,19 +258,15 @@ export const useManagerStore = defineStore('manager', {
 
       // Use ManifestService to update the manifest immutably
       const existingEntry = ManifestService.findEntry(this.decryptedManifest, entry.uuid)
-      
+
       if (existingEntry) {
         // Update existing entry
-        this.decryptedManifest = ManifestService.updateEntry(
-          this.decryptedManifest,
-          entry.uuid,
-          {
-            type: entry.type,
-            title: entry.title,
-            hash: entry.hash,
-            size: entry.size,
-          }
-        )
+        this.decryptedManifest = ManifestService.updateEntry(this.decryptedManifest, entry.uuid, {
+          type: entry.type,
+          title: entry.title,
+          hash: entry.hash,
+          size: entry.size,
+        })
       } else {
         // Add new entry (this shouldn't normally happen as saveBlob handles creation)
         const { manifest } = ManifestService.addEntry(this.decryptedManifest, {
@@ -385,16 +377,12 @@ export const useManagerStore = defineStore('manager', {
 
       if (existingEntry) {
         // Update existing entry
-        this.decryptedManifest = ManifestService.updateEntry(
-          this.decryptedManifest,
-          uuid,
-          {
-            type: metadata.type,
-            title: metadata.title,
-            hash,
-            size: content.byteLength,
-          }
-        )
+        this.decryptedManifest = ManifestService.updateEntry(this.decryptedManifest, uuid, {
+          type: metadata.type,
+          title: metadata.title,
+          hash,
+          size: content.byteLength,
+        })
       } else {
         // Add new entry
         const { manifest } = ManifestService.addEntry(this.decryptedManifest, {

@@ -10,7 +10,11 @@ export default class OPFSService {
    * Check if OPFS is supported in the current browser
    */
   static isSupported(): boolean {
-    return typeof navigator !== 'undefined' && 'storage' in navigator && 'getDirectory' in navigator.storage
+    return (
+      typeof navigator !== 'undefined' &&
+      'storage' in navigator &&
+      'getDirectory' in navigator.storage
+    )
   }
 
   /**
@@ -124,7 +128,9 @@ export default class OPFSService {
       const dir = await this.getDirectory(path, false)
       const entries: string[] = []
 
-      const iterator = (dir as unknown as { entries(): AsyncIterableIterator<[string, FileSystemHandle]> }).entries()
+      const iterator = (
+        dir as unknown as { entries(): AsyncIterableIterator<[string, FileSystemHandle]> }
+      ).entries()
       for await (const [name] of iterator) {
         entries.push(name)
       }
@@ -155,9 +161,10 @@ export default class OPFSService {
       const parentPath = path.slice(0, -1)
       const dirName = path[path.length - 1]
 
-      const parent = parentPath.length > 0 
-        ? await this.getDirectory(parentPath, false)
-        : await this.getRootHandle()
+      const parent =
+        parentPath.length > 0
+          ? await this.getDirectory(parentPath, false)
+          : await this.getRootHandle()
 
       await parent.removeEntry(dirName, { recursive: true })
       return true
@@ -183,4 +190,3 @@ export default class OPFSService {
     }
   }
 }
-

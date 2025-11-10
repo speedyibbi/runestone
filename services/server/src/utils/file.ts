@@ -58,6 +58,7 @@ export async function listFiles(
 
   return {
     files: response.Contents?.map((obj) => obj.Key ?? "") ?? [],
-    directories: response.CommonPrefixes?.map((prefix) => prefix.Prefix ?? "") ?? [],
+    directories:
+      response.CommonPrefixes?.map((prefix) => prefix.Prefix ?? "") ?? [],
   };
 }

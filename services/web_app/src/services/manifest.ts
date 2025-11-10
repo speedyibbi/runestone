@@ -164,10 +164,7 @@ export default class ManifestService {
   /**
    * Verify the hash of an entry's data
    */
-  static async verifyHash(
-    entry: ManifestEntry,
-    data: ArrayBuffer | Uint8Array,
-  ): Promise<boolean> {
+  static async verifyHash(entry: ManifestEntry, data: ArrayBuffer | Uint8Array): Promise<boolean> {
     const computedHash = await this.computeHash(data)
     return computedHash === entry.hash
   }
@@ -234,8 +231,7 @@ export default class ManifestService {
     // Determine which manifest has the later timestamp
     const localTime = new Date(local.last_updated).getTime()
     const remoteTime = new Date(remote.last_updated).getTime()
-    const lastUpdated =
-      remoteTime > localTime ? remote.last_updated : local.last_updated
+    const lastUpdated = remoteTime > localTime ? remote.last_updated : local.last_updated
 
     const mergedManifest: Manifest = {
       manifest_version: Math.max(local.manifest_version, remote.manifest_version),

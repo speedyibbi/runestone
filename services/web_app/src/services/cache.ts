@@ -144,9 +144,7 @@ export default class CacheService {
     const entries = await OPFSService.listDirectory(blobsPath)
 
     // Extract UUIDs from filenames (remove .enc extension)
-    return entries
-      .filter((name) => name.endsWith('.enc'))
-      .map((name) => name.slice(0, -4))
+    return entries.filter((name) => name.endsWith('.enc')).map((name) => name.slice(0, -4))
   }
 
   /**
@@ -219,10 +217,7 @@ export default class CacheService {
   /**
    * Delete orphaned blobs not in the provided list of valid UUIDs
    */
-  static async cleanupOrphanedBlobs(
-    notebookId: string,
-    validUuids: string[],
-  ): Promise<number> {
+  static async cleanupOrphanedBlobs(notebookId: string, validUuids: string[]): Promise<number> {
     const allBlobs = await this.listBlobs(notebookId)
     const validSet = new Set(validUuids)
     let deletedCount = 0

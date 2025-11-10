@@ -249,19 +249,11 @@ export default class CryptoService {
    */
   static packEncrypted(encrypted: EncryptedData): Uint8Array {
     const combined = new Uint8Array(
-      encrypted.nonce.byteLength +
-        encrypted.ciphertext.byteLength +
-        encrypted.tag.byteLength,
+      encrypted.nonce.byteLength + encrypted.ciphertext.byteLength + encrypted.tag.byteLength,
     )
     combined.set(encrypted.nonce, 0)
-    combined.set(
-      new Uint8Array(encrypted.ciphertext),
-      encrypted.nonce.byteLength,
-    )
-    combined.set(
-      encrypted.tag,
-      encrypted.nonce.byteLength + encrypted.ciphertext.byteLength,
-    )
+    combined.set(new Uint8Array(encrypted.ciphertext), encrypted.nonce.byteLength)
+    combined.set(encrypted.tag, encrypted.nonce.byteLength + encrypted.ciphertext.byteLength)
     return combined
   }
 
@@ -283,10 +275,7 @@ export default class CryptoService {
   /**
    * Encrypt data and pack into storage format
    */
-  static async encryptAndPack(
-    data: ArrayBuffer | Uint8Array,
-    fek: CryptoKey,
-  ): Promise<Uint8Array> {
+  static async encryptAndPack(data: ArrayBuffer | Uint8Array, fek: CryptoKey): Promise<Uint8Array> {
     const encrypted = await this.encryptBlob(data, fek)
     return this.packEncrypted(encrypted)
   }
@@ -294,10 +283,7 @@ export default class CryptoService {
   /**
    * Unpack storage format and decrypt data
    */
-  static async unpackAndDecrypt(
-    packedData: ArrayBuffer,
-    fek: CryptoKey,
-  ): Promise<ArrayBuffer> {
+  static async unpackAndDecrypt(packedData: ArrayBuffer, fek: CryptoKey): Promise<ArrayBuffer> {
     const encrypted = this.unpackEncrypted(packedData)
     return await this.decryptBlob(encrypted, fek)
   }

@@ -1,7 +1,12 @@
 import crypto from "crypto";
 import { FastifyPluginCallback, FastifyRequest, FastifyReply } from "fastify";
 import { config } from "@runestone/config";
-import { deleteFile, getFile, listFiles, upsertFile } from "../../utils/file.js";
+import {
+  deleteFile,
+  getFile,
+  listFiles,
+  upsertFile,
+} from "../../utils/file.js";
 import schema from "./schema.js";
 
 declare module "fastify" {
@@ -74,14 +79,14 @@ export default <FastifyPluginCallback>function (fastify, options, done) {
     { schema },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { path } = request.query as Query;
-      
-      const prefix = `${request.hmac}/${path}${path.endsWith('/') ? '' : '/'}`;
-      
+
+      const prefix = `${request.hmac}/${path}${path.endsWith("/") ? "" : "/"}`;
+
       const result = await listFiles(prefix);
-      
+
       return {
-        files: result.files.map(f => f.split('/').pop()),
-        directories: result.directories.map(d => d.split('/').pop()),
+        files: result.files.map((f) => f.split("/").pop()),
+        directories: result.directories.map((d) => d.split("/").pop()),
       };
     },
   );
