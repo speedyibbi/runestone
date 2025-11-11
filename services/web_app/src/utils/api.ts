@@ -48,10 +48,22 @@ const buildUrl = (
 const buildRequest = (config: RequestConfig, method: string): Request => {
   const url = buildUrl(config.endpoint, config.urlParams, config.querystring)
   const headers = { ...config.headers }
-  const body = config.body ? JSON.stringify(config.body) : undefined
 
-  // Auto-set Content-Type for JSON body
-  if (body && !headers['Content-Type']) {
+  // Check if body is already a BodyInit type (File, Blob, FormData, etc.)
+  // If so, use it directly; otherwise JSON.stringify it
+  const isBodyInit =
+    config.body instanceof File ||
+    config.body instanceof Blob ||
+    config.body instanceof ArrayBuffer ||
+    config.body instanceof FormData ||
+    config.body instanceof URLSearchParams ||
+    config.body instanceof ReadableStream ||
+    typeof config.body === 'string'
+
+  const body = config.body ? (isBodyInit ? config.body : JSON.stringify(config.body)) : undefined
+
+  // Auto-set Content-Type for JSON body (not for File, Blob, FormData, etc.)
+  if (body && !isBodyInit && !headers['Content-Type']) {
     headers['Content-Type'] = 'application/json'
   }
 
