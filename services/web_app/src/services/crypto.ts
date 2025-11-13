@@ -1,4 +1,5 @@
 import { argon2id } from '@noble/hashes/argon2'
+import { toArrayBuffer } from '@/utils/helpers'
 
 /**
  * KDF parameters for Argon2id
@@ -48,6 +49,48 @@ export default class CryptoService {
   }
 
   /**
+   * Derive Map Encryption Key (MEK) from lookup key using PBKDF2-SHA256
+   * Uses lightweight KDF since lookup_key already has good entropy
+   */
+  static async deriveMEK(
+    lookupKey: string,
+    salt: Uint8Array,
+    iterations: number,
+  ): Promise<CryptoKey> {
+    // Convert lookup key to Uint8Array
+    const keyBytes = new TextEncoder().encode(lookupKey)
+
+    // Ensure we have a proper ArrayBuffer (not SharedArrayBuffer)
+    const keyBuffer = toArrayBuffer(keyBytes)
+
+    // Import the lookup key for PBKDF2
+    const baseKey = await crypto.subtle.importKey(
+      'raw',
+      keyBuffer,
+      { name: 'PBKDF2' },
+      false,
+      ['deriveKey'],
+    )
+
+    // Ensure we have a proper ArrayBuffer for salt (not SharedArrayBuffer)
+    const saltBuffer = toArrayBuffer(salt)
+
+    // Derive MEK using PBKDF2-SHA256
+    return await crypto.subtle.deriveKey(
+      {
+        name: 'PBKDF2',
+        salt: saltBuffer,
+        iterations,
+        hash: 'SHA-256',
+      },
+      baseKey,
+      { name: this.AES_ALGORITHM, length: this.AES_KEY_LENGTH },
+      false, // not extractable
+      ['encrypt', 'decrypt'],
+    )
+  }
+
+  /**
    * Derive Key Encryption Key (KEK) from passphrase using Argon2id
    */
   static async deriveKEK(
@@ -67,10 +110,7 @@ export default class CryptoService {
     })
 
     // Ensure we have a proper ArrayBuffer (not SharedArrayBuffer)
-    const keyBuffer = derivedKey.buffer.slice(
-      derivedKey.byteOffset,
-      derivedKey.byteOffset + derivedKey.byteLength,
-    ) as ArrayBuffer
+    const keyBuffer = toArrayBuffer(derivedKey)
 
     // Import as AES key
     return await crypto.subtle.importKey(
@@ -109,10 +149,7 @@ export default class CryptoService {
    */
   static async importFEK(fekBytes: Uint8Array): Promise<CryptoKey> {
     // Ensure we have a proper ArrayBuffer (not SharedArrayBuffer)
-    const buffer = fekBytes.buffer.slice(
-      fekBytes.byteOffset,
-      fekBytes.byteOffset + fekBytes.byteLength,
-    ) as ArrayBuffer
+    const buffer = toArrayBuffer(fekBytes)
     return await crypto.subtle.importKey(
       'raw',
       buffer,
@@ -123,6 +160,101 @@ export default class CryptoService {
   }
 
   /**
+   * Generate a random Map Encryption Key (MEK)
+   */
+  static async generateMEK(): Promise<CryptoKey> {
+    return await crypto.subtle.generateKey(
+      {
+        name: this.AES_ALGORITHM,
+        length: this.AES_KEY_LENGTH,
+      },
+      true, // extractable
+      ['encrypt', 'decrypt'],
+    )
+  }
+
+  /**
+   * Export MEK as raw bytes (for encryption/storage)
+   */
+  static async exportMEK(mek: CryptoKey): Promise<Uint8Array> {
+    const rawKey = await crypto.subtle.exportKey('raw', mek)
+    return new Uint8Array(rawKey)
+  }
+
+  /**
+   * Import MEK from raw bytes
+   */
+  static async importMEK(mekBytes: Uint8Array): Promise<CryptoKey> {
+    // Ensure we have a proper ArrayBuffer (not SharedArrayBuffer)
+    const buffer = toArrayBuffer(mekBytes)
+    return await crypto.subtle.importKey(
+      'raw',
+      buffer,
+      { name: this.AES_ALGORITHM, length: this.AES_KEY_LENGTH },
+      true, // extractable
+      ['encrypt', 'decrypt'],
+    )
+  }
+
+  /**
+   * Encrypt MEK with a key derived from lookup_key
+   */
+  static async encryptMEK(mek: CryptoKey, derivedKey: CryptoKey): Promise<EncryptedData> {
+    const mekBytes = await this.exportMEK(mek)
+    const nonce = this.generateNonce()
+
+    // Ensure we have a proper ArrayBuffer (not SharedArrayBuffer)
+    const mekBuffer = toArrayBuffer(mekBytes)
+    const encrypted = await crypto.subtle.encrypt(
+      {
+        name: this.AES_ALGORITHM,
+        iv: nonce as unknown as BufferSource,
+        tagLength: this.TAG_LENGTH,
+      },
+      derivedKey,
+      mekBuffer,
+    )
+
+    // GCM appends the tag at the end of ciphertext
+    // Split ciphertext and tag
+    const tagLengthBytes = this.TAG_LENGTH / 8
+    const ciphertext = encrypted.slice(0, encrypted.byteLength - tagLengthBytes)
+    const tag = encrypted.slice(encrypted.byteLength - tagLengthBytes)
+
+    return {
+      ciphertext,
+      nonce,
+      tag: new Uint8Array(tag),
+    }
+  }
+
+  /**
+   * Decrypt MEK with a key derived from lookup_key
+   */
+  static async decryptMEK(encryptedMEK: EncryptedData, derivedKey: CryptoKey): Promise<CryptoKey> {
+    // Reconstruct the encrypted buffer (ciphertext + tag)
+    const combinedLength = encryptedMEK.ciphertext.byteLength + encryptedMEK.tag.byteLength
+    const combined = new Uint8Array(combinedLength)
+    combined.set(new Uint8Array(encryptedMEK.ciphertext), 0)
+    combined.set(encryptedMEK.tag, encryptedMEK.ciphertext.byteLength)
+
+    // Ensure we have a proper ArrayBuffer (not SharedArrayBuffer)
+    const combinedBuffer = toArrayBuffer(combined)
+    const decrypted = await crypto.subtle.decrypt(
+      {
+        name: this.AES_ALGORITHM,
+        iv: encryptedMEK.nonce as unknown as BufferSource,
+        tagLength: this.TAG_LENGTH,
+      },
+      derivedKey,
+      combinedBuffer,
+    )
+
+    const mekBytes = new Uint8Array(decrypted)
+    return await this.importMEK(mekBytes)
+  }
+
+  /**
    * Encrypt FEK with KEK
    */
   static async encryptFEK(fek: CryptoKey, kek: CryptoKey): Promise<EncryptedData> {
@@ -130,10 +262,7 @@ export default class CryptoService {
     const nonce = this.generateNonce()
 
     // Ensure we have a proper ArrayBuffer (not SharedArrayBuffer)
-    const fekBuffer = fekBytes.buffer.slice(
-      fekBytes.byteOffset,
-      fekBytes.byteOffset + fekBytes.byteLength,
-    ) as ArrayBuffer
+    const fekBuffer = toArrayBuffer(fekBytes)
     const encrypted = await crypto.subtle.encrypt(
       {
         name: this.AES_ALGORITHM,
@@ -168,10 +297,7 @@ export default class CryptoService {
     combined.set(encryptedFEK.tag, encryptedFEK.ciphertext.byteLength)
 
     // Ensure we have a proper ArrayBuffer (not SharedArrayBuffer)
-    const combinedBuffer = combined.buffer.slice(
-      combined.byteOffset,
-      combined.byteOffset + combined.byteLength,
-    ) as ArrayBuffer
+    const combinedBuffer = toArrayBuffer(combined)
     const decrypted = await crypto.subtle.decrypt(
       {
         name: this.AES_ALGORITHM,
@@ -191,10 +317,7 @@ export default class CryptoService {
    */
   static async encryptBlob(data: ArrayBuffer | Uint8Array, fek: CryptoKey): Promise<EncryptedData> {
     // Ensure we have a proper ArrayBuffer (not SharedArrayBuffer)
-    const dataBuffer =
-      data instanceof Uint8Array
-        ? (data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer)
-        : data
+    const dataBuffer = toArrayBuffer(data)
     const nonce = this.generateNonce()
     const encrypted = await crypto.subtle.encrypt(
       {
@@ -229,10 +352,7 @@ export default class CryptoService {
     combined.set(encryptedData.tag, encryptedData.ciphertext.byteLength)
 
     // Ensure we have a proper ArrayBuffer (not SharedArrayBuffer)
-    const combinedBuffer = combined.buffer.slice(
-      combined.byteOffset,
-      combined.byteOffset + combined.byteLength,
-    ) as ArrayBuffer
+    const combinedBuffer = toArrayBuffer(combined)
     return await crypto.subtle.decrypt(
       {
         name: this.AES_ALGORITHM,
