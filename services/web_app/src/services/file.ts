@@ -118,27 +118,4 @@ export default class FileService {
 
     return response
   }
-
-  /**
-   * List files in a directory
-   * Requests a list of files from the server
-   */
-  static async listFiles(path: string, signal?: AbortSignal) {
-    const response = await get({
-      endpoint: `${this.basePath}/list`,
-      headers: {
-        'x-lookup': this.lookup,
-      },
-      querystring: {
-        path,
-      },
-      signal,
-    })
-
-    if (!response.ok) {
-      throw new Error('Failed to list files')
-    }
-
-    return await response.json()
-  }
 }
