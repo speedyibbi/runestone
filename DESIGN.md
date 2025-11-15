@@ -26,8 +26,9 @@
 
 ### Three-Tier Key System:
 
-- **MEK** (Map Encryption Key): derived from lookup_key using lightweight KDF (PBKDF2-SHA256).
+- **MEK** (Map Encryption Key): random 256-bit key, encrypted by a key derived from lookup_key.
   - Used to decrypt `map.json.enc` (notebook list).
+  - The lookup_key is used with PBKDF2-SHA256 to derive a key that decrypts `encrypted_mek`.
   - Fast derivation since lookup_key already has good entropy.
 
 - **KEK** (Key Encryption Key): derived from lookup_key using strong KDF (Argon2id).
@@ -44,7 +45,7 @@
 ### Key Derivation Flow:
 
 ```
-lookup_key + root_salt → [PBKDF2] → MEK → decrypt map.json.enc
+lookup_key + root_salt → [PBKDF2] → derived_key → decrypt encrypted_mek → MEK → decrypt map.json.enc
 
 lookup_key + notebook_salt → [Argon2id] → KEK → decrypt encrypted_fek → FEK
 
@@ -171,7 +172,7 @@ FEK → decrypt manifest.json.enc, blobs, search.db.enc
 1. User enters **email + lookup_key** (once).
 2. Compute `lookup_hash = HMAC-SHA256(email, lookup_key)`.
 3. Fetch `/<lookup_hash>/meta.json` (root meta).
-4. Derive `MEK = PBKDF2(lookup_key, root_salt, 10k iterations)`.
+4. Derive key using `PBKDF2(lookup_key, root_salt, 10k iterations)`, decrypt `encrypted_mek` to get MEK.
 5. Fetch and decrypt `/<lookup_hash>/map.json.enc` with MEK.
 6. Display notebook selection UI with titles from map.
 7. User selects a notebook (e.g., "My Personal Notes").
