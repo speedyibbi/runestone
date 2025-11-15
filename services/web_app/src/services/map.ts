@@ -132,6 +132,8 @@ export default class MapService {
 
   /**
    * Merge two maps using Last-Write-Wins strategy
+   * Uses overall map timestamp to determine which version is newer
+   * Note: Manifest is the source of truth for titles - map is just a cached listing
    */
   static mergeMaps(
     local: Map,
@@ -140,58 +142,46 @@ export default class MapService {
     map: Map
     conflicts: number
   } {
-    const localEntries = new Map<string, MapEntry>()
-    for (const entry of local.entries) {
-      localEntries.set(entry.uuid, entry)
-    }
-
-    const mergedEntries: MapEntry[] = []
-    const processedUuids = new Set<string>()
-    let conflicts = 0
-
-    // Process all remote entries
-    for (const remoteEntry of remote.entries) {
-      const localEntry = localEntries.get(remoteEntry.uuid)
-
-      if (!localEntry) {
-        // Entry only exists remotely - add it
-        mergedEntries.push(remoteEntry)
-      } else {
-        // Entry exists in both - check if titles differ
-        if (localEntry.title !== remoteEntry.title) {
-          conflicts++
-          // Use remote title (LWW - prefer remote for consistency)
-          mergedEntries.push(remoteEntry)
-        } else {
-          // Same title, no conflict
-          mergedEntries.push(remoteEntry)
-        }
-      }
-
-      processedUuids.add(remoteEntry.uuid)
-    }
-
-    // Process local entries that don't exist remotely
-    for (const localEntry of local.entries) {
-      if (!processedUuids.has(localEntry.uuid)) {
-        mergedEntries.push(localEntry)
-      }
-    }
-
-    // Determine which map has the later timestamp
+    // Determine which map is newer based on timestamp
     const localTime = new Date(local.last_updated).getTime()
     const remoteTime = new Date(remote.last_updated).getTime()
-    const lastUpdated = remoteTime > localTime ? remote.last_updated : local.last_updated
 
-    const mergedMap: Map = {
-      version: Math.max(local.version, remote.version),
-      last_updated: lastUpdated,
-      entries: mergedEntries,
+    // If remote is newer, use it as the base
+    if (remoteTime > localTime) {
+      // Remote wins - use remote as base and add any local-only entries
+      const remoteUuids = new Set(remote.entries.map((e) => e.uuid))
+      const localOnlyEntries = local.entries.filter((e) => !remoteUuids.has(e.uuid))
+
+      return {
+        map: {
+          version: Math.max(local.version, remote.version),
+          last_updated: remote.last_updated,
+          entries: [...remote.entries, ...localOnlyEntries],
+        },
+        conflicts: 0,
+      }
     }
 
+    // If local is newer or equal, use it as the base
+    if (localTime >= remoteTime) {
+      // Local wins - use local as base and add any remote-only entries
+      const localUuids = new Set(local.entries.map((e) => e.uuid))
+      const remoteOnlyEntries = remote.entries.filter((e) => !localUuids.has(e.uuid))
+
+      return {
+        map: {
+          version: Math.max(local.version, remote.version),
+          last_updated: local.last_updated,
+          entries: [...local.entries, ...remoteOnlyEntries],
+        },
+        conflicts: 0,
+      }
+    }
+
+    // Fallback (should never reach here due to >= check above)
     return {
-      map: mergedMap,
-      conflicts,
+      map: local,
+      conflicts: 0,
     }
   }
 
