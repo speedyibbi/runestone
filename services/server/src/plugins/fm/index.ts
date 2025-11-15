@@ -4,7 +4,6 @@ import { config } from "@runestone/config";
 import {
   deleteFile,
   getFile,
-  listFiles,
   upsertFile,
 } from "../../utils/file.js";
 import schema from "./schema.js";
@@ -70,23 +69,6 @@ export default <FastifyPluginCallback>function (fastify, options, done) {
 
       return {
         signedURL: await deleteFile(`${request.hmac}/${path}`),
-      };
-    },
-  );
-
-  fastify.get(
-    "/list",
-    { schema },
-    async (request: FastifyRequest, reply: FastifyReply) => {
-      const { path } = request.query as Query;
-
-      const prefix = `${request.hmac}/${path}${path.endsWith("/") ? "" : "/"}`;
-
-      const result = await listFiles(prefix);
-
-      return {
-        files: result.files.map((f) => f.split("/").pop()),
-        directories: result.directories.map((d) => d.split("/").pop()),
       };
     },
   );
