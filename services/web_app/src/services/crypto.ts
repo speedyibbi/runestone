@@ -1,15 +1,31 @@
 import { argon2id } from '@noble/hashes/argon2'
+import { pbkdf2 } from '@noble/hashes/pbkdf2'
+import { sha256 } from '@noble/hashes/sha2'
 
 /**
  * KDF parameters for Argon2id
  */
-export interface KDFParams {
+export interface Argon2idParams {
   algorithm: 'argon2id'
   salt: Uint8Array
   iterations: number // time cost
   memory: number // memory cost in KiB
   parallelism: number
 }
+
+/**
+ * KDF parameters for PBKDF2-SHA256
+ */
+export interface PBKDF2Params {
+  algorithm: 'pbkdf2-sha256'
+  salt: Uint8Array
+  iterations: number
+}
+
+/**
+ * Union type for all KDF parameters
+ */
+export type KDFParams = Argon2idParams | PBKDF2Params
 
 /**
  * Encrypted data structure
@@ -49,11 +65,12 @@ export default class CryptoService {
 
   /**
    * Derive Key Encryption Key (KEK) from passphrase using Argon2id
+   * Used for encrypting/decrypting FEK (File Encryption Key)
    */
   static async deriveKEK(
     passphrase: string,
     salt: Uint8Array,
-    params: Omit<KDFParams, 'algorithm' | 'salt'>,
+    params: Omit<Argon2idParams, 'algorithm' | 'salt'>,
   ): Promise<CryptoKey> {
     // Convert passphrase to Uint8Array
     const passwordBytes = new TextEncoder().encode(passphrase)
@@ -80,6 +97,144 @@ export default class CryptoService {
       false, // not extractable
       ['encrypt', 'decrypt'],
     )
+  }
+
+  /**
+   * Used for encrypting/decrypting MEK (Map Encryption Key)
+   */
+  static async derivePBKDF2Key(
+    passphrase: string,
+    salt: Uint8Array,
+    params: Omit<PBKDF2Params, 'algorithm' | 'salt'>,
+  ): Promise<CryptoKey> {
+    // Convert passphrase to Uint8Array
+    const passphraseBytes = new TextEncoder().encode(passphrase)
+
+    // Derive key using PBKDF2-SHA256
+    const derivedKey = pbkdf2(sha256, passphraseBytes, salt, {
+      c: params.iterations,
+      dkLen: this.AES_KEY_LENGTH / 8, // output length in bytes (32 bytes = 256 bits)
+    })
+
+    // Ensure we have a proper ArrayBuffer (not SharedArrayBuffer)
+    const keyBuffer = derivedKey.buffer.slice(
+      derivedKey.byteOffset,
+      derivedKey.byteOffset + derivedKey.byteLength,
+    ) as ArrayBuffer
+
+    // Import as AES key
+    return await crypto.subtle.importKey(
+      'raw',
+      keyBuffer,
+      { name: this.AES_ALGORITHM, length: this.AES_KEY_LENGTH },
+      false, // not extractable
+      ['encrypt', 'decrypt'],
+    )
+  }
+
+  /**
+   * Generate a random Map Encryption Key (MEK)
+   * MEK is used to encrypt/decrypt map.json.enc
+   */
+  static async generateMEK(): Promise<CryptoKey> {
+    return await crypto.subtle.generateKey(
+      {
+        name: this.AES_ALGORITHM,
+        length: this.AES_KEY_LENGTH,
+      },
+      true, // extractable
+      ['encrypt', 'decrypt'],
+    )
+  }
+
+  /**
+   * Export MEK as raw bytes (for storage/transmission after encryption)
+   */
+  static async exportMEK(mek: CryptoKey): Promise<Uint8Array> {
+    const rawKey = await crypto.subtle.exportKey('raw', mek)
+    return new Uint8Array(rawKey)
+  }
+
+  /**
+   * Import MEK from raw bytes
+   */
+  static async importMEK(mekBytes: Uint8Array): Promise<CryptoKey> {
+    // Ensure we have a proper ArrayBuffer (not SharedArrayBuffer)
+    const buffer = mekBytes.buffer.slice(
+      mekBytes.byteOffset,
+      mekBytes.byteOffset + mekBytes.byteLength,
+    ) as ArrayBuffer
+    return await crypto.subtle.importKey(
+      'raw',
+      buffer,
+      { name: this.AES_ALGORITHM, length: this.AES_KEY_LENGTH },
+      true, // extractable
+      ['encrypt', 'decrypt'],
+    )
+  }
+
+  /**
+   * Encrypt MEK with PBKDF2-derived key
+   */
+  static async encryptMEK(mek: CryptoKey, derivedKey: CryptoKey): Promise<EncryptedData> {
+    const mekBytes = await this.exportMEK(mek)
+    const nonce = this.generateNonce()
+
+    // Ensure we have a proper ArrayBuffer (not SharedArrayBuffer)
+    const mekBuffer = mekBytes.buffer.slice(
+      mekBytes.byteOffset,
+      mekBytes.byteOffset + mekBytes.byteLength,
+    ) as ArrayBuffer
+    const encrypted = await crypto.subtle.encrypt(
+      {
+        name: this.AES_ALGORITHM,
+        iv: nonce as unknown as BufferSource,
+        tagLength: this.TAG_LENGTH,
+      },
+      derivedKey,
+      mekBuffer,
+    )
+
+    // GCM appends the tag at the end of ciphertext
+    // Split ciphertext and tag
+    const tagLengthBytes = this.TAG_LENGTH / 8
+    const ciphertext = encrypted.slice(0, encrypted.byteLength - tagLengthBytes)
+    const tag = encrypted.slice(encrypted.byteLength - tagLengthBytes)
+
+    return {
+      ciphertext,
+      nonce,
+      tag: new Uint8Array(tag),
+    }
+  }
+
+  /**
+   * Decrypt MEK with PBKDF2-derived key
+   */
+  static async decryptMEK(encryptedMEK: EncryptedData, derivedKey: CryptoKey): Promise<CryptoKey> {
+    // Reconstruct the encrypted buffer (ciphertext + tag)
+    const combinedLength = encryptedMEK.ciphertext.byteLength + encryptedMEK.tag.byteLength
+    const combined = new Uint8Array(combinedLength)
+    combined.set(new Uint8Array(encryptedMEK.ciphertext), 0)
+    combined.set(encryptedMEK.tag, encryptedMEK.ciphertext.byteLength)
+
+    // Ensure we have a proper ArrayBuffer (not SharedArrayBuffer)
+    const combinedBuffer = combined.buffer.slice(
+      combined.byteOffset,
+      combined.byteOffset + combined.byteLength,
+    ) as ArrayBuffer
+    const decrypted = await crypto.subtle.decrypt(
+      {
+        name: this.AES_ALGORITHM,
+        iv: encryptedMEK.nonce as unknown as BufferSource,
+        tagLength: this.TAG_LENGTH,
+      },
+      derivedKey,
+      combinedBuffer,
+    )
+
+    const mekBytes = new Uint8Array(decrypted)
+    return await this.importMEK(mekBytes)
   }
 
   /**
