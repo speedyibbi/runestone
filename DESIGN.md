@@ -8,7 +8,15 @@
 - **Zero-knowledge**: browsing remote storage reveals only UUIDs and encrypted data, no readable metadata.
 - **Multi-notebook support**: Users can have multiple notebooks, each independently encrypted.
 
-## 2. File Types in Remote Storage
+## 2. User-Facing Terminology
+
+The following technical terms are presented to users with different names:
+
+- **Notebook** → **Codex**
+- **Note** → **Rune**
+- **Image** → **Sigil**
+
+## 3. File Types in Remote Storage
 
 ### Root Level (per user):
 
@@ -22,7 +30,7 @@
 - **blobs/**: every note/image stored as `<uuid>.enc`.
 - **search.db.enc** _(optional)_: encrypted SQLite database for FTS indexing.
 
-## 3. Cryptography
+## 4. Cryptography
 
 ### Three-Tier Key System:
 
@@ -149,7 +157,7 @@ FEK → decrypt manifest.json.enc, blobs, search.db.enc
 }
 ```
 
-## 4. Filenames & IDs
+## 5. Filenames & IDs
 
 - **Lookup Hash**: HMAC-SHA256(email, lookup_key) → used as root storage directory.
 - **Notebook ID**: random UUID v4.
@@ -165,7 +173,7 @@ FEK → decrypt manifest.json.enc, blobs, search.db.enc
   <lookup_hash>/<notebook_id>/search.db.enc (optional)
   ```
 
-## 5. Client Workflow
+## 6. Client Workflow
 
 ### First-time setup (new device):
 
@@ -201,7 +209,7 @@ FEK → decrypt manifest.json.enc, blobs, search.db.enc
 - Download missing/updated blobs.
 - Upload new/modified blobs and updated manifest.
 
-## 6. Conflict Handling
+## 7. Conflict Handling
 
 - **Strategy**: Last-Write-Wins (LWW).
 - Each entry has `last_updated` timestamp.
@@ -224,7 +232,7 @@ FEK → decrypt manifest.json.enc, blobs, search.db.enc
 
 - During sync, if map and manifest titles diverge, manifest title is authoritative.
 
-## 7. OPFS Structure (on client)
+## 8. OPFS Structure (on client)
 
 ```
 opfs/
@@ -237,7 +245,7 @@ opfs/
       search.db.enc       # local FTS index, encrypted with FEK
 ```
 
-## 8. Search (FTS)
+## 9. Search (FTS)
 
 - Client uses **SQLite WASM** to maintain a search index (`search.db.enc`).
 - Contains decrypted content of notes (plaintext only while running).
@@ -245,7 +253,7 @@ opfs/
 - Search queries run locally, results map back to blob UUIDs.
 - Each notebook has its own independent search index.
 
-## 9. Server Responsibilities
+## 10. Server Responsibilities
 
 - **Path derivation**: Compute `lookup_hash = HMAC(email, lookup_key)` to determine storage root path.
 - **Return root meta.json** when requested (`/<lookup_hash>/meta.json`).
