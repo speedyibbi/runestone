@@ -2,13 +2,34 @@ import OPFSService from '@/services/opfs'
 
 /**
  * CacheService manages local OPFS cache for notebook data
- * Stores meta.json, encrypted manifests and blobs locally for offline access
+ * Stores root-level files (meta.json, map.json.enc) and notebook-level files
+ * OPFS structure:
+ *   meta.json           # Root meta (unencrypted)
+ *   map.json.enc        # Encrypted map
+ *   <notebookId>/
+ *     meta.json         # Notebook meta
+ *     manifest.json.enc
+ *     blobs/<uuid>.enc
  */
 export default class CacheService {
   /**
-   * Get the path for meta.json
+   * Get the path for root meta.json
    */
-  private static getMetaPath(notebookId: string): string[] {
+  private static getRootMetaPath(): string[] {
+    return ['meta.json']
+  }
+
+  /**
+   * Get the path for map.json.enc
+   */
+  private static getMapPath(): string[] {
+    return ['map.json.enc']
+  }
+
+  /**
+   * Get the path for notebook meta.json
+   */
+  private static getNotebookMetaPath(notebookId: string): string[] {
     return [notebookId, 'meta.json']
   }
 
@@ -27,20 +48,20 @@ export default class CacheService {
   }
 
   /**
-   * Save meta.json to cache
+   * Save root meta.json to cache (unencrypted)
    */
-  static async saveMeta(notebookId: string, meta: any): Promise<void> {
-    const path = this.getMetaPath(notebookId)
+  static async saveRootMeta(meta: any): Promise<void> {
+    const path = this.getRootMetaPath()
     const metaText = JSON.stringify(meta, null, 2)
     const metaBytes = new TextEncoder().encode(metaText)
     await OPFSService.writeFile(path, metaBytes)
   }
 
   /**
-   * Get meta.json from cache
+   * Get root meta.json from cache (unencrypted)
    */
-  static async getMeta(notebookId: string): Promise<any | null> {
-    const path = this.getMetaPath(notebookId)
+  static async getRootMeta(): Promise<any | null> {
+    const path = this.getRootMetaPath()
     const data = await OPFSService.readFile(path)
     if (!data) {
       return null
@@ -50,18 +71,89 @@ export default class CacheService {
   }
 
   /**
-   * Check if meta.json exists in cache
+   * Check if root meta.json exists in cache
    */
-  static async hasMeta(notebookId: string): Promise<boolean> {
-    const path = this.getMetaPath(notebookId)
+  static async hasRootMeta(): Promise<boolean> {
+    const path = this.getRootMetaPath()
     return await OPFSService.fileExists(path)
   }
 
   /**
-   * Delete meta.json from cache
+   * Delete root meta.json from cache
    */
-  static async deleteMeta(notebookId: string): Promise<boolean> {
-    const path = this.getMetaPath(notebookId)
+  static async deleteRootMeta(): Promise<boolean> {
+    const path = this.getRootMetaPath()
+    return await OPFSService.deleteFile(path)
+  }
+
+  /**
+   * Save encrypted map.json.enc to cache
+   */
+  static async saveMap(encryptedMap: ArrayBuffer | Uint8Array): Promise<void> {
+    const path = this.getMapPath()
+    await OPFSService.writeFile(path, encryptedMap)
+  }
+
+  /**
+   * Get encrypted map.json.enc from cache
+   */
+  static async getMap(): Promise<ArrayBuffer | null> {
+    const path = this.getMapPath()
+    return await OPFSService.readFile(path)
+  }
+
+  /**
+   * Check if map.json.enc exists in cache
+   */
+  static async hasMap(): Promise<boolean> {
+    const path = this.getMapPath()
+    return await OPFSService.fileExists(path)
+  }
+
+  /**
+   * Delete map.json.enc from cache
+   */
+  static async deleteMap(): Promise<boolean> {
+    const path = this.getMapPath()
+    return await OPFSService.deleteFile(path)
+  }
+
+  /**
+   * Save notebook meta.json to cache (unencrypted)
+   */
+  static async saveNotebookMeta(notebookId: string, meta: any): Promise<void> {
+    const path = this.getNotebookMetaPath(notebookId)
+    const metaText = JSON.stringify(meta, null, 2)
+    const metaBytes = new TextEncoder().encode(metaText)
+    await OPFSService.writeFile(path, metaBytes)
+  }
+
+  /**
+   * Get notebook meta.json from cache (unencrypted)
+   */
+  static async getNotebookMeta(notebookId: string): Promise<any | null> {
+    const path = this.getNotebookMetaPath(notebookId)
+    const data = await OPFSService.readFile(path)
+    if (!data) {
+      return null
+    }
+    const metaText = new TextDecoder().decode(data)
+    return JSON.parse(metaText)
+  }
+
+  /**
+   * Check if notebook meta.json exists in cache
+   */
+  static async hasNotebookMeta(notebookId: string): Promise<boolean> {
+    const path = this.getNotebookMetaPath(notebookId)
+    return await OPFSService.fileExists(path)
+  }
+
+  /**
+   * Delete notebook meta.json from cache
+   */
+  static async deleteNotebookMeta(notebookId: string): Promise<boolean> {
+    const path = this.getNotebookMetaPath(notebookId)
     return await OPFSService.deleteFile(path)
   }
 
@@ -202,7 +294,7 @@ export default class CacheService {
     const manifestSize = (await OPFSService.getFileSize(manifestPath)) ?? 0
 
     // Get meta size
-    const metaPath = this.getMetaPath(notebookId)
+    const metaPath = this.getNotebookMetaPath(notebookId)
     const metaSize = (await OPFSService.getFileSize(metaPath)) ?? 0
 
     return {
@@ -235,68 +327,54 @@ export default class CacheService {
   }
 
   /**
-   * METADATA CACHING (localStorage with TTL)
-   * For lightweight, frequently-accessed data with expiration
+   * Get overall cache statistics including root and all notebooks
    */
+  static async getGlobalCacheStats(): Promise<{
+    rootMetaSize: number
+    mapSize: number
+    notebooksCount: number
+    totalSize: number
+  }> {
+    // Get root meta size
+    const rootMetaPath = this.getRootMetaPath()
+    const rootMetaSize = (await OPFSService.getFileSize(rootMetaPath)) ?? 0
 
-  private static readonly NOTEBOOK_LIST_CACHE_KEY = __APP_CONFIG__.notebook.cache.key
-  private static readonly CACHE_TTL_MS = __APP_CONFIG__.notebook.cache.ttl // milliseconds
+    // Get map size
+    const mapPath = this.getMapPath()
+    const mapSize = (await OPFSService.getFileSize(mapPath)) ?? 0
 
-  /**
-   * Get cached notebook list if still valid
-   */
-  static getCachedNotebookList(): string[] | null {
-    try {
-      const cached = localStorage.getItem(this.NOTEBOOK_LIST_CACHE_KEY)
-      if (!cached) return null
+    // Count notebooks
+    const notebooks = await this.listNotebooks()
+    const notebooksCount = notebooks.length
 
-      const data: { notebookIds: string[]; timestamp: number } = JSON.parse(cached)
-      const now = Date.now()
+    // Calculate total size (root files + all notebook stats)
+    let notebooksTotalSize = 0
+    for (const notebookId of notebooks) {
+      const stats = await this.getNotebookStats(notebookId)
+      notebooksTotalSize += stats.totalSize
+    }
 
-      // Check if cache is still valid
-      if (now - data.timestamp < this.CACHE_TTL_MS) {
-        return data.notebookIds
-      }
-
-      // Cache expired, remove it
-      localStorage.removeItem(this.NOTEBOOK_LIST_CACHE_KEY)
-      return null
-    } catch (error) {
-      console.error('Failed to read notebook list cache:', error)
-      return null
+    return {
+      rootMetaSize,
+      mapSize,
+      notebooksCount,
+      totalSize: rootMetaSize + mapSize + notebooksTotalSize,
     }
   }
 
   /**
-   * Cache notebook list with current timestamp
+   * Clear entire cache (root files and all notebooks)
+   * WARNING: This will delete all cached data
    */
-  static cacheNotebookList(notebookIds: string[]): void {
-    try {
-      const data = {
-        notebookIds,
-        timestamp: Date.now(),
-      }
-      localStorage.setItem(this.NOTEBOOK_LIST_CACHE_KEY, JSON.stringify(data))
-    } catch (error) {
-      console.error('Failed to cache notebook list:', error)
-    }
-  }
+  static async clearAllCache(): Promise<void> {
+    // Delete root files
+    await this.deleteRootMeta()
+    await this.deleteMap()
 
-  /**
-   * Clear the notebook list cache
-   */
-  static clearNotebookListCache(): void {
-    localStorage.removeItem(this.NOTEBOOK_LIST_CACHE_KEY)
-  }
-
-  /**
-   * Add a notebook ID to the cached list
-   */
-  static addNotebookToCache(notebookId: string): void {
-    const cached = this.getCachedNotebookList()
-    if (cached && !cached.includes(notebookId)) {
-      cached.push(notebookId)
-      this.cacheNotebookList(cached)
+    // Delete all notebooks
+    const notebooks = await this.listNotebooks()
+    for (const notebookId of notebooks) {
+      await this.clearNotebook(notebookId)
     }
   }
 }
