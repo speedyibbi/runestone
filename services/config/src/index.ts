@@ -64,6 +64,15 @@ export const config = Object.freeze({
         defaultIterations: Number(process.env.CRYPTO_KDF_ITERATIONS) ?? 3,
         defaultMemory: Number(process.env.CRYPTO_KDF_MEMORY) ?? 65536, // KiB (64 MiB)
         defaultParallelism: Number(process.env.CRYPTO_KDF_PARALLELISM) ?? 4,
+        pbkdf2Iterations: Number(process.env.CRYPTO_PBKDF2_ITERATIONS) ?? 10000,
+      },
+    },
+    root: {
+      meta: {
+        version: Number(process.env.ROOT_META_VERSION) ?? 1,
+      },
+      map: {
+        version: Number(process.env.ROOT_MAP_VERSION) ?? 1,
       },
     },
     notebook: {
