@@ -8,7 +8,7 @@ export default class RemoteService {
   /**
    * Get the path for a notebook file
    */
-  private static getPath(notebookId: string, filename: string): string {
+  private static getNotebookPath(notebookId: string, filename: string): string {
     return `${notebookId}/${filename}`
   }
 
@@ -20,19 +20,61 @@ export default class RemoteService {
   }
 
   /**
-   * Get meta.json
+   * Get root meta.json (unencrypted)
    */
-  static async getMeta(notebookId: string, signal?: AbortSignal): Promise<any> {
-    const path = this.getPath(notebookId, 'meta.json')
+  static async getRootMeta(signal?: AbortSignal): Promise<any> {
+    const path = 'meta.json'
     const response = await FileService.getFile(path, signal)
     return await response.json()
   }
 
   /**
-   * Put meta.json
+   * Put root meta.json (unencrypted)
    */
-  static async putMeta(notebookId: string, meta: any, signal?: AbortSignal): Promise<void> {
-    const path = this.getPath(notebookId, 'meta.json')
+  static async putRootMeta(meta: any, signal?: AbortSignal): Promise<void> {
+    const path = 'meta.json'
+    const blob = new Blob([JSON.stringify(meta, null, 2)], {
+      type: 'application/json',
+    })
+    await FileService.upsertFile(path, blob as File, signal)
+  }
+
+  /**
+   * Get map.json.enc (returns encrypted data)
+   */
+  static async getMap(signal?: AbortSignal): Promise<ArrayBuffer> {
+    const path = 'map.json.enc'
+    const response = await FileService.getFile(path, signal)
+    return await response.arrayBuffer()
+  }
+
+  /**
+   * Put map.json.enc (upload encrypted data)
+   */
+  static async putMap(
+    encryptedMap: ArrayBuffer | Uint8Array,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const path = 'map.json.enc'
+    const buffer = toArrayBuffer(encryptedMap)
+    const blob = new Blob([buffer], { type: 'application/octet-stream' })
+    await FileService.upsertFile(path, blob as File, signal)
+  }
+
+  /**
+   * Get notebook meta.json (unencrypted)
+   */
+  static async getNotebookMeta(notebookId: string, signal?: AbortSignal): Promise<any> {
+    const path = this.getNotebookPath(notebookId, 'meta.json')
+    const response = await FileService.getFile(path, signal)
+    return await response.json()
+  }
+
+  /**
+   * Put notebook meta.json (unencrypted)
+   */
+  static async putNotebookMeta(notebookId: string, meta: any, signal?: AbortSignal): Promise<void> {
+    const path = this.getNotebookPath(notebookId, 'meta.json')
     const blob = new Blob([JSON.stringify(meta, null, 2)], {
       type: 'application/json',
     })
@@ -43,7 +85,7 @@ export default class RemoteService {
    * Get manifest.json.enc (returns encrypted data)
    */
   static async getManifest(notebookId: string, signal?: AbortSignal): Promise<ArrayBuffer> {
-    const path = this.getPath(notebookId, 'manifest.json.enc')
+    const path = this.getNotebookPath(notebookId, 'manifest.json.enc')
     const response = await FileService.getFile(path, signal)
     return await response.arrayBuffer()
   }
@@ -56,7 +98,7 @@ export default class RemoteService {
     encryptedManifest: ArrayBuffer | Uint8Array,
     signal?: AbortSignal,
   ): Promise<void> {
-    const path = this.getPath(notebookId, 'manifest.json.enc')
+    const path = this.getNotebookPath(notebookId, 'manifest.json.enc')
     const buffer = toArrayBuffer(encryptedManifest)
     const blob = new Blob([buffer], { type: 'application/octet-stream' })
     await FileService.upsertFile(path, blob as File, signal)
@@ -96,23 +138,5 @@ export default class RemoteService {
   static async deleteBlob(notebookId: string, uuid: string, signal?: AbortSignal): Promise<void> {
     const path = this.getBlobPath(notebookId, uuid)
     await FileService.deleteFile(path, signal)
-  }
-
-  /**
-   * List all notebooks
-   */
-  static async listNotebooks(signal?: AbortSignal): Promise<string[]> {
-    const result = await FileService.listFiles('', signal)
-
-    // Extract notebook IDs from directory paths
-    const notebookIds = result.directories
-      .map((dir: string) => {
-        // Remove trailing slash and get the directory name
-        const trimmed = dir.endsWith('/') ? dir.slice(0, -1) : dir
-        return trimmed
-      })
-      .filter((id: string) => id) // Filter out empty strings
-
-    return notebookIds
   }
 }
