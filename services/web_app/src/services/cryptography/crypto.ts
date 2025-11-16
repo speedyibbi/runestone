@@ -98,7 +98,7 @@ export default class CryptoService {
    * Derive Key Encryption Key (KEK) from passphrase
    * Used for deriving both MKEK and FKEK
    */
-  static async deriveKEK(passphrase: string, params: KDFParams): Promise<CryptoKey> {
+  private static async deriveKEK(passphrase: string, params: KDFParams): Promise<CryptoKey> {
     const passphraseBytes = new TextEncoder().encode(passphrase)
     let derivedKey: Uint8Array
 
@@ -132,6 +132,32 @@ export default class CryptoService {
       false, // not extractable
       ['encrypt', 'decrypt'],
     )
+  }
+
+  /**
+   * Derive Key Encryption Key (KEK) from passphrase
+   * Used for deriving both MKEK and FKEK
+   */
+  static async deriveMKEK(passphrase: string, params?: PBKDF2Params): Promise<CryptoKey> {
+    return await this.deriveKEK(passphrase, {
+      algorithm: 'pbkdf2-sha256',
+      salt: params?.salt ?? this.generateRandomValue(this.KDF_SALT_LENGTH),
+      iterations: params?.iterations ?? this.KDF_PBKDF2_ITERATIONS,
+    })
+  }
+
+  /**
+   * Derive Key Encryption Key (KEK) from passphrase
+   * Used for deriving both MKEK and FKEK
+   */
+  static async deriveFKEK(passphrase: string, params?: Argon2idParams): Promise<CryptoKey> {
+    return await this.deriveKEK(passphrase, {
+      algorithm: 'argon2id',
+      salt: params?.salt ?? this.generateRandomValue(this.KDF_SALT_LENGTH),
+      iterations: params?.iterations ?? this.KDF_ARGON2ID_ITERATIONS,
+      memory: params?.memory ?? this.KDF_ARGON2ID_MEMORY,
+      parallelism: params?.parallelism ?? this.KDF_ARGON2ID_PARALLELISM,
+    })
   }
 
   /**
