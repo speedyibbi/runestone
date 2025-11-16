@@ -20,6 +20,7 @@ export interface Manifest {
   manifest_version: number
   last_updated: string // ISO 8601 timestamp
   notebook_id: string
+  notebook_title: string
   entries: ManifestEntry[]
 }
 
@@ -31,14 +32,37 @@ export default class ManifestService {
   private static readonly MANIFEST_VERSION = __APP_CONFIG__.notebook.manifest.version
 
   /**
+   * Compute SHA-256 hash of data
+   */
+  private static async computeHash(data: ArrayBuffer | Uint8Array): Promise<string> {
+    const dataBuffer = toArrayBuffer(data)
+    const hashBuffer = await crypto.subtle.digest('SHA-256', dataBuffer)
+    const hashArray = Array.from(new Uint8Array(hashBuffer))
+    const hashHex = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('')
+    return `sha256-${hashHex}`
+  }
+
+  /**
    * Create a new empty manifest
    */
-  static createManifest(notebookId: string): Manifest {
+  static create(notebookTitle: string): Manifest {
     return {
       manifest_version: this.MANIFEST_VERSION,
       last_updated: new Date().toISOString(),
-      notebook_id: notebookId,
+      notebook_id: crypto.randomUUID(),
+      notebook_title: notebookTitle,
       entries: [],
+    }
+  }
+
+  /**
+   * Update manifest's notebook_title
+   */
+  static updateNotebookTitle(manifest: Manifest, notebookTitle: string): Manifest {
+    return {
+      ...manifest,
+      notebook_title: notebookTitle,
+      last_updated: new Date().toISOString(),
     }
   }
 
@@ -53,13 +77,6 @@ export default class ManifestService {
   }
 
   /**
-   * Find an entry by UUID
-   */
-  static findEntry(manifest: Manifest, uuid: string): ManifestEntry | undefined {
-    return manifest.entries.find((entry) => entry.uuid === uuid)
-  }
-
-  /**
    * Check if an entry exists
    */
   static hasEntry(manifest: Manifest, uuid: string): boolean {
@@ -67,10 +84,10 @@ export default class ManifestService {
   }
 
   /**
-   * Find entries by type
+   * Find an entry by UUID
    */
-  static findEntriesByType(manifest: Manifest, type: 'note' | 'image'): ManifestEntry[] {
-    return manifest.entries.filter((entry) => entry.type === type)
+  static findEntry(manifest: Manifest, uuid: string): ManifestEntry | undefined {
+    return manifest.entries.find((entry) => entry.uuid === uuid)
   }
 
   /**
@@ -105,7 +122,7 @@ export default class ManifestService {
   static updateEntry(
     manifest: Manifest,
     uuid: string,
-    updates: Partial<Omit<ManifestEntry, 'uuid' | 'version' | 'last_updated'>>,
+    data: Omit<ManifestEntry, 'uuid' | 'version' | 'last_updated'>,
   ): Manifest {
     const entryIndex = manifest.entries.findIndex((e) => e.uuid === uuid)
 
@@ -118,7 +135,7 @@ export default class ManifestService {
 
     const updatedEntry: ManifestEntry = {
       ...existingEntry,
-      ...updates,
+      ...data,
       version: existingEntry.version + 1,
       last_updated: now,
     }
@@ -151,28 +168,9 @@ export default class ManifestService {
   }
 
   /**
-   * Compute SHA-256 hash of data
-   */
-  static async computeHash(data: ArrayBuffer | Uint8Array): Promise<string> {
-    const dataBuffer = toArrayBuffer(data)
-    const hashBuffer = await crypto.subtle.digest('SHA-256', dataBuffer)
-    const hashArray = Array.from(new Uint8Array(hashBuffer))
-    const hashHex = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('')
-    return `sha256-${hashHex}`
-  }
-
-  /**
-   * Verify the hash of an entry's data
-   */
-  static async verifyHash(entry: ManifestEntry, data: ArrayBuffer | Uint8Array): Promise<boolean> {
-    const computedHash = await this.computeHash(data)
-    return computedHash === entry.hash
-  }
-
-  /**
    * Merge two manifests using Last-Write-Wins strategy
    */
-  static mergeManifests(
+  static merge(
     local: Manifest,
     remote: Manifest,
   ): {
@@ -237,6 +235,7 @@ export default class ManifestService {
       manifest_version: Math.max(local.manifest_version, remote.manifest_version),
       last_updated: lastUpdated,
       notebook_id: local.notebook_id,
+      notebook_title: local.notebook_title,
       entries: mergedEntries,
     }
 
@@ -247,48 +246,10 @@ export default class ManifestService {
   }
 
   /**
-   * Get entries sorted by last modified
+   * Verify the hash of an entry's data
    */
-  static getSortedByModified(manifest: Manifest, ascending = false): ManifestEntry[] {
-    const entries = [...manifest.entries]
-    entries.sort((a, b) => {
-      const dateA = new Date(a.last_updated).getTime()
-      const dateB = new Date(b.last_updated).getTime()
-      return ascending ? dateA - dateB : dateB - dateA
-    })
-    return entries
-  }
-
-  /**
-   * Get entries sorted by title
-   */
-  static getSortedByTitle(manifest: Manifest, ascending = true): ManifestEntry[] {
-    const entries = [...manifest.entries]
-    entries.sort((a, b) => {
-      const comparison = a.title.localeCompare(b.title)
-      return ascending ? comparison : -comparison
-    })
-    return entries
-  }
-
-  /**
-   * Get manifest statistics
-   */
-  static getStats(manifest: Manifest): {
-    totalEntries: number
-    notes: number
-    images: number
-    totalSize: number
-  } {
-    const notes = this.findEntriesByType(manifest, 'note').length
-    const images = this.findEntriesByType(manifest, 'image').length
-    const totalSize = manifest.entries.reduce((sum, entry) => sum + entry.size, 0)
-
-    return {
-      totalEntries: manifest.entries.length,
-      notes,
-      images,
-      totalSize,
-    }
+  static async verifyHash(entry: ManifestEntry, data: ArrayBuffer | Uint8Array): Promise<boolean> {
+    const computedHash = await this.computeHash(data)
+    return computedHash === entry.hash
   }
 }

@@ -137,6 +137,7 @@ FEK → decrypt manifest.json.enc, blobs, search.db.enc
 {
   "version": 1,
   "notebook_id": "4fbb1d4e-9df3-4b59-b492-91aef9d6a731",
+  "notebook_title": "My Personal Notes",
   "last_updated": "2025-11-11T12:05:00Z",
   "entries": [
     {

@@ -25,7 +25,7 @@ export default class MapService {
   /**
    * Create a new empty map
    */
-  static createMap(): Map {
+  static create(): Map {
     return {
       version: this.MAP_VERSION,
       last_updated: new Date().toISOString(),
@@ -44,13 +44,6 @@ export default class MapService {
   }
 
   /**
-   * Find an entry by UUID
-   */
-  static findEntry(map: Map, uuid: string): MapEntry | undefined {
-    return map.entries.find((entry) => entry.uuid === uuid)
-  }
-
-  /**
    * Check if an entry exists
    */
   static hasEntry(map: Map, uuid: string): boolean {
@@ -58,10 +51,10 @@ export default class MapService {
   }
 
   /**
-   * Find an entry by title
+   * Find an entry by UUID
    */
-  static findEntryByTitle(map: Map, title: string): MapEntry | undefined {
-    return map.entries.find((entry) => entry.title === title)
+  static findEntry(map: Map, uuid: string): MapEntry | undefined {
+    return map.entries.find((entry) => entry.uuid === uuid)
   }
 
   /**
@@ -69,7 +62,6 @@ export default class MapService {
    */
   static addEntry(map: Map, entry: Omit<MapEntry, 'uuid'>): { map: Map; entry: MapEntry } {
     const uuid = crypto.randomUUID()
-    const now = new Date().toISOString()
 
     const newEntry: MapEntry = {
       uuid,
@@ -78,7 +70,7 @@ export default class MapService {
 
     const newMap: Map = {
       ...map,
-      last_updated: now,
+      last_updated: new Date().toISOString(),
       entries: [...map.entries, newEntry],
     }
 
@@ -88,7 +80,7 @@ export default class MapService {
   /**
    * Update an existing entry's title
    */
-  static updateEntry(map: Map, uuid: string, title: string): Map {
+  static updateEntry(map: Map, uuid: string, data: Omit<MapEntry, 'uuid'>): Map {
     const entryIndex = map.entries.findIndex((e) => e.uuid === uuid)
 
     if (entryIndex === -1) {
@@ -97,7 +89,7 @@ export default class MapService {
 
     const updatedEntry: MapEntry = {
       uuid,
-      title,
+      ...data,
     }
 
     const newEntries = [...map.entries]
@@ -132,7 +124,7 @@ export default class MapService {
    * Uses overall map timestamp to determine which version is newer
    * Note: Manifest is the source of truth for titles - map is just a cached listing
    */
-  static mergeMaps(
+  static merge(
     local: Map,
     remote: Map,
   ): {
@@ -179,69 +171,6 @@ export default class MapService {
     return {
       map: local,
       conflicts: 0,
-    }
-  }
-
-  /**
-   * Get entries sorted by title
-   */
-  static getSortedByTitle(map: Map, ascending = true): MapEntry[] {
-    const entries = [...map.entries]
-    entries.sort((a, b) => {
-      const comparison = a.title.localeCompare(b.title)
-      return ascending ? comparison : -comparison
-    })
-    return entries
-  }
-
-  /**
-   * Get map statistics
-   */
-  static getStats(map: Map): {
-    totalNotebooks: number
-  } {
-    return {
-      totalNotebooks: map.entries.length,
-    }
-  }
-
-  /**
-   * Validate map structure
-   */
-  static validate(map: Map): { valid: boolean; errors: string[] } {
-    const errors: string[] = []
-
-    if (!map.version || typeof map.version !== 'number') {
-      errors.push('Invalid or missing version')
-    }
-
-    if (!map.last_updated || typeof map.last_updated !== 'string') {
-      errors.push('Invalid or missing last_updated')
-    }
-
-    if (!Array.isArray(map.entries)) {
-      errors.push('Invalid or missing entries array')
-    } else {
-      // Check for duplicate UUIDs
-      const uuids = new Set<string>()
-      map.entries.forEach((entry, index) => {
-        if (!entry.uuid || typeof entry.uuid !== 'string') {
-          errors.push(`Entry at index ${index} has invalid or missing uuid`)
-        } else if (uuids.has(entry.uuid)) {
-          errors.push(`Duplicate UUID found: ${entry.uuid}`)
-        } else {
-          uuids.add(entry.uuid)
-        }
-
-        if (!entry.title || typeof entry.title !== 'string') {
-          errors.push(`Entry at index ${index} has invalid or missing title`)
-        }
-      })
-    }
-
-    return {
-      valid: errors.length === 0,
-      errors,
     }
   }
 }
