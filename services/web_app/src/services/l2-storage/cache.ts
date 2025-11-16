@@ -1,12 +1,5 @@
 import OPFSService from '@/services/l1-storage/opfs'
-
-type FileType = 'rootMeta' | 'map' | 'notebookMeta' | 'manifest' | 'blob'
-
-interface PathParams {
-  type: FileType
-  notebookId?: string
-  uuid?: string
-}
+import type { PathParams } from '@/interfaces/storage'
 
 /**
  * CacheService manages local OPFS cache for notebook data

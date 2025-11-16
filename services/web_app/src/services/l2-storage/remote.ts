@@ -1,13 +1,6 @@
 import FileService from '@/services/l1-storage/file'
 import { toArrayBuffer } from '@/utils/helpers'
-
-type FileType = 'rootMeta' | 'map' | 'notebookMeta' | 'manifest' | 'blob'
-
-interface PathParams {
-  type: FileType
-  notebookId?: string
-  uuid?: string
-}
+import type { PathParams } from '@/interfaces/storage'
 
 /**
  * RemoteService handles pure remote storage operations

@@ -1,32 +1,5 @@
-import type { EncryptedData, PBKDF2Params, Argon2idParams } from '@/services/cryptography/crypto'
-
-/**
- * Encryption configuration for meta files
- */
-export interface EncryptionConfig {
-  cipher: string
-  tag_length: number
-}
-
-/**
- * Root meta structure (unencrypted)
- */
-export interface RootMeta {
-  version: number
-  kdf: PBKDF2Params
-  encrypted_mek: EncryptedData
-  encryption: EncryptionConfig
-}
-
-/**
- * Notebook meta structure (unencrypted)
- */
-export interface NotebookMeta {
-  version: number
-  kdf: Argon2idParams
-  encrypted_fek: EncryptedData
-  encryption: EncryptionConfig
-}
+import type { EncryptedData, PBKDF2Params, Argon2idParams } from '@/interfaces/crypto'
+import type { RootMeta, NotebookMeta } from '@/interfaces/meta'
 
 /**
  * MetaService handles meta data operations for both root and notebook meta files
