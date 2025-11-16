@@ -1,8 +1,8 @@
 import CryptoService from '@/services/cryptography/crypto'
 import RemoteService from '@/services/l2-storage/remote'
 import CacheService from '@/services/l2-storage/cache'
-import ManifestService from '@/services/manifest'
-import MapService, { type Map } from '@/services/map'
+import ManifestService from '@/services/file-io/manifest'
+import MapService, { type Map } from '@/services/file-io/map'
 import { toBase64, fromBase64, arrayBufferToBase64, base64ToArrayBuffer } from '@/utils/helpers'
 
 /**

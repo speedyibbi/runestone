@@ -1,7 +1,7 @@
 import RemoteService from '@/services/l2-storage/remote'
 import CacheService from '@/services/l2-storage/cache'
 import CryptoService from '@/services/cryptography/crypto'
-import ManifestService, { type Manifest, type ManifestEntry } from '@/services/manifest'
+import ManifestService, { type Manifest, type ManifestEntry } from '@/services/file-io/manifest'
 
 /**
  * Sync progress information
