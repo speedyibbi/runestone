@@ -34,17 +34,21 @@ The following technical terms are presented to users with different names:
 
 ### Three-Tier Key System:
 
-- **MEK** (Map Encryption Key): random 256-bit key, encrypted by a key derived from lookup_key.
-  - Used to decrypt `map.json.enc` (notebook list).
-  - The lookup_key is used with PBKDF2-SHA256 to derive a key that decrypts `encrypted_mek`.
+- **MKEK** (Map Key Encryption Key): derived from lookup_key using PBKDF2-SHA256.
+  - Used to decrypt `encrypted_mek` in root `meta.json`.
   - Fast derivation since lookup_key already has good entropy.
 
-- **KEK** (Key Encryption Key): derived from lookup_key using strong KDF (Argon2id).
+- **MEK** (Map Encryption Key): random 256-bit key, stored encrypted in root `meta.json`.
+  - Decrypted using MKEK.
+  - Used to decrypt `map.json.enc` (notebook list).
+
+- **FKEK** (File Key Encryption Key): derived from lookup_key using strong KDF (Argon2id).
   - Used to decrypt `encrypted_fek` in notebook's `meta.json`.
   - Strong protection even if lookup_key has moderate entropy.
-  - Each notebook has independent KEK (different salt).
+  - Each notebook has independent FKEK (different salt).
 
-- **FEK** (File Encryption Key): random 256-bit key, encrypted by KEK.
+- **FEK** (File Encryption Key): random 256-bit key, stored encrypted in notebook's `meta.json`.
+  - Decrypted using FKEK.
   - Used to encrypt/decrypt notebook content (manifest, blobs, search index).
   - Each notebook has independent FEK for isolation.
 
@@ -53,9 +57,9 @@ The following technical terms are presented to users with different names:
 ### Key Derivation Flow:
 
 ```
-lookup_key + root_salt → [PBKDF2] → derived_key → decrypt encrypted_mek → MEK → decrypt map.json.enc
+lookup_key + root_salt → [PBKDF2] → MKEK → decrypt encrypted_mek → MEK → decrypt map.json.enc
 
-lookup_key + notebook_salt → [Argon2id] → KEK → decrypt encrypted_fek → FEK
+lookup_key + notebook_salt → [Argon2id] → FKEK → decrypt encrypted_fek → FEK
 
 FEK → decrypt manifest.json.enc, blobs, search.db.enc
 ```
@@ -180,18 +184,19 @@ FEK → decrypt manifest.json.enc, blobs, search.db.enc
 1. User enters **email + lookup_key** (once).
 2. Compute `lookup_hash = HMAC-SHA256(email, lookup_key)`.
 3. Fetch `/<lookup_hash>/meta.json` (root meta).
-4. Derive key using `PBKDF2(lookup_key, root_salt, 10k iterations)`, decrypt `encrypted_mek` to get MEK.
-5. Fetch and decrypt `/<lookup_hash>/map.json.enc` with MEK.
-6. Display notebook selection UI with titles from map.
-7. User selects a notebook (e.g., "My Personal Notes").
-8. Fetch `/<lookup_hash>/<selected_uuid>/meta.json` (notebook meta).
-9. Derive `KEK = Argon2id(lookup_key, notebook_salt, strong params)`.
-10. Decrypt `encrypted_fek` with KEK to get FEK.
-11. Fetch and decrypt `manifest.json.enc` with FEK.
-12. Fetch and decrypt needed blobs with FEK.
-13. User can now read/edit notes.
+4. Derive `MKEK = PBKDF2(lookup_key, root_salt, 10k iterations)`.
+5. Decrypt `encrypted_mek` with MKEK to get MEK.
+6. Fetch and decrypt `/<lookup_hash>/map.json.enc` with MEK.
+7. Display notebook selection UI with titles from map.
+8. User selects a notebook (e.g., "My Personal Notes").
+9. Fetch `/<lookup_hash>/<selected_uuid>/meta.json` (notebook meta).
+10. Derive `FKEK = Argon2id(lookup_key, notebook_salt, strong params)`.
+11. Decrypt `encrypted_fek` with FKEK to get FEK.
+12. Fetch and decrypt `manifest.json.enc` with FEK.
+13. Fetch and decrypt needed blobs with FEK.
+14. User can now read/edit notes.
 
-**Note**: Steps 8-13 can be performed for multiple notebooks in parallel if needed.
+**Note**: Steps 9-14 can be performed for multiple notebooks in parallel if needed.
 
 ### Caching:
 
@@ -266,6 +271,6 @@ opfs/
 **Zero-Knowledge Guarantee**:
 
 - Server never sees email (only lookup_hash).
-- Server never sees lookup_key, passphrases, or any encryption keys.
-- Server never sees decrypted data (MEK, FEK, notebook titles, note content).
+- Server never sees lookup_key, passphrases, or any encryption keys (MKEK, MEK, FKEK, FEK).
+- Server never sees decrypted data (notebook titles, note content, metadata).
 - Server only handles encrypted blobs and metadata.

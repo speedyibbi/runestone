@@ -1,8 +1,8 @@
 import { defineStore } from 'pinia'
 import NotebookService from '@/services/notebook'
-import RemoteService from '@/services/remote'
-import CacheService from '@/services/cache'
-import CryptoService from '@/services/crypto'
+import RemoteService from '@/services/l2-storage/remote'
+import CacheService from '@/services/l2-storage/cache'
+import CryptoService from '@/services/cryptography/crypto'
 import SyncService, { type SyncProgress, type SyncResult } from '@/services/sync'
 import ManifestService, { type Manifest, type ManifestEntry } from '@/services/manifest'
 

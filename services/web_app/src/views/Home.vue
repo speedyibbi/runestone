@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { onMounted, ref } from 'vue'
 import { useLookupStore } from '@/stores/lookup'
-import FileService from '@/services/file'
+import FileService from '@/services/l1-storage/file'
 
 const lookupStore = useLookupStore()
 const filePath = ref('')

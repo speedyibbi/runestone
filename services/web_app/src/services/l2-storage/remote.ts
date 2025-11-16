@@ -1,80 +1,114 @@
-import FileService from '@/services/file'
+import FileService from '@/services/l1-storage/file'
 import { toArrayBuffer } from '@/utils/helpers'
+
+type FileType = 'rootMeta' | 'map' | 'notebookMeta' | 'manifest' | 'blob'
+
+interface PathParams {
+  type: FileType
+  notebookId?: string
+  uuid?: string
+}
 
 /**
  * RemoteService handles pure remote storage operations
  */
 export default class RemoteService {
   /**
-   * Get the path for a notebook file
+   * Build the path for a given file type
    */
-  private static getNotebookPath(notebookId: string, filename: string): string {
-    return `${notebookId}/${filename}`
-  }
+  private static buildPath(params: PathParams): string {
+    const { type, notebookId, uuid } = params
 
-  /**
-   * Get the path for a blob
-   */
-  private static getBlobPath(notebookId: string, uuid: string): string {
-    return `${notebookId}/blobs/${uuid}.enc`
+    switch (type) {
+      case 'rootMeta':
+        return 'meta.json'
+      case 'map':
+        return 'map.json.enc'
+      case 'notebookMeta':
+        return `${notebookId}/meta.json`
+      case 'manifest':
+        return `${notebookId}/manifest.json.enc`
+      case 'blob':
+        return `${notebookId}/blobs/${uuid}.enc`
+    }
   }
 
   /**
    * Get root meta.json (unencrypted)
    */
   static async getRootMeta(signal?: AbortSignal): Promise<any> {
-    const path = 'meta.json'
+    const path = this.buildPath({ type: 'rootMeta' })
     const response = await FileService.getFile(path, signal)
     return await response.json()
   }
 
   /**
-   * Put root meta.json (unencrypted)
+   * Upsert root meta.json (unencrypted)
    */
-  static async putRootMeta(meta: any, signal?: AbortSignal): Promise<void> {
-    const path = 'meta.json'
+  static async upsertRootMeta(meta: any, signal?: AbortSignal): Promise<void> {
+    const path = this.buildPath({ type: 'rootMeta' })
     const blob = new Blob([JSON.stringify(meta, null, 2)], {
       type: 'application/json',
     })
     await FileService.upsertFile(path, blob as File, signal)
+  }
+
+  /**
+   * Delete root meta.json
+   */
+  static async deleteRootMeta(signal?: AbortSignal): Promise<void> {
+    const path = this.buildPath({ type: 'rootMeta' })
+    await FileService.deleteFile(path, signal)
   }
 
   /**
    * Get map.json.enc (returns encrypted data)
    */
   static async getMap(signal?: AbortSignal): Promise<ArrayBuffer> {
-    const path = 'map.json.enc'
+    const path = this.buildPath({ type: 'map' })
     const response = await FileService.getFile(path, signal)
     return await response.arrayBuffer()
   }
 
   /**
-   * Put map.json.enc (upload encrypted data)
+   * Upsert map.json.enc (upload encrypted data)
    */
-  static async putMap(
+  static async upsertMap(
     encryptedMap: ArrayBuffer | Uint8Array,
     signal?: AbortSignal,
   ): Promise<void> {
-    const path = 'map.json.enc'
+    const path = this.buildPath({ type: 'map' })
     const buffer = toArrayBuffer(encryptedMap)
     const blob = new Blob([buffer], { type: 'application/octet-stream' })
     await FileService.upsertFile(path, blob as File, signal)
   }
 
   /**
+   * Delete map.json.enc
+   */
+  static async deleteMap(signal?: AbortSignal): Promise<void> {
+    const path = this.buildPath({ type: 'map' })
+    await FileService.deleteFile(path, signal)
+  }
+
+  /**
    * Get notebook meta.json (unencrypted)
    */
   static async getNotebookMeta(notebookId: string, signal?: AbortSignal): Promise<any> {
-    const path = this.getNotebookPath(notebookId, 'meta.json')
+    const path = this.buildPath({ type: 'notebookMeta', notebookId })
     const response = await FileService.getFile(path, signal)
     return await response.json()
   }
 
   /**
-   * Put notebook meta.json (unencrypted)
+   * Upsert notebook meta.json (unencrypted)
    */
-  static async putNotebookMeta(notebookId: string, meta: any, signal?: AbortSignal): Promise<void> {
-    const path = this.getNotebookPath(notebookId, 'meta.json')
+  static async upsertNotebookMeta(
+    notebookId: string,
+    meta: any,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const path = this.buildPath({ type: 'notebookMeta', notebookId })
     const blob = new Blob([JSON.stringify(meta, null, 2)], {
       type: 'application/json',
     })
@@ -82,26 +116,42 @@ export default class RemoteService {
   }
 
   /**
+   * Delete notebook meta.json
+   */
+  static async deleteNotebookMeta(notebookId: string, signal?: AbortSignal): Promise<void> {
+    const path = this.buildPath({ type: 'notebookMeta', notebookId })
+    await FileService.deleteFile(path, signal)
+  }
+
+  /**
    * Get manifest.json.enc (returns encrypted data)
    */
   static async getManifest(notebookId: string, signal?: AbortSignal): Promise<ArrayBuffer> {
-    const path = this.getNotebookPath(notebookId, 'manifest.json.enc')
+    const path = this.buildPath({ type: 'manifest', notebookId })
     const response = await FileService.getFile(path, signal)
     return await response.arrayBuffer()
   }
 
   /**
-   * Put manifest.json.enc (upload encrypted data)
+   * Upsert manifest.json.enc (upload encrypted data)
    */
-  static async putManifest(
+  static async upsertManifest(
     notebookId: string,
     encryptedManifest: ArrayBuffer | Uint8Array,
     signal?: AbortSignal,
   ): Promise<void> {
-    const path = this.getNotebookPath(notebookId, 'manifest.json.enc')
+    const path = this.buildPath({ type: 'manifest', notebookId })
     const buffer = toArrayBuffer(encryptedManifest)
     const blob = new Blob([buffer], { type: 'application/octet-stream' })
     await FileService.upsertFile(path, blob as File, signal)
+  }
+
+  /**
+   * Delete manifest.json.enc
+   */
+  static async deleteManifest(notebookId: string, signal?: AbortSignal): Promise<void> {
+    const path = this.buildPath({ type: 'manifest', notebookId })
+    await FileService.deleteFile(path, signal)
   }
 
   /**
@@ -112,21 +162,21 @@ export default class RemoteService {
     uuid: string,
     signal?: AbortSignal,
   ): Promise<ArrayBuffer> {
-    const path = this.getBlobPath(notebookId, uuid)
+    const path = this.buildPath({ type: 'blob', notebookId, uuid })
     const response = await FileService.getFile(path, signal)
     return await response.arrayBuffer()
   }
 
   /**
-   * Put encrypted blob (upload encrypted data)
+   * Upsert encrypted blob (upload encrypted data)
    */
-  static async putBlob(
+  static async upsertBlob(
     notebookId: string,
     uuid: string,
     encryptedBlob: ArrayBuffer | Uint8Array,
     signal?: AbortSignal,
   ): Promise<void> {
-    const path = this.getBlobPath(notebookId, uuid)
+    const path = this.buildPath({ type: 'blob', notebookId, uuid })
     const buffer = toArrayBuffer(encryptedBlob)
     const blob = new Blob([buffer], { type: 'application/octet-stream' })
     await FileService.upsertFile(path, blob as File, signal)
@@ -136,7 +186,7 @@ export default class RemoteService {
    * Delete encrypted blob
    */
   static async deleteBlob(notebookId: string, uuid: string, signal?: AbortSignal): Promise<void> {
-    const path = this.getBlobPath(notebookId, uuid)
+    const path = this.buildPath({ type: 'blob', notebookId, uuid })
     await FileService.deleteFile(path, signal)
   }
 }

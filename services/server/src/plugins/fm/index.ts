@@ -1,11 +1,7 @@
 import crypto from "crypto";
 import { FastifyPluginCallback, FastifyRequest, FastifyReply } from "fastify";
 import { config } from "@runestone/config";
-import {
-  deleteFile,
-  getFile,
-  upsertFile,
-} from "../../utils/file.js";
+import { deleteFile, getFile, upsertFile } from "../../utils/file.js";
 import schema from "./schema.js";
 
 declare module "fastify" {

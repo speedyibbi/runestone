@@ -20,7 +20,7 @@ export default class FileService {
    * Get a file from the file manager
    * Requests a signed URL from the server, then fetches the file directly from the file manager
    */
-  static async getFile(path: string, signal?: AbortSignal) {
+  static async getFile(path: string, signal?: AbortSignal): Promise<Response> {
     let response = await get({
       endpoint: this.basePath,
       headers: {
@@ -54,7 +54,7 @@ export default class FileService {
    * Upload or update a file in the file manager
    * Requests a signed URL from the server, then uploads the file directly to the file manager
    */
-  static async upsertFile(path: string, file: File, signal?: AbortSignal) {
+  static async upsertFile(path: string, file: File, signal?: AbortSignal): Promise<Response> {
     let response = await post({
       endpoint: this.basePath,
       headers: {
@@ -89,7 +89,7 @@ export default class FileService {
    * Delete a file from the file manager
    * Requests a signed URL from the server, then deletes the file directly from the file manager
    */
-  static async deleteFile(path: string, signal?: AbortSignal) {
+  static async deleteFile(path: string, signal?: AbortSignal): Promise<Response> {
     let response = await del({
       endpoint: this.basePath,
       headers: {

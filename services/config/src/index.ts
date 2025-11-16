@@ -52,7 +52,6 @@ export const config = Object.freeze({
     crypto: {
       aes: {
         keyLength: Number(process.env.CRYPTO_AES_KEY_LENGTH) ?? 256, // bits
-        algorithm: process.env.CRYPTO_AES_ALGORITHM ?? 'AES-GCM',
         ivLength: Number(process.env.CRYPTO_AES_IV_LENGTH) ?? 12, // bytes (96 bits for GCM)
         tagLength: Number(process.env.CRYPTO_AES_TAG_LENGTH) ?? 128, // bits
       },
@@ -61,10 +60,14 @@ export const config = Object.freeze({
       },
       kdf: {
         saltLength: Number(process.env.CRYPTO_KDF_SALT_LENGTH) ?? 16, // bytes
-        defaultIterations: Number(process.env.CRYPTO_KDF_ITERATIONS) ?? 3,
-        defaultMemory: Number(process.env.CRYPTO_KDF_MEMORY) ?? 65536, // KiB (64 MiB)
-        defaultParallelism: Number(process.env.CRYPTO_KDF_PARALLELISM) ?? 4,
-        pbkdf2Iterations: Number(process.env.CRYPTO_PBKDF2_ITERATIONS) ?? 10000,
+        argon2id: {
+          iterations: Number(process.env.CRYPTO_ARGON2ID_ITERATIONS) ?? 3,
+          memory: Number(process.env.CRYPTO_ARGON2ID_MEMORY) ?? 65536, // KiB (64 MiB)
+          parallelism: Number(process.env.CRYPTO_ARGON2ID_PARALLELISM) ?? 4,
+        },
+        pbkdf2: {
+          iterations: Number(process.env.CRYPTO_PBKDF2_ITERATIONS) ?? 10000,
+        },
       },
     },
     root: {
@@ -76,15 +79,11 @@ export const config = Object.freeze({
       },
     },
     notebook: {
-      cache: {
-        key: process.env.NOTEBOOK_LIST_CACHE_KEY ?? 'notebook-list',
-        ttl: Number(process.env.NOTEBOOK_LIST_CACHE_TTL) ?? 5 * 60 * 1000, // milliseconds (5 minutes)
+      meta: {
+        version: Number(process.env.NOTEBOOK_META_VERSION) ?? 1,
       },
       manifest: {
         version: Number(process.env.NOTEBOOK_MANIFEST_VERSION) ?? 1,
-      },
-      meta: {
-        version: Number(process.env.NOTEBOOK_META_VERSION) ?? 1,
       },
       blobs: {
         maxSize: Number(process.env.NOTEBOOK_BLOBS_CACHE_MAX_SIZE) ?? 50,
