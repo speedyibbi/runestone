@@ -1,6 +1,7 @@
 import FileService from '@/services/l1-storage/file'
 import { toArrayBuffer } from '@/utils/helpers'
 import type { PathParams } from '@/interfaces/storage'
+import type { RootMeta, NotebookMeta } from '@/interfaces/meta'
 
 /**
  * RemoteService handles pure remote storage operations
@@ -29,7 +30,7 @@ export default class RemoteService {
   /**
    * Get root meta.json (unencrypted)
    */
-  static async getRootMeta(signal?: AbortSignal): Promise<any> {
+  static async getRootMeta(signal?: AbortSignal): Promise<RootMeta> {
     const path = this.buildPath({ type: 'rootMeta' })
     const response = await FileService.getFile(path, signal)
     return await response.json()
@@ -38,7 +39,7 @@ export default class RemoteService {
   /**
    * Upsert root meta.json (unencrypted)
    */
-  static async upsertRootMeta(meta: any, signal?: AbortSignal): Promise<void> {
+  static async upsertRootMeta(meta: RootMeta, signal?: AbortSignal): Promise<void> {
     const path = this.buildPath({ type: 'rootMeta' })
     const blob = new Blob([JSON.stringify(meta, null, 2)], {
       type: 'application/json',
@@ -87,7 +88,7 @@ export default class RemoteService {
   /**
    * Get notebook meta.json (unencrypted)
    */
-  static async getNotebookMeta(notebookId: string, signal?: AbortSignal): Promise<any> {
+  static async getNotebookMeta(notebookId: string, signal?: AbortSignal): Promise<NotebookMeta> {
     const path = this.buildPath({ type: 'notebookMeta', notebookId })
     const response = await FileService.getFile(path, signal)
     return await response.json()
@@ -98,7 +99,7 @@ export default class RemoteService {
    */
   static async upsertNotebookMeta(
     notebookId: string,
-    meta: any,
+    meta: NotebookMeta,
     signal?: AbortSignal,
   ): Promise<void> {
     const path = this.buildPath({ type: 'notebookMeta', notebookId })

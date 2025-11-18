@@ -1,5 +1,6 @@
 import OPFSService from '@/services/l1-storage/opfs'
 import type { PathParams } from '@/interfaces/storage'
+import type { RootMeta, NotebookMeta } from '@/interfaces/meta'
 
 /**
  * CacheService manages local OPFS cache for notebook data
@@ -36,7 +37,7 @@ export default class CacheService {
   /**
    * Get root meta.json from cache (unencrypted)
    */
-  static async getRootMeta(): Promise<any | null> {
+  static async getRootMeta(): Promise<RootMeta | null> {
     const path = this.buildPath({ type: 'rootMeta' })
     const data = await OPFSService.getFile(path)
 
@@ -51,7 +52,7 @@ export default class CacheService {
   /**
    * Upsert root meta.json to cache (unencrypted)
    */
-  static async upsertRootMeta(meta: any): Promise<void> {
+  static async upsertRootMeta(meta: RootMeta): Promise<void> {
     const path = this.buildPath({ type: 'rootMeta' })
     const metaText = JSON.stringify(meta, null, 2)
     const metaBytes = new TextEncoder().encode(metaText)
@@ -93,7 +94,7 @@ export default class CacheService {
   /**
    * Get notebook meta.json from cache (unencrypted)
    */
-  static async getNotebookMeta(notebookId: string): Promise<any | null> {
+  static async getNotebookMeta(notebookId: string): Promise<NotebookMeta | null> {
     const path = this.buildPath({ type: 'notebookMeta', notebookId })
     const data = await OPFSService.getFile(path)
 
@@ -108,7 +109,7 @@ export default class CacheService {
   /**
    * Upsert notebook meta.json to cache (unencrypted)
    */
-  static async upsertNotebookMeta(notebookId: string, meta: any): Promise<void> {
+  static async upsertNotebookMeta(notebookId: string, meta: NotebookMeta): Promise<void> {
     const path = this.buildPath({ type: 'notebookMeta', notebookId })
     const metaText = JSON.stringify(meta, null, 2)
     const metaBytes = new TextEncoder().encode(metaText)
