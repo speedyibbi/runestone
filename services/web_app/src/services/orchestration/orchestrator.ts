@@ -4,8 +4,10 @@ import { sha256 } from '@noble/hashes/sha2'
 import CryptoService from '@/services/cryptography/crypto'
 import MetaService from '@/services/file-io/meta'
 import MapService from '@/services/file-io/map'
+import ManifestService from '@/services/file-io/manifest'
 import CacheService from '@/services/l2-storage/cache'
 import RemoteService from '@/services/l2-storage/remote'
+import SyncService from '@/services/orchestration/sync'
 import { toBase64 } from '@/utils/helpers'
 import type {
   InitializeResult,
@@ -82,19 +84,23 @@ export default class OrchestrationService {
     const mapBytes = new TextEncoder().encode(mapText)
     const encryptedMap = await CryptoService.encryptAndPack(mapBytes, mek)
 
-    // Step 8: Upload to remote storage (fail if this fails)
+    // Step 8: Upload both to remote storage in parallel (fail if this fails)
     try {
-      await RemoteService.upsertRootMeta(rootMeta, signal)
-      await RemoteService.upsertMap(encryptedMap, signal)
+      await Promise.all([
+        RemoteService.upsertRootMeta(rootMeta, signal),
+        RemoteService.upsertMap(encryptedMap, signal),
+      ])
     } catch (error) {
       throw new Error(
         `Failed to save root meta and map to remote storage during initialization: ${error instanceof Error ? error.message : String(error)}`,
       )
     }
 
-    // Step 9: Cache locally
-    await CacheService.upsertRootMeta(rootMeta)
-    await CacheService.upsertMap(encryptedMap)
+    // Step 9: Cache both locally in parallel
+    await Promise.all([
+      CacheService.upsertRootMeta(rootMeta),
+      CacheService.upsertMap(encryptedMap),
+    ])
 
     return {
       rootMeta,
@@ -116,13 +122,16 @@ export default class OrchestrationService {
     // Step 1: Compute lookup hash
     const lookupHash = this.computeLookupHash(email, lookupKey)
 
-    // Step 2: Fetch root meta from remote storage (fail if this fails)
-    let rootMeta
+    // Step 2: Fetch root meta and map from remote storage in parallel (fail if this fails)
+    let rootMeta, encryptedMap
     try {
-      rootMeta = await RemoteService.getRootMeta(signal)
+      ;[rootMeta, encryptedMap] = await Promise.all([
+        RemoteService.getRootMeta(signal),
+        RemoteService.getMap(signal),
+      ])
     } catch (error) {
       throw new Error(
-        `Failed to fetch root meta during bootstrap: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to fetch root meta and map during bootstrap: ${error instanceof Error ? error.message : String(error)}`,
       )
     }
 
@@ -139,17 +148,7 @@ export default class OrchestrationService {
       )
     }
 
-    // Step 5: Fetch encrypted map from remote storage (fail if this fails)
-    let encryptedMap
-    try {
-      encryptedMap = await RemoteService.getMap(signal)
-    } catch (error) {
-      throw new Error(
-        `Failed to fetch map during bootstrap: ${error instanceof Error ? error.message : String(error)}`,
-      )
-    }
-
-    // Step 6: Decrypt map with MEK
+    // Step 5: Decrypt map with MEK
     let map
     try {
       const decryptedMapBuffer = await CryptoService.unpackAndDecrypt(encryptedMap, mek)
@@ -161,9 +160,11 @@ export default class OrchestrationService {
       )
     }
 
-    // Step 7: Cache both locally
-    await CacheService.upsertRootMeta(rootMeta)
-    await CacheService.upsertMap(encryptedMap)
+    // Step 6: Cache both locally in parallel
+    await Promise.all([
+      CacheService.upsertRootMeta(rootMeta),
+      CacheService.upsertMap(encryptedMap),
+    ])
 
     return {
       rootMeta,
@@ -184,7 +185,77 @@ export default class OrchestrationService {
     map: Map,
     signal?: AbortSignal,
   ): Promise<CreateNotebookResult> {
-    throw new Error('Not implemented yet')
+    // Step 1: Create empty manifest (generates notebook ID)
+    const manifest = ManifestService.create(notebookTitle)
+    const notebookId = manifest.notebook_id
+
+    // Step 2: Generate FEK (File Encryption Key)
+    const fek = await CryptoService.generateKey()
+
+    // Step 3: Generate salt and derive FKEK (File Key Encryption Key) from lookup key using Argon2id
+    const salt = crypto.getRandomValues(new Uint8Array(__APP_CONFIG__.crypto.kdf.saltLength))
+    const fkek = await CryptoService.deriveFKEK(lookupKey, {
+      algorithm: 'argon2id',
+      salt,
+      iterations: __APP_CONFIG__.crypto.kdf.argon2id.iterations,
+      memory: __APP_CONFIG__.crypto.kdf.argon2id.memory,
+      parallelism: __APP_CONFIG__.crypto.kdf.argon2id.parallelism,
+    })
+
+    // Step 4: Encrypt FEK with FKEK
+    const encryptedFek = await CryptoService.encryptKey(fek, fkek)
+
+    // Step 5: Create notebook meta with KDF parameters and encrypted FEK
+    const notebookMeta = MetaService.createNotebookMeta(
+      {
+        algorithm: 'argon2id',
+        salt,
+        iterations: __APP_CONFIG__.crypto.kdf.argon2id.iterations,
+        memory: __APP_CONFIG__.crypto.kdf.argon2id.memory,
+        parallelism: __APP_CONFIG__.crypto.kdf.argon2id.parallelism,
+      },
+      encryptedFek,
+    )
+
+    // Step 6: Encrypt manifest with FEK
+    const manifestText = JSON.stringify(manifest, null, 2)
+    const manifestBytes = new TextEncoder().encode(manifestText)
+    const encryptedManifest = await CryptoService.encryptAndPack(manifestBytes, fek)
+
+    // Step 7: Update map with new notebook entry
+    const { map: updatedMap } = MapService.addEntry(map, { title: notebookTitle })
+
+    // Step 8: Encrypt map with MEK
+    const mapText = JSON.stringify(updatedMap, null, 2)
+    const mapBytes = new TextEncoder().encode(mapText)
+    const encryptedMap = await CryptoService.encryptAndPack(mapBytes, mek)
+
+    // Step 9: Upload all files to remote storage in parallel (fail if this fails)
+    try {
+      await Promise.all([
+        RemoteService.upsertNotebookMeta(notebookId, notebookMeta, signal),
+        RemoteService.upsertManifest(notebookId, encryptedManifest, signal),
+        RemoteService.upsertMap(encryptedMap, signal),
+      ])
+    } catch (error) {
+      throw new Error(
+        `Failed to save notebook files to remote storage: ${error instanceof Error ? error.message : String(error)}`,
+      )
+    }
+
+    // Step 10: Cache all files locally in parallel
+    await Promise.all([
+      CacheService.upsertNotebookMeta(notebookId, notebookMeta),
+      CacheService.upsertManifest(notebookId, encryptedManifest),
+      CacheService.upsertMap(encryptedMap),
+    ])
+
+    return {
+      notebookId,
+      notebookMeta,
+      manifest,
+      fek,
+    }
   }
 
   /**
@@ -197,7 +268,65 @@ export default class OrchestrationService {
     onProgress?: (progress: SyncProgress) => void,
     signal?: AbortSignal,
   ): Promise<LoadNotebookResult> {
-    throw new Error('Not implemented yet')
+    // Step 1: Fetch notebook meta from remote storage (fail if this fails)
+    let notebookMeta
+    try {
+      notebookMeta = await RemoteService.getNotebookMeta(notebookId, signal)
+    } catch (error) {
+      throw new Error(
+        `Failed to fetch notebook meta: ${error instanceof Error ? error.message : String(error)}`,
+      )
+    }
+
+    // Step 2: Derive FKEK using KDF params from notebook meta
+    const fkek = await CryptoService.deriveFKEK(lookupKey, notebookMeta.kdf)
+
+    // Step 3: Decrypt encrypted FEK to get FEK
+    let fek
+    try {
+      fek = await CryptoService.decryptKey(notebookMeta.encrypted_fek, fkek)
+    } catch (error) {
+      throw new Error(
+        `Failed to decrypt FEK (invalid lookup key?): ${error instanceof Error ? error.message : String(error)}`,
+      )
+    }
+
+    // Step 4: Cache notebook meta locally
+    await CacheService.upsertNotebookMeta(notebookId, notebookMeta)
+
+    // Step 5: Sync notebook with remote using SyncService
+    const syncResult = await SyncService.sync({
+      notebookId,
+      fek,
+      onProgress,
+      signal,
+    })
+
+    // Step 6: Get manifest from cache (after sync)
+    const encryptedManifest = await CacheService.getManifest(notebookId)
+    if (!encryptedManifest) {
+      throw new Error('Manifest not found in cache after sync')
+    }
+
+    // Step 7: Decrypt manifest with FEK
+    let manifest
+    try {
+      const decryptedManifestBuffer = await CryptoService.unpackAndDecrypt(encryptedManifest, fek)
+      const manifestText = new TextDecoder().decode(decryptedManifestBuffer)
+      manifest = JSON.parse(manifestText) as Manifest
+    } catch (error) {
+      throw new Error(
+        `Failed to decrypt manifest: ${error instanceof Error ? error.message : String(error)}`,
+      )
+    }
+
+    return {
+      notebookId,
+      notebookMeta,
+      manifest,
+      fek,
+      syncResult,
+    }
   }
 
   /**
@@ -213,7 +342,43 @@ export default class OrchestrationService {
     map: Map,
     signal?: AbortSignal,
   ): Promise<UpdateNotebookResult> {
-    throw new Error('Not implemented yet')
+    // Step 1: Update manifest and map titles
+    const updatedManifest = ManifestService.updateNotebookTitle(manifest, newTitle)
+    const updatedMap = MapService.updateEntry(map, notebookId, { title: newTitle })
+
+    // Step 2: Encrypt both manifest and map in parallel
+    const manifestText = JSON.stringify(updatedManifest, null, 2)
+    const manifestBytes = new TextEncoder().encode(manifestText)
+    const mapText = JSON.stringify(updatedMap, null, 2)
+    const mapBytes = new TextEncoder().encode(mapText)
+
+    const [encryptedManifest, encryptedMap] = await Promise.all([
+      CryptoService.encryptAndPack(manifestBytes, fek),
+      CryptoService.encryptAndPack(mapBytes, mek),
+    ])
+
+    // Step 3: Upload both to remote storage in parallel (fail if this fails)
+    try {
+      await Promise.all([
+        RemoteService.upsertManifest(notebookId, encryptedManifest, signal),
+        RemoteService.upsertMap(encryptedMap, signal),
+      ])
+    } catch (error) {
+      throw new Error(
+        `Failed to save updated manifest and map to remote storage: ${error instanceof Error ? error.message : String(error)}`,
+      )
+    }
+
+    // Step 4: Cache both locally in parallel
+    await Promise.all([
+      CacheService.upsertManifest(notebookId, encryptedManifest),
+      CacheService.upsertMap(encryptedMap),
+    ])
+
+    return {
+      manifest: updatedManifest,
+      map: updatedMap,
+    }
   }
 
   /**
