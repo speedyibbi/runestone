@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { hmac } from '@noble/hashes/hmac'
 import { sha256 } from '@noble/hashes/sha2'
 import CryptoService from '@/services/cryptography/crypto'
@@ -613,7 +612,13 @@ export default class OrchestrationService {
     onProgress?: (progress: SyncProgress) => void,
     signal?: AbortSignal,
   ): Promise<SyncResult> {
-    throw new Error('Not implemented yet')
+    // Use SyncService to sync the notebook
+    return await SyncService.sync({
+      notebookId,
+      fek,
+      onProgress,
+      signal,
+    })
   }
 
   /**
@@ -626,6 +631,46 @@ export default class OrchestrationService {
     onProgress?: (notebookId: string, progress: SyncProgress) => void,
     signal?: AbortSignal,
   ): Promise<Record<string, SyncResult>> {
-    throw new Error('Not implemented yet')
+    const results: Record<string, SyncResult> = {}
+
+    // Sync each notebook sequentially to avoid overwhelming the system
+    for (const entry of map.entries) {
+      const notebookId = entry.uuid
+
+      try {
+        // Step 1: Fetch notebook meta
+        const notebookMeta = await RemoteService.getNotebookMeta(notebookId, signal)
+
+        // Step 2: Derive FKEK from lookup key
+        const fkek = await CryptoService.deriveFKEK(lookupKey, notebookMeta.kdf)
+
+        // Step 3: Decrypt FEK
+        const fek = await CryptoService.decryptKey(notebookMeta.encrypted_fek, fkek)
+
+        // Step 4: Sync notebook with progress callback
+        const syncResult = await this.syncNotebook(
+          notebookId,
+          fek,
+          onProgress ? (progress) => onProgress(notebookId, progress) : undefined,
+          signal,
+        )
+
+        results[notebookId] = syncResult
+      } catch (error) {
+        // If a notebook fails, record the error but continue with other notebooks
+        results[notebookId] = {
+          success: false,
+          downloaded: 0,
+          uploaded: 0,
+          conflicts: 0,
+          errors: [
+            `Failed to sync notebook ${entry.title}: ${error instanceof Error ? error.message : String(error)}`,
+          ],
+          duration: 0,
+        }
+      }
+    }
+
+    return results
   }
 }
