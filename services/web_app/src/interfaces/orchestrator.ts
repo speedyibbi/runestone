@@ -53,6 +53,14 @@ export interface UpdateNotebookResult {
 }
 
 /**
+ * Result of deleteNotebook operation
+ */
+export interface DeleteNotebookResult {
+  notebookId: string
+  map: Map
+}
+
+/**
  * Result of getBlob operation
  */
 export interface GetBlobResult {

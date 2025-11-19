@@ -14,6 +14,7 @@ import type {
   CreateNotebookResult,
   LoadNotebookResult,
   UpdateNotebookResult,
+  DeleteNotebookResult,
   GetBlobResult,
   CreateBlobResult,
   UpdateBlobResult,
@@ -387,6 +388,58 @@ export default class OrchestrationService {
 
     return {
       manifest: updatedManifest,
+      map: updatedMap,
+    }
+  }
+
+  /**
+   * Delete a notebook
+   * Removes notebook from map and deletes all files from remote and cache
+   */
+  static async deleteNotebook(
+    notebookId: string,
+    mek: CryptoKey,
+    manifest: Manifest,
+    map: Map,
+    signal?: AbortSignal,
+  ): Promise<DeleteNotebookResult> {
+    // Step 1: Remove notebook entry from map
+    const updatedMap = MapService.removeEntry(map, notebookId)
+
+    // Step 2: Encrypt updated map with MEK
+    const mapText = JSON.stringify(updatedMap, null, 2)
+    const mapBytes = new TextEncoder().encode(mapText)
+    const encryptedMap = await CryptoService.encryptAndPack(mapBytes, mek)
+
+    // Step 3: Collect all blob UUIDs to delete
+    const blobUuids = manifest.entries.map((entry) => entry.uuid)
+
+    // Step 4: Delete all files from remote and cache in parallel
+    try {
+      await Promise.all([
+        // Delete notebook meta
+        RemoteService.deleteNotebookMeta(notebookId, signal),
+        // Delete manifest
+        RemoteService.deleteManifest(notebookId, signal),
+        // Delete all blobs
+        ...blobUuids.map((uuid) => RemoteService.deleteBlob(notebookId, uuid, signal)),
+        // Upload updated map
+        RemoteService.upsertMap(encryptedMap, signal),
+        // Delete from cache
+        CacheService.deleteNotebookMeta(notebookId),
+        CacheService.deleteManifest(notebookId),
+        ...blobUuids.map((uuid) => CacheService.deleteBlob(notebookId, uuid)),
+        // Update map in cache
+        CacheService.upsertMap(encryptedMap),
+      ])
+    } catch (error) {
+      throw new Error(
+        `Failed to delete notebook files: ${error instanceof Error ? error.message : String(error)}`,
+      )
+    }
+
+    return {
+      notebookId,
       map: updatedMap,
     }
   }
