@@ -74,9 +74,9 @@ export default class OrchestrationService {
     // Step 2: Generate MEK (Map Encryption Key)
     const mek = await CryptoService.generateKey()
 
-    // Step 3: Generate salt and derive MKEK (Map Key Encryption Key) from lookup key
+    // Step 3: Generate salt and derive MKEK (Map Key Encryption Key) from lookup hash
     const salt = crypto.getRandomValues(new Uint8Array(__APP_CONFIG__.crypto.kdf.saltLength))
-    const mkek = await CryptoService.deriveMKEK(lookupKey, {
+    const mkek = await CryptoService.deriveMKEK(lookupHash, {
       ...this.DEFAULT_PBKDF2_PARAMS,
       salt,
     })
@@ -153,7 +153,7 @@ export default class OrchestrationService {
     }
 
     // Step 3: Derive MKEK using KDF params from root meta
-    const mkek = await CryptoService.deriveMKEK(lookupKey, rootMeta.kdf)
+    const mkek = await CryptoService.deriveMKEK(lookupHash, rootMeta.kdf)
 
     // Step 4: Decrypt encrypted MEK to get MEK
     let mek
@@ -197,7 +197,7 @@ export default class OrchestrationService {
    */
   static async createNotebook(
     notebookTitle: string,
-    lookupKey: string,
+    lookupHash: string,
     mek: CryptoKey,
     map: Map,
     signal?: AbortSignal,
@@ -209,9 +209,9 @@ export default class OrchestrationService {
     // Step 2: Generate FEK (File Encryption Key)
     const fek = await CryptoService.generateKey()
 
-    // Step 3: Generate salt and derive FKEK (File Key Encryption Key) from lookup key using Argon2id
+    // Step 3: Generate salt and derive FKEK (File Key Encryption Key) from lookup hash using Argon2id
     const salt = crypto.getRandomValues(new Uint8Array(__APP_CONFIG__.crypto.kdf.saltLength))
-    const fkek = await CryptoService.deriveFKEK(lookupKey, {
+    const fkek = await CryptoService.deriveFKEK(lookupHash, {
       ...this.DEFAULT_ARGON2ID_PARAMS,
       salt,
     })
@@ -275,7 +275,7 @@ export default class OrchestrationService {
    */
   static async loadNotebook(
     notebookId: string,
-    lookupKey: string,
+    lookupHash: string,
     onProgress?: (progress: SyncProgress) => void,
     signal?: AbortSignal,
   ): Promise<LoadNotebookResult> {
@@ -290,7 +290,7 @@ export default class OrchestrationService {
     }
 
     // Step 2: Derive FKEK using KDF params from notebook meta
-    const fkek = await CryptoService.deriveFKEK(lookupKey, notebookMeta.kdf)
+    const fkek = await CryptoService.deriveFKEK(lookupHash, notebookMeta.kdf)
 
     // Step 3: Decrypt encrypted FEK to get FEK
     let fek
@@ -680,7 +680,7 @@ export default class OrchestrationService {
    */
   static async syncAllNotebooks(
     map: Map,
-    lookupKey: string,
+    lookupHash: string,
     onProgress?: (notebookId: string, progress: SyncProgress) => void,
     signal?: AbortSignal,
   ): Promise<Record<string, SyncResult>> {
@@ -694,8 +694,8 @@ export default class OrchestrationService {
         // Step 1: Fetch notebook meta
         const notebookMeta = await RemoteService.getNotebookMeta(notebookId, signal)
 
-        // Step 2: Derive FKEK from lookup key
-        const fkek = await CryptoService.deriveFKEK(lookupKey, notebookMeta.kdf)
+        // Step 2: Derive FKEK from lookup hash
+        const fkek = await CryptoService.deriveFKEK(lookupHash, notebookMeta.kdf)
 
         // Step 3: Decrypt FEK
         const fek = await CryptoService.decryptKey(notebookMeta.encrypted_fek, fkek)

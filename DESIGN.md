@@ -34,15 +34,15 @@ The following technical terms are presented to users with different names:
 
 ### Three-Tier Key System:
 
-- **MKEK** (Map Key Encryption Key): derived from lookup_key using PBKDF2-SHA256.
+- **MKEK** (Map Key Encryption Key): derived from lookup_hash using PBKDF2-SHA256.
   - Used to decrypt `encrypted_mek` in root `meta.json`.
-  - Fast derivation since lookup_key already has good entropy.
+  - Fast derivation since lookup_hash already has good entropy.
 
 - **MEK** (Map Encryption Key): random 256-bit key, stored encrypted in root `meta.json`.
   - Decrypted using MKEK.
   - Used to decrypt `map.json.enc` (notebook list).
 
-- **FKEK** (File Key Encryption Key): derived from lookup_key using strong KDF (Argon2id).
+- **FKEK** (File Key Encryption Key): derived from lookup_hash using strong KDF (Argon2id).
   - Used to decrypt `encrypted_fek` in notebook's `meta.json`.
   - Strong protection even if lookup_key has moderate entropy.
   - Each notebook has independent FKEK (different salt).
@@ -57,14 +57,16 @@ The following technical terms are presented to users with different names:
 ### Key Derivation Flow:
 
 ```
-lookup_key + root_salt → [PBKDF2] → MKEK → decrypt encrypted_mek → MEK → decrypt map.json.enc
+email + lookup_key → [HMAC-SHA256] → lookup_hash
 
-lookup_key + notebook_salt → [Argon2id] → FKEK → decrypt encrypted_fek → FEK
+lookup_hash + root_salt → [PBKDF2] → MKEK → decrypt encrypted_mek → MEK → decrypt map.json.enc
+
+lookup_hash + notebook_salt → [Argon2id] → FKEK → decrypt encrypted_fek → FEK
 
 FEK → decrypt manifest.json.enc, blobs, search.db.enc
 ```
 
-**Note**: The system architecture supports using the same lookup_key for all notebooks (user convenience) or different keys per notebook (future flexibility). Each derivation is independent due to unique salts and KDF parameters.
+**Note**: The system architecture supports using the same lookup_key for all notebooks (user convenience) or different keys per notebook (future flexibility). Each derivation is independent due to unique salts and KDF parameters. The lookup_hash is computed once from email and lookup_key, then used for all key derivations.
 
 ### Root meta.json structure:
 
@@ -185,13 +187,13 @@ FEK → decrypt manifest.json.enc, blobs, search.db.enc
 1. User enters **email + lookup_key** (once).
 2. Compute `lookup_hash = HMAC-SHA256(email, lookup_key)`.
 3. Fetch `/<lookup_hash>/meta.json` (root meta).
-4. Derive `MKEK = PBKDF2(lookup_key, root_salt, 10k iterations)`.
+4. Derive `MKEK = PBKDF2(lookup_hash, root_salt, 10k iterations)`.
 5. Decrypt `encrypted_mek` with MKEK to get MEK.
 6. Fetch and decrypt `/<lookup_hash>/map.json.enc` with MEK.
 7. Display notebook selection UI with titles from map.
 8. User selects a notebook (e.g., "My Personal Notes").
 9. Fetch `/<lookup_hash>/<selected_uuid>/meta.json` (notebook meta).
-10. Derive `FKEK = Argon2id(lookup_key, notebook_salt, strong params)`.
+10. Derive `FKEK = Argon2id(lookup_hash, notebook_salt, strong params)`.
 11. Decrypt `encrypted_fek` with FKEK to get FEK.
 12. Fetch and decrypt `manifest.json.enc` with FEK.
 13. Fetch and decrypt needed blobs with FEK.
