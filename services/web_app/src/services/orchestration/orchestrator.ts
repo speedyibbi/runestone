@@ -30,6 +30,24 @@ import type { SyncProgress, SyncResult } from '@/interfaces/sync'
  */
 export default class OrchestrationService {
   /**
+   * Default PBKDF2 KDF parameters (for root-level encryption)
+   */
+  private static readonly DEFAULT_PBKDF2_PARAMS = {
+    algorithm: 'pbkdf2-sha256' as const,
+    iterations: __APP_CONFIG__.crypto.kdf.pbkdf2.iterations,
+  }
+
+  /**
+   * Default Argon2id KDF parameters (for notebook-level encryption)
+   */
+  private static readonly DEFAULT_ARGON2ID_PARAMS = {
+    algorithm: 'argon2id' as const,
+    iterations: __APP_CONFIG__.crypto.kdf.argon2id.iterations,
+    memory: __APP_CONFIG__.crypto.kdf.argon2id.memory,
+    parallelism: __APP_CONFIG__.crypto.kdf.argon2id.parallelism,
+  }
+
+  /**
    * Compute lookup hash from email and lookup key
    * Uses HMAC-SHA256(email, lookup_key)
    */
@@ -58,9 +76,8 @@ export default class OrchestrationService {
     // Step 3: Generate salt and derive MKEK (Map Key Encryption Key) from lookup key
     const salt = crypto.getRandomValues(new Uint8Array(__APP_CONFIG__.crypto.kdf.saltLength))
     const mkek = await CryptoService.deriveMKEK(lookupKey, {
-      algorithm: 'pbkdf2-sha256',
+      ...this.DEFAULT_PBKDF2_PARAMS,
       salt,
-      iterations: __APP_CONFIG__.crypto.kdf.pbkdf2.iterations,
     })
 
     // Step 4: Encrypt MEK with MKEK
@@ -69,9 +86,8 @@ export default class OrchestrationService {
     // Step 5: Create root meta with KDF parameters and encrypted MEK
     const rootMeta = MetaService.createRootMeta(
       {
-        algorithm: 'pbkdf2-sha256',
+        ...this.DEFAULT_PBKDF2_PARAMS,
         salt,
-        iterations: __APP_CONFIG__.crypto.kdf.pbkdf2.iterations,
       },
       encryptedMek,
     )
@@ -195,11 +211,8 @@ export default class OrchestrationService {
     // Step 3: Generate salt and derive FKEK (File Key Encryption Key) from lookup key using Argon2id
     const salt = crypto.getRandomValues(new Uint8Array(__APP_CONFIG__.crypto.kdf.saltLength))
     const fkek = await CryptoService.deriveFKEK(lookupKey, {
-      algorithm: 'argon2id',
+      ...this.DEFAULT_ARGON2ID_PARAMS,
       salt,
-      iterations: __APP_CONFIG__.crypto.kdf.argon2id.iterations,
-      memory: __APP_CONFIG__.crypto.kdf.argon2id.memory,
-      parallelism: __APP_CONFIG__.crypto.kdf.argon2id.parallelism,
     })
 
     // Step 4: Encrypt FEK with FKEK
@@ -208,11 +221,8 @@ export default class OrchestrationService {
     // Step 5: Create notebook meta with KDF parameters and encrypted FEK
     const notebookMeta = MetaService.createNotebookMeta(
       {
-        algorithm: 'argon2id',
+        ...this.DEFAULT_ARGON2ID_PARAMS,
         salt,
-        iterations: __APP_CONFIG__.crypto.kdf.argon2id.iterations,
-        memory: __APP_CONFIG__.crypto.kdf.argon2id.memory,
-        parallelism: __APP_CONFIG__.crypto.kdf.argon2id.parallelism,
       },
       encryptedFek,
     )
