@@ -16,6 +16,7 @@ import type {
   LoadNotebookResult,
   UpdateNotebookResult,
   GetBlobResult,
+  CreateBlobResult,
   UpdateBlobResult,
   DeleteBlobResult,
   BlobMetadata,
@@ -401,11 +402,99 @@ export default class OrchestrationService {
     fek: CryptoKey,
     signal?: AbortSignal,
   ): Promise<GetBlobResult> {
-    throw new Error('Not implemented yet')
+    // Step 1: Try to get encrypted blob from cache first
+    let encryptedBlob = await CacheService.getBlob(notebookId, uuid)
+
+    // Step 2: If not in cache, fetch from remote storage
+    if (!encryptedBlob) {
+      try {
+        encryptedBlob = await RemoteService.getBlob(notebookId, uuid, signal)
+        // Cache it for future use
+        await CacheService.upsertBlob(notebookId, uuid, encryptedBlob)
+      } catch (error) {
+        throw new Error(
+          `Failed to fetch blob from remote storage: ${error instanceof Error ? error.message : String(error)}`,
+        )
+      }
+    }
+
+    // Step 3: Decrypt blob with FEK
+    let data
+    try {
+      data = await CryptoService.unpackAndDecrypt(encryptedBlob, fek)
+    } catch (error) {
+      throw new Error(
+        `Failed to decrypt blob: ${error instanceof Error ? error.message : String(error)}`,
+      )
+    }
+
+    return {
+      uuid,
+      data,
+    }
   }
 
   /**
-   * Update a blob in a notebook
+   * Create a new blob in a notebook
+   * Encrypts and uploads to both cache and remote, updates manifest
+   */
+  static async createBlob(
+    notebookId: string,
+    data: ArrayBuffer | Uint8Array,
+    metadata: BlobMetadata,
+    fek: CryptoKey,
+    manifest: Manifest,
+    signal?: AbortSignal,
+  ): Promise<CreateBlobResult> {
+    // Step 1: Compute hash and size of data
+    const dataBuffer =
+      data instanceof Uint8Array
+        ? (data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer)
+        : data
+    const hashBuffer = await crypto.subtle.digest('SHA-256', dataBuffer)
+    const hashArray = Array.from(new Uint8Array(hashBuffer))
+    const hash = `sha256-${hashArray.map((b) => b.toString(16).padStart(2, '0')).join('')}`
+    const size = dataBuffer.byteLength
+
+    // Step 2: Encrypt blob with FEK
+    const encryptedBlob = await CryptoService.encryptAndPack(data, fek)
+
+    // Step 3: Add new entry to manifest (generates UUID)
+    const { manifest: updatedManifest, entry } = ManifestService.addEntry(manifest, {
+      type: metadata.type,
+      title: metadata.title,
+      hash,
+      size,
+    })
+    const uuid = entry.uuid
+
+    // Step 4: Encrypt updated manifest
+    const manifestText = JSON.stringify(updatedManifest, null, 2)
+    const manifestBytes = new TextEncoder().encode(manifestText)
+    const encryptedManifest = await CryptoService.encryptAndPack(manifestBytes, fek)
+
+    // Step 5: Upload blob and manifest to remote and cache in parallel
+    try {
+      await Promise.all([
+        RemoteService.upsertBlob(notebookId, uuid, encryptedBlob, signal),
+        RemoteService.upsertManifest(notebookId, encryptedManifest, signal),
+        CacheService.upsertBlob(notebookId, uuid, encryptedBlob),
+        CacheService.upsertManifest(notebookId, encryptedManifest),
+      ])
+    } catch (error) {
+      throw new Error(
+        `Failed to save blob and manifest to storage: ${error instanceof Error ? error.message : String(error)}`,
+      )
+    }
+
+    return {
+      uuid,
+      manifest: updatedManifest,
+    }
+  }
+
+  /**
+   * Update an existing blob in a notebook
    * Encrypts and uploads to both cache and remote, updates manifest
    */
   static async updateBlob(
@@ -417,7 +506,56 @@ export default class OrchestrationService {
     manifest: Manifest,
     signal?: AbortSignal,
   ): Promise<UpdateBlobResult> {
-    throw new Error('Not implemented yet')
+    // Step 1: Verify blob exists in manifest
+    const existingEntry = ManifestService.findEntry(manifest, uuid)
+    if (!existingEntry) {
+      throw new Error(`Blob with UUID ${uuid} not found in manifest`)
+    }
+
+    // Step 2: Compute hash and size of data
+    const dataBuffer =
+      data instanceof Uint8Array
+        ? (data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer)
+        : data
+    const hashBuffer = await crypto.subtle.digest('SHA-256', dataBuffer)
+    const hashArray = Array.from(new Uint8Array(hashBuffer))
+    const hash = `sha256-${hashArray.map((b) => b.toString(16).padStart(2, '0')).join('')}`
+    const size = dataBuffer.byteLength
+
+    // Step 3: Encrypt blob with FEK
+    const encryptedBlob = await CryptoService.encryptAndPack(data, fek)
+
+    // Step 4: Update manifest entry
+    const updatedManifest = ManifestService.updateEntry(manifest, uuid, {
+      type: metadata.type,
+      title: metadata.title,
+      hash,
+      size,
+    })
+
+    // Step 5: Encrypt updated manifest
+    const manifestText = JSON.stringify(updatedManifest, null, 2)
+    const manifestBytes = new TextEncoder().encode(manifestText)
+    const encryptedManifest = await CryptoService.encryptAndPack(manifestBytes, fek)
+
+    // Step 6: Upload blob and manifest to remote and cache in parallel
+    try {
+      await Promise.all([
+        RemoteService.upsertBlob(notebookId, uuid, encryptedBlob, signal),
+        RemoteService.upsertManifest(notebookId, encryptedManifest, signal),
+        CacheService.upsertBlob(notebookId, uuid, encryptedBlob),
+        CacheService.upsertManifest(notebookId, encryptedManifest),
+      ])
+    } catch (error) {
+      throw new Error(
+        `Failed to save updated blob and manifest to storage: ${error instanceof Error ? error.message : String(error)}`,
+      )
+    }
+
+    return {
+      uuid,
+      manifest: updatedManifest,
+    }
   }
 
   /**
@@ -431,7 +569,38 @@ export default class OrchestrationService {
     manifest: Manifest,
     signal?: AbortSignal,
   ): Promise<DeleteBlobResult> {
-    throw new Error('Not implemented yet')
+    // Step 1: Verify blob exists in manifest
+    const existingEntry = ManifestService.findEntry(manifest, uuid)
+    if (!existingEntry) {
+      throw new Error(`Blob with UUID ${uuid} not found in manifest`)
+    }
+
+    // Step 2: Remove entry from manifest
+    const updatedManifest = ManifestService.removeEntry(manifest, uuid)
+
+    // Step 3: Encrypt updated manifest
+    const manifestText = JSON.stringify(updatedManifest, null, 2)
+    const manifestBytes = new TextEncoder().encode(manifestText)
+    const encryptedManifest = await CryptoService.encryptAndPack(manifestBytes, fek)
+
+    // Step 4: Delete blob and upload manifest to remote and cache in parallel
+    try {
+      await Promise.all([
+        RemoteService.deleteBlob(notebookId, uuid, signal),
+        RemoteService.upsertManifest(notebookId, encryptedManifest, signal),
+        CacheService.deleteBlob(notebookId, uuid),
+        CacheService.upsertManifest(notebookId, encryptedManifest),
+      ])
+    } catch (error) {
+      throw new Error(
+        `Failed to delete blob and update manifest in storage: ${error instanceof Error ? error.message : String(error)}`,
+      )
+    }
+
+    return {
+      uuid,
+      manifest: updatedManifest,
+    }
   }
 
   /**

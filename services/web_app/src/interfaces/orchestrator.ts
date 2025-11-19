@@ -61,6 +61,14 @@ export interface GetBlobResult {
 }
 
 /**
+ * Result of createBlob operation
+ */
+export interface CreateBlobResult {
+  uuid: string
+  manifest: Manifest
+}
+
+/**
  * Result of updateBlob operation
  */
 export interface UpdateBlobResult {
