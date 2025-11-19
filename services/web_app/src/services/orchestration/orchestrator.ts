@@ -192,6 +192,19 @@ export default class OrchestrationService {
   }
 
   /**
+   * Check if bootstrap is possible
+   * Attempts to fetch root meta from remote storage to verify lookup hash is valid
+   */
+  static async canBootstrap(signal?: AbortSignal): Promise<boolean> {
+    try {
+      await RemoteService.getRootMeta(signal)
+      return true
+    } catch (error) {
+      return false
+    }
+  }
+
+  /**
    * Create a new notebook
    * Creates notebook directory, meta, and manifest
    */
