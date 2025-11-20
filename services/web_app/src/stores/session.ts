@@ -30,6 +30,10 @@ export const useSessionStore = defineStore('session', () => {
     manifest: null,
   })
 
+  // Track blob URLs for automatic cleanup
+  // Map of sigilId -> blob URL
+  const sigilUrlCache = ref<globalThis.Map<string, string>>(new globalThis.Map())
+
   // ==================== Computed ====================
   const isActive = computed(() => email.value !== null && lookupHash.value !== null)
   const hasOpenCodex = computed(() => notebook.value.fek !== null && notebook.value.manifest !== null)
@@ -73,6 +77,9 @@ export const useSessionStore = defineStore('session', () => {
    * Clear all session state and logout
    */
   function teardown(): void {
+    // Revoke all blob URLs before clearing state
+    revokeAllSigilUrls()
+
     email.value = null
     lookupHash.value = null
     root.value.mek = null
@@ -261,6 +268,9 @@ export const useSessionStore = defineStore('session', () => {
    * Close the currently open codex (unload from memory)
    */
   function closeCodex(): void {
+    // Revoke all blob URLs for this codex
+    revokeAllSigilUrls()
+
     notebook.value.fek = null
     notebook.value.manifest = null
   }
@@ -485,6 +495,255 @@ export const useSessionStore = defineStore('session', () => {
     notebook.value.manifest = result.manifest
   }
 
+  // ==================== Sigil (Image) Operations ====================
+
+  /**
+   * List all sigils in the currently open codex
+   */
+  function listSigils(): Array<{ uuid: string; title: string; last_updated: string }> {
+    if (!hasOpenCodex.value) {
+      throw new Error('No codex is currently open')
+    }
+
+    if (!notebook.value.manifest) {
+      throw new Error('Manifest is not loaded')
+    }
+
+    // Filter for image entries only
+    return notebook.value.manifest.entries
+      .filter((entry) => entry.type === 'image')
+      .map((entry) => ({
+        uuid: entry.uuid,
+        title: entry.title,
+        last_updated: entry.last_updated,
+      }))
+  }
+
+  /**
+   * Get sigil data (decrypted ArrayBuffer)
+   */
+  async function getSigil(sigilId: string, signal?: AbortSignal): Promise<ArrayBuffer> {
+    if (!hasOpenCodex.value) {
+      throw new Error('No codex is currently open')
+    }
+
+    if (!notebook.value.manifest) {
+      throw new Error('Manifest is not loaded')
+    }
+
+    if (!notebook.value.fek) {
+      throw new Error('FEK is not available')
+    }
+
+    const codexId = notebook.value.manifest.notebook_id
+
+    // Verify sigil exists and is an image
+    const entry = notebook.value.manifest.entries.find((e) => e.uuid === sigilId)
+    if (!entry) {
+      throw new Error(`Sigil with ID ${sigilId} not found`)
+    }
+
+    if (entry.type !== 'image') {
+      throw new Error(`Blob with ID ${sigilId} is not a sigil (image)`)
+    }
+
+    // Get blob data
+    const result = await OrchestrationService.getBlob(codexId, sigilId, notebook.value.fek, signal)
+
+    return result.data
+  }
+
+  /**
+   * Create a new sigil
+   */
+  async function createSigil(
+    title: string,
+    data: ArrayBuffer,
+    signal?: AbortSignal,
+  ): Promise<string> {
+    if (!hasOpenCodex.value) {
+      throw new Error('No codex is currently open')
+    }
+
+    if (!notebook.value.manifest) {
+      throw new Error('Manifest is not loaded')
+    }
+
+    if (!notebook.value.fek) {
+      throw new Error('FEK is not available')
+    }
+
+    const codexId = notebook.value.manifest.notebook_id
+
+    // Create blob with type 'image'
+    const result = await OrchestrationService.createBlob(
+      codexId,
+      data,
+      { type: 'image', title },
+      notebook.value.fek,
+      notebook.value.manifest,
+      signal,
+    )
+
+    // Update manifest in session state
+    notebook.value.manifest = result.manifest
+
+    return result.uuid
+  }
+
+  /**
+   * Delete a sigil
+   */
+  async function deleteSigil(sigilId: string, signal?: AbortSignal): Promise<void> {
+    if (!hasOpenCodex.value) {
+      throw new Error('No codex is currently open')
+    }
+
+    if (!notebook.value.manifest) {
+      throw new Error('Manifest is not loaded')
+    }
+
+    if (!notebook.value.fek) {
+      throw new Error('FEK is not available')
+    }
+
+    const codexId = notebook.value.manifest.notebook_id
+
+    // Verify sigil exists and is an image
+    const entry = notebook.value.manifest.entries.find((e) => e.uuid === sigilId)
+    if (!entry) {
+      throw new Error(`Sigil with ID ${sigilId} not found`)
+    }
+
+    if (entry.type !== 'image') {
+      throw new Error(`Blob with ID ${sigilId} is not a sigil (image)`)
+    }
+
+    // Revoke blob URL if cached
+    revokeSigilUrl(sigilId)
+
+    // Delete blob
+    const result = await OrchestrationService.deleteBlob(
+      codexId,
+      sigilId,
+      notebook.value.fek,
+      notebook.value.manifest,
+      signal,
+    )
+
+    // Update manifest in session state
+    notebook.value.manifest = result.manifest
+  }
+
+  /**
+   * Get sigil as blob URL (for display in UI)
+   * Automatically manages URL lifecycle - old URLs are revoked when new ones are created
+   * Returns an object with the URL and a manual revoke function
+   */
+  async function getSigilUrl(
+    sigilId: string,
+    signal?: AbortSignal,
+  ): Promise<{ url: string; revoke: () => void }> {
+    if (!hasOpenCodex.value) {
+      throw new Error('No codex is currently open')
+    }
+
+    if (!notebook.value.manifest) {
+      throw new Error('Manifest is not loaded')
+    }
+
+    if (!notebook.value.fek) {
+      throw new Error('FEK is not available')
+    }
+
+    const codexId = notebook.value.manifest.notebook_id
+
+    // Verify sigil exists and is an image
+    const entry = notebook.value.manifest.entries.find((e) => e.uuid === sigilId)
+    if (!entry) {
+      throw new Error(`Sigil with ID ${sigilId} not found`)
+    }
+
+    if (entry.type !== 'image') {
+      throw new Error(`Blob with ID ${sigilId} is not a sigil (image)`)
+    }
+
+    // If we already have a URL for this sigil, return it
+    const existingUrl = sigilUrlCache.value.get(sigilId)
+    if (existingUrl) {
+      return {
+        url: existingUrl,
+        revoke: () => revokeSigilUrl(sigilId),
+      }
+    }
+
+    // Get blob data
+    const result = await OrchestrationService.getBlob(codexId, sigilId, notebook.value.fek, signal)
+
+    // Infer MIME type from file extension (basic detection)
+    const ext = entry.title.split('.').pop()?.toLowerCase()
+    let mimeType = 'application/octet-stream'
+    switch (ext) {
+      case 'jpg':
+      case 'jpeg':
+        mimeType = 'image/jpeg'
+        break
+      case 'png':
+        mimeType = 'image/png'
+        break
+      case 'gif':
+        mimeType = 'image/gif'
+        break
+      case 'webp':
+        mimeType = 'image/webp'
+        break
+      case 'svg':
+        mimeType = 'image/svg+xml'
+        break
+      case 'bmp':
+        mimeType = 'image/bmp'
+        break
+      case 'ico':
+        mimeType = 'image/x-icon'
+        break
+    }
+
+    // Create blob and URL
+    const blob = new Blob([result.data], { type: mimeType })
+    const url = URL.createObjectURL(blob)
+
+    // Cache the URL for automatic cleanup
+    sigilUrlCache.value.set(sigilId, url)
+
+    // Return URL and revoke function
+    return {
+      url,
+      revoke: () => revokeSigilUrl(sigilId),
+    }
+  }
+
+  /**
+   * Manually revoke a specific sigil's blob URL
+   */
+  function revokeSigilUrl(sigilId: string): void {
+    const url = sigilUrlCache.value.get(sigilId)
+    if (url) {
+      URL.revokeObjectURL(url)
+      sigilUrlCache.value.delete(sigilId)
+    }
+  }
+
+  /**
+   * Revoke all cached sigil blob URLs
+   * Automatically called when closing codex or logging out
+   */
+  function revokeAllSigilUrls(): void {
+    sigilUrlCache.value.forEach((url: string) => {
+      URL.revokeObjectURL(url)
+    })
+    sigilUrlCache.value.clear()
+  }
+
   return {
     // State
     email,
@@ -517,5 +776,14 @@ export const useSessionStore = defineStore('session', () => {
     createRune,
     updateRune,
     deleteRune,
+
+    // Sigil Operations
+    listSigils,
+    getSigil,
+    createSigil,
+    deleteSigil,
+    getSigilUrl,
+    revokeSigilUrl,
+    revokeAllSigilUrls,
   }
 })
