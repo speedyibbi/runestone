@@ -273,6 +273,7 @@ export default class OrchestrationService {
       notebookMeta,
       manifest,
       fek,
+      map: updatedMap,
     }
   }
 

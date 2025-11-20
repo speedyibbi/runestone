@@ -31,6 +31,7 @@ export interface CreateNotebookResult {
   notebookMeta: NotebookMeta
   manifest: Manifest
   fek: CryptoKey
+  map: Map
 }
 
 /**
