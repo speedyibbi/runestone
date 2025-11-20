@@ -1,19 +1,24 @@
 import { del, get, post, put } from '@/utils/api'
-import { useLookupStore } from '@/stores/lookup'
+import { useSessionStore } from '@/stores/session'
 
 /**
  * FileService handles file operations via signed URLs
  * Uses the server's file manager API to get pre-signed URLs
- * All operations go through the server which authenticates via lookup key
+ * All operations go through the server which authenticates via lookup hash
  */
 export default class FileService {
   private static readonly basePath = '/api/file' // Server endpoint for file operations
 
   /**
-   * Get the lookup key from the store
+   * Get the lookup hash from the session store
    */
-  private static get lookup() {
-    return useLookupStore().getLookupKey()
+  private static get lookupHash() {
+    const session = useSessionStore()
+    const hash = session.getLookupHash()
+    if (!hash) {
+      throw new Error('Session not initialized - lookup hash is not available')
+    }
+    return hash
   }
 
   /**
@@ -24,7 +29,7 @@ export default class FileService {
     let response = await get({
       endpoint: this.basePath,
       headers: {
-        'x-lookup': this.lookup,
+        'x-lookup': this.lookupHash,
       },
       querystring: {
         path,
@@ -58,7 +63,7 @@ export default class FileService {
     let response = await post({
       endpoint: this.basePath,
       headers: {
-        'x-lookup': this.lookup,
+        'x-lookup': this.lookupHash,
       },
       querystring: {
         path,
@@ -93,7 +98,7 @@ export default class FileService {
     let response = await del({
       endpoint: this.basePath,
       headers: {
-        'x-lookup': this.lookup,
+        'x-lookup': this.lookupHash,
       },
       querystring: {
         path,
