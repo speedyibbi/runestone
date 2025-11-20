@@ -279,6 +279,212 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
+  // ==================== Rune (Note) Operations ====================
+
+  /**
+   * List all runes in the currently open codex
+   */
+  function listRunes(): Array<{ uuid: string; title: string; last_updated: string }> {
+    if (!hasOpenCodex.value) {
+      throw new Error('No codex is currently open')
+    }
+
+    if (!notebook.value.manifest) {
+      throw new Error('Manifest is not loaded')
+    }
+
+    // Filter for note entries only
+    return notebook.value.manifest.entries
+      .filter((entry) => entry.type === 'note')
+      .map((entry) => ({
+        uuid: entry.uuid,
+        title: entry.title,
+        last_updated: entry.last_updated,
+      }))
+  }
+
+  /**
+   * Get rune content (decrypted markdown)
+   */
+  async function getRune(runeId: string, signal?: AbortSignal): Promise<string> {
+    if (!hasOpenCodex.value) {
+      throw new Error('No codex is currently open')
+    }
+
+    if (!notebook.value.manifest) {
+      throw new Error('Manifest is not loaded')
+    }
+
+    if (!notebook.value.fek) {
+      throw new Error('FEK is not available')
+    }
+
+    const codexId = notebook.value.manifest.notebook_id
+
+    // Verify rune exists and is a note
+    const entry = notebook.value.manifest.entries.find((e) => e.uuid === runeId)
+    if (!entry) {
+      throw new Error(`Rune with ID ${runeId} not found`)
+    }
+
+    if (entry.type !== 'note') {
+      throw new Error(`Blob with ID ${runeId} is not a rune (note)`)
+    }
+
+    // Get blob data
+    const result = await OrchestrationService.getBlob(codexId, runeId, notebook.value.fek, signal)
+
+    // Convert ArrayBuffer to string (markdown)
+    const decoder = new TextDecoder('utf-8')
+    return decoder.decode(result.data)
+  }
+
+  /**
+   * Create a new rune
+   */
+  async function createRune(title: string, content: string, signal?: AbortSignal): Promise<string> {
+    if (!hasOpenCodex.value) {
+      throw new Error('No codex is currently open')
+    }
+
+    if (!notebook.value.manifest) {
+      throw new Error('Manifest is not loaded')
+    }
+
+    if (!notebook.value.fek) {
+      throw new Error('FEK is not available')
+    }
+
+    const codexId = notebook.value.manifest.notebook_id
+
+    // Convert string (markdown) to ArrayBuffer
+    const encoder = new TextEncoder()
+    const data = encoder.encode(content)
+
+    // Create blob with type 'note'
+    const result = await OrchestrationService.createBlob(
+      codexId,
+      data,
+      { type: 'note', title },
+      notebook.value.fek,
+      notebook.value.manifest,
+      signal,
+    )
+
+    // Update manifest in session state
+    notebook.value.manifest = result.manifest
+
+    return result.uuid
+  }
+
+  /**
+   * Update a rune's content and/or title
+   */
+  async function updateRune(
+    runeId: string,
+    updates: { title?: string; content?: string },
+    signal?: AbortSignal,
+  ): Promise<void> {
+    if (!hasOpenCodex.value) {
+      throw new Error('No codex is currently open')
+    }
+
+    if (!notebook.value.manifest) {
+      throw new Error('Manifest is not loaded')
+    }
+
+    if (!notebook.value.fek) {
+      throw new Error('FEK is not available')
+    }
+
+    const codexId = notebook.value.manifest.notebook_id
+
+    // Verify rune exists and is a note
+    const entry = notebook.value.manifest.entries.find((e) => e.uuid === runeId)
+    if (!entry) {
+      throw new Error(`Rune with ID ${runeId} not found`)
+    }
+
+    if (entry.type !== 'note') {
+      throw new Error(`Blob with ID ${runeId} is not a rune (note)`)
+    }
+
+    // Determine what data to use
+    let data: Uint8Array
+    if (updates.content !== undefined) {
+      // Use provided content
+      const encoder = new TextEncoder()
+      data = encoder.encode(updates.content)
+    } else {
+      // Content not changed, fetch existing content
+      const result = await OrchestrationService.getBlob(
+        codexId,
+        runeId,
+        notebook.value.fek,
+        signal,
+      )
+      data = new Uint8Array(result.data)
+    }
+
+    // Determine what title to use
+    const title = updates.title !== undefined ? updates.title : entry.title
+
+    // Update blob
+    const result = await OrchestrationService.updateBlob(
+      codexId,
+      runeId,
+      data,
+      { type: 'note', title },
+      notebook.value.fek,
+      notebook.value.manifest,
+      signal,
+    )
+
+    // Update manifest in session state
+    notebook.value.manifest = result.manifest
+  }
+
+  /**
+   * Delete a rune
+   */
+  async function deleteRune(runeId: string, signal?: AbortSignal): Promise<void> {
+    if (!hasOpenCodex.value) {
+      throw new Error('No codex is currently open')
+    }
+
+    if (!notebook.value.manifest) {
+      throw new Error('Manifest is not loaded')
+    }
+
+    if (!notebook.value.fek) {
+      throw new Error('FEK is not available')
+    }
+
+    const codexId = notebook.value.manifest.notebook_id
+
+    // Verify rune exists and is a note
+    const entry = notebook.value.manifest.entries.find((e) => e.uuid === runeId)
+    if (!entry) {
+      throw new Error(`Rune with ID ${runeId} not found`)
+    }
+
+    if (entry.type !== 'note') {
+      throw new Error(`Blob with ID ${runeId} is not a rune (note)`)
+    }
+
+    // Delete blob
+    const result = await OrchestrationService.deleteBlob(
+      codexId,
+      runeId,
+      notebook.value.fek,
+      notebook.value.manifest,
+      signal,
+    )
+
+    // Update manifest in session state
+    notebook.value.manifest = result.manifest
+  }
+
   return {
     // State
     email,
@@ -304,5 +510,12 @@ export const useSessionStore = defineStore('session', () => {
     deleteCodex,
     closeCodex,
     getCurrentCodex,
+
+    // Rune Operations
+    listRunes,
+    getRune,
+    createRune,
+    updateRune,
+    deleteRune,
   }
 })
