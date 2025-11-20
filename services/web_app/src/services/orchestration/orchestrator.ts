@@ -114,10 +114,7 @@ export default class OrchestrationService {
     }
 
     // Step 9: Cache both locally in parallel
-    await Promise.all([
-      CacheService.upsertRootMeta(rootMeta),
-      CacheService.upsertMap(encryptedMap),
-    ])
+    await Promise.all([CacheService.upsertRootMeta(rootMeta), CacheService.upsertMap(encryptedMap)])
 
     return {
       rootMeta,
@@ -178,10 +175,7 @@ export default class OrchestrationService {
     }
 
     // Step 6: Cache both locally in parallel
-    await Promise.all([
-      CacheService.upsertRootMeta(rootMeta),
-      CacheService.upsertMap(encryptedMap),
-    ])
+    await Promise.all([CacheService.upsertRootMeta(rootMeta), CacheService.upsertMap(encryptedMap)])
 
     return {
       rootMeta,
@@ -199,7 +193,7 @@ export default class OrchestrationService {
     try {
       await RemoteService.getRootMeta(signal)
       return true
-    } catch (error) {
+    } catch {
       return false
     }
   }

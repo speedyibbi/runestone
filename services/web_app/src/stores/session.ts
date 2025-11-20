@@ -13,7 +13,7 @@ export const useSessionStore = defineStore('session', () => {
   // State
   const email = ref<string | null>(null)
   const lookupHash = ref<string | null>(null)
-  
+
   const root = ref<{
     mek: CryptoKey | null
     map: Map | null
@@ -33,11 +33,7 @@ export const useSessionStore = defineStore('session', () => {
   /**
    * Setup session - bootstrap if possible, otherwise initialize
    */
-  async function setup(
-    userEmail: string,
-    lookupKey: string,
-    signal?: AbortSignal,
-  ): Promise<void> {
+  async function setup(userEmail: string, lookupKey: string, signal?: AbortSignal): Promise<void> {
     // If email and lookupHash are already set, return early
     if (email.value && lookupHash.value) {
       throw new Error('Session already setup')
@@ -49,7 +45,7 @@ export const useSessionStore = defineStore('session', () => {
     if (canBootstrap) {
       // Bootstrap existing user account
       const result = await OrchestrationService.bootstrap(userEmail, lookupKey, signal)
-      
+
       // Update state
       email.value = userEmail
       lookupHash.value = result.lookupHash
@@ -58,7 +54,7 @@ export const useSessionStore = defineStore('session', () => {
     } else {
       // Initialize new user account
       const result = await OrchestrationService.initialize(userEmail, lookupKey, signal)
-      
+
       // Update state
       email.value = userEmail
       lookupHash.value = result.lookupHash
@@ -73,7 +69,7 @@ export const useSessionStore = defineStore('session', () => {
     lookupHash,
     root,
     notebook,
-    
+
     // Functions
     setup,
   }

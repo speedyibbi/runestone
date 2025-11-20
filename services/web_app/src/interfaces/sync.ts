@@ -34,4 +34,3 @@ export interface SyncOptions {
   onProgress?: (progress: SyncProgress) => void
   signal?: AbortSignal
 }
-
