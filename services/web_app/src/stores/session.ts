@@ -36,7 +36,9 @@ export const useSessionStore = defineStore('session', () => {
 
   // ==================== Computed ====================
   const isActive = computed(() => email.value !== null && lookupHash.value !== null)
-  const hasOpenCodex = computed(() => notebook.value.fek !== null && notebook.value.manifest !== null)
+  const hasOpenCodex = computed(
+    () => notebook.value.fek !== null && notebook.value.manifest !== null,
+  )
 
   // ==================== Session Management ====================
 
@@ -94,7 +96,7 @@ export const useSessionStore = defineStore('session', () => {
   function getEmail(): string | null {
     return email.value
   }
-  
+
   /**
    * Get current lookup hash
    */
@@ -427,12 +429,7 @@ export const useSessionStore = defineStore('session', () => {
       data = encoder.encode(updates.content)
     } else {
       // Content not changed, fetch existing content
-      const result = await OrchestrationService.getBlob(
-        codexId,
-        runeId,
-        notebook.value.fek,
-        signal,
-      )
+      const result = await OrchestrationService.getBlob(codexId, runeId, notebook.value.fek, signal)
       data = new Uint8Array(result.data)
     }
 
