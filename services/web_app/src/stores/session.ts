@@ -3,7 +3,7 @@ import { defineStore } from 'pinia'
 import OrchestrationService from '@/services/orchestration/orchestrator'
 import type { Map } from '@/interfaces/map'
 import type { Manifest } from '@/interfaces/manifest'
-import type { SyncProgress } from '@/interfaces/sync'
+import type { SyncProgress, SyncResult } from '@/interfaces/sync'
 
 /**
  * Session store for managing user session state
@@ -744,13 +744,96 @@ export const useSessionStore = defineStore('session', () => {
     sigilUrlCache.value.clear()
   }
 
-  return {
-    // State
-    email,
-    lookupHash,
-    root,
-    notebook,
+  // ==================== Sync Operations ====================
 
+  /**
+   * Sync the currently open codex
+   * Downloads new/updated blobs from remote and uploads local changes
+   */
+  async function syncCurrentCodex(
+    onProgress?: (progress: SyncProgress) => void,
+    signal?: AbortSignal,
+  ): Promise<SyncResult> {
+    if (!hasOpenCodex.value) {
+      throw new Error('No codex is currently open')
+    }
+
+    if (!notebook.value.fek) {
+      throw new Error('FEK is not available')
+    }
+
+    if (!notebook.value.manifest) {
+      throw new Error('Manifest is not loaded')
+    }
+
+    const codexId = notebook.value.manifest.notebook_id
+
+    // Sync the notebook
+    const result = await OrchestrationService.syncNotebook(
+      codexId,
+      notebook.value.fek,
+      onProgress,
+      signal,
+    )
+
+    return result
+  }
+
+  /**
+   * Sync all codexes
+   * Syncs all notebooks in the map (including ones not currently open)
+   */
+  async function syncAllCodexes(
+    onProgress?: (codexId: string, codexTitle: string, progress: SyncProgress) => void,
+    signal?: AbortSignal,
+  ): Promise<Record<string, SyncResult>> {
+    if (!isActive.value) {
+      throw new Error('Session is not active')
+    }
+
+    if (!lookupHash.value) {
+      throw new Error('Lookup hash is not set')
+    }
+
+    if (!root.value.map) {
+      throw new Error('Map is not loaded')
+    }
+
+    // Create a map of codex IDs to titles for progress callback
+    const codexTitles = new globalThis.Map<string, string>()
+    root.value.map.entries.forEach((entry) => {
+      codexTitles.set(entry.uuid, entry.title)
+    })
+
+    // Sync all notebooks with enhanced progress callback
+    const results = await OrchestrationService.syncAllNotebooks(
+      root.value.map,
+      lookupHash.value,
+      onProgress
+        ? (codexId, progress) => {
+            const title = codexTitles.get(codexId) || 'Unknown'
+            onProgress(codexId, title, progress)
+          }
+        : undefined,
+      signal,
+    )
+
+    return results
+  }
+
+  /**
+   * Get the last sync timestamp for the currently open codex
+   * Returns the last_updated timestamp from the manifest
+   */
+  function getLastSyncTime(): string | null {
+    if (!hasOpenCodex.value || !notebook.value.manifest) {
+      return null
+    }
+
+    return notebook.value.manifest.last_updated
+  }
+
+  return {
     // Computed
     isActive,
     hasOpenCodex,
@@ -785,5 +868,10 @@ export const useSessionStore = defineStore('session', () => {
     getSigilUrl,
     revokeSigilUrl,
     revokeAllSigilUrls,
+
+    // Sync Operations
+    syncCurrentCodex,
+    syncAllCodexes,
+    getLastSyncTime,
   }
 })
