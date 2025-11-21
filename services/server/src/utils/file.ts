@@ -31,7 +31,7 @@ export async function upsertFile(
   fileKey: string,
   expiresIn = 3600,
 ): Promise<string> {
-  const command = new PutObjectCommand({ Bucket: bucket, Key: fileKey });
+  const command = new PutObjectCommand({ Bucket: bucket, Key: fileKey, ContentLength: config.server.fileUpload.maxSize });
   return await getSignedUrl(s3, command, { expiresIn });
 }
 
