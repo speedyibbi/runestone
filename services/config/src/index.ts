@@ -45,7 +45,6 @@ export const config = Object.freeze({
   server: {
     host: process.env.SERVER_HOST ?? '0.0.0.0',
     port: Number(process.env.SERVER_PORT) ?? 5000,
-    secret: process.env.SERVER_SECRET ?? 'secret',
     fileUpload: {
       maxSize: Number(process.env.FILE_UPLOAD_MAX_SIZE) ?? 10485760, // bytes (10MB)
     },

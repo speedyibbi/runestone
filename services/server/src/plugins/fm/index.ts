@@ -1,6 +1,5 @@
 import crypto from "crypto";
 import { FastifyPluginCallback, FastifyRequest, FastifyReply } from "fastify";
-import { config } from "@runestone/config";
 import { deleteFile, getFile, upsertFile } from "../../utils/file.js";
 import schema from "./schema.js";
 
@@ -23,8 +22,7 @@ export default <FastifyPluginCallback>function (fastify, options, done) {
       const { "x-lookup": lookup } = request.headers;
 
       const hmac = crypto
-        .createHmac("sha256", Buffer.from(config.server.secret, "utf8"))
-        .update(Array.isArray(lookup) ? lookup[0] : (lookup ?? ""))
+        .createHmac("sha256", Array.isArray(lookup) ? lookup[0] : (lookup ?? ""))
         .digest("hex");
 
       request.hmac = hmac;
