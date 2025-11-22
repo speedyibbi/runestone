@@ -1,7 +1,6 @@
 import type { RootMeta, NotebookMeta } from '@/interfaces/meta'
 import type { Map } from '@/interfaces/map'
 import type { Manifest } from '@/interfaces/manifest'
-import type { SyncResult } from '@/interfaces/sync'
 
 /**
  * Result of initialize operation
@@ -42,7 +41,6 @@ export interface LoadNotebookResult {
   notebookMeta: NotebookMeta
   manifest: Manifest
   fek: CryptoKey
-  syncResult: SyncResult
 }
 
 /**

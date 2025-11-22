@@ -45,18 +45,18 @@ export const useSessionStore = defineStore('session', () => {
   /**
    * Setup session - bootstrap if possible, otherwise initialize
    */
-  async function setup(userEmail: string, lookupKey: string, signal?: AbortSignal): Promise<void> {
+  async function setup(userEmail: string, lookupKey: string): Promise<void> {
     // If email and lookupHash are already set, return early
     if (email.value && lookupHash.value) {
       throw new Error('Session already setup')
     }
 
     // Check if bootstrap is possible
-    const canBootstrap = await OrchestrationService.canBootstrap(signal)
+    const canBootstrap = await OrchestrationService.canBootstrap()
 
     if (canBootstrap) {
       // Bootstrap existing user account
-      const result = await OrchestrationService.bootstrap(userEmail, lookupKey, signal)
+      const result = await OrchestrationService.bootstrap(userEmail, lookupKey)
 
       // Update state
       email.value = userEmail
@@ -65,7 +65,7 @@ export const useSessionStore = defineStore('session', () => {
       root.value.map = result.map
     } else {
       // Initialize new user account
-      const result = await OrchestrationService.initialize(userEmail, lookupKey, signal)
+      const result = await OrchestrationService.initialize(userEmail, lookupKey)
 
       // Update state
       email.value = userEmail
@@ -126,13 +126,9 @@ export const useSessionStore = defineStore('session', () => {
 
   /**
    * Open/load a specific codex
-   * Triggers sync and loads the codex into session state
+   * Loads the codex into session state
    */
-  async function openCodex(
-    codexId: string,
-    onProgress?: (progress: SyncProgress) => void,
-    signal?: AbortSignal,
-  ): Promise<void> {
+  async function openCodex(codexId: string): Promise<void> {
     if (!isActive.value) {
       throw new Error('Session is not active')
     }
@@ -151,12 +147,10 @@ export const useSessionStore = defineStore('session', () => {
       throw new Error(`Codex with ID ${codexId} not found`)
     }
 
-    // Load notebook (includes sync)
+    // Load notebook
     const result = await OrchestrationService.loadNotebook(
       codexId,
       lookupHash.value,
-      onProgress,
-      signal,
     )
 
     // Update session state
@@ -167,7 +161,7 @@ export const useSessionStore = defineStore('session', () => {
   /**
    * Create a new codex
    */
-  async function createCodex(title: string, signal?: AbortSignal): Promise<string> {
+  async function createCodex(title: string): Promise<string> {
     if (!isActive.value) {
       throw new Error('Session is not active')
     }
@@ -186,7 +180,6 @@ export const useSessionStore = defineStore('session', () => {
       lookupHash.value,
       root.value.mek,
       root.value.map!,
-      signal,
     )
 
     // Update map in session state
@@ -198,7 +191,7 @@ export const useSessionStore = defineStore('session', () => {
   /**
    * Rename the currently open codex
    */
-  async function renameCodex(newTitle: string, signal?: AbortSignal): Promise<void> {
+  async function renameCodex(newTitle: string): Promise<void> {
     if (!isActive.value) {
       throw new Error('Session is not active')
     }
@@ -222,7 +215,6 @@ export const useSessionStore = defineStore('session', () => {
       root.value.mek!,
       notebook.value.manifest!,
       root.value.map!,
-      signal,
     )
 
     // Update session state
@@ -233,7 +225,7 @@ export const useSessionStore = defineStore('session', () => {
   /**
    * Delete the currently open codex
    */
-  async function deleteCodex(signal?: AbortSignal): Promise<void> {
+  async function deleteCodex(): Promise<void> {
     if (!isActive.value) {
       throw new Error('Session is not active')
     }
@@ -258,7 +250,6 @@ export const useSessionStore = defineStore('session', () => {
       root.value.mek,
       notebook.value.manifest!,
       root.value.map!,
-      signal,
     )
 
     // Update map in session state and close the codex
@@ -318,7 +309,7 @@ export const useSessionStore = defineStore('session', () => {
   /**
    * Get rune content (decrypted markdown)
    */
-  async function getRune(runeId: string, signal?: AbortSignal): Promise<string> {
+  async function getRune(runeId: string): Promise<string> {
     if (!hasOpenCodex.value) {
       throw new Error('No codex is currently open')
     }
@@ -344,7 +335,7 @@ export const useSessionStore = defineStore('session', () => {
     }
 
     // Get blob data
-    const result = await OrchestrationService.getBlob(codexId, runeId, notebook.value.fek, signal)
+    const result = await OrchestrationService.getBlob(codexId, runeId, notebook.value.fek)
 
     // Convert ArrayBuffer to string (markdown)
     const decoder = new TextDecoder('utf-8')
@@ -354,7 +345,7 @@ export const useSessionStore = defineStore('session', () => {
   /**
    * Create a new rune
    */
-  async function createRune(title: string, content: string, signal?: AbortSignal): Promise<string> {
+  async function createRune(title: string, content: string): Promise<string> {
     if (!hasOpenCodex.value) {
       throw new Error('No codex is currently open')
     }
@@ -380,7 +371,6 @@ export const useSessionStore = defineStore('session', () => {
       { type: 'note', title },
       notebook.value.fek,
       notebook.value.manifest,
-      signal,
     )
 
     // Update manifest in session state
@@ -395,7 +385,6 @@ export const useSessionStore = defineStore('session', () => {
   async function updateRune(
     runeId: string,
     updates: { title?: string; content?: string },
-    signal?: AbortSignal,
   ): Promise<void> {
     if (!hasOpenCodex.value) {
       throw new Error('No codex is currently open')
@@ -429,7 +418,7 @@ export const useSessionStore = defineStore('session', () => {
       data = encoder.encode(updates.content)
     } else {
       // Content not changed, fetch existing content
-      const result = await OrchestrationService.getBlob(codexId, runeId, notebook.value.fek, signal)
+      const result = await OrchestrationService.getBlob(codexId, runeId, notebook.value.fek)
       data = new Uint8Array(result.data)
     }
 
@@ -444,7 +433,6 @@ export const useSessionStore = defineStore('session', () => {
       { type: 'note', title },
       notebook.value.fek,
       notebook.value.manifest,
-      signal,
     )
 
     // Update manifest in session state
@@ -454,7 +442,7 @@ export const useSessionStore = defineStore('session', () => {
   /**
    * Delete a rune
    */
-  async function deleteRune(runeId: string, signal?: AbortSignal): Promise<void> {
+  async function deleteRune(runeId: string): Promise<void> {
     if (!hasOpenCodex.value) {
       throw new Error('No codex is currently open')
     }
@@ -485,7 +473,6 @@ export const useSessionStore = defineStore('session', () => {
       runeId,
       notebook.value.fek,
       notebook.value.manifest,
-      signal,
     )
 
     // Update manifest in session state
@@ -519,7 +506,7 @@ export const useSessionStore = defineStore('session', () => {
   /**
    * Get sigil data (decrypted ArrayBuffer)
    */
-  async function getSigil(sigilId: string, signal?: AbortSignal): Promise<ArrayBuffer> {
+  async function getSigil(sigilId: string): Promise<ArrayBuffer> {
     if (!hasOpenCodex.value) {
       throw new Error('No codex is currently open')
     }
@@ -545,7 +532,7 @@ export const useSessionStore = defineStore('session', () => {
     }
 
     // Get blob data
-    const result = await OrchestrationService.getBlob(codexId, sigilId, notebook.value.fek, signal)
+    const result = await OrchestrationService.getBlob(codexId, sigilId, notebook.value.fek)
 
     return result.data
   }
@@ -556,7 +543,6 @@ export const useSessionStore = defineStore('session', () => {
   async function createSigil(
     title: string,
     data: ArrayBuffer,
-    signal?: AbortSignal,
   ): Promise<string> {
     if (!hasOpenCodex.value) {
       throw new Error('No codex is currently open')
@@ -579,7 +565,6 @@ export const useSessionStore = defineStore('session', () => {
       { type: 'image', title },
       notebook.value.fek,
       notebook.value.manifest,
-      signal,
     )
 
     // Update manifest in session state
@@ -591,7 +576,7 @@ export const useSessionStore = defineStore('session', () => {
   /**
    * Delete a sigil
    */
-  async function deleteSigil(sigilId: string, signal?: AbortSignal): Promise<void> {
+  async function deleteSigil(sigilId: string): Promise<void> {
     if (!hasOpenCodex.value) {
       throw new Error('No codex is currently open')
     }
@@ -625,7 +610,6 @@ export const useSessionStore = defineStore('session', () => {
       sigilId,
       notebook.value.fek,
       notebook.value.manifest,
-      signal,
     )
 
     // Update manifest in session state
@@ -639,7 +623,6 @@ export const useSessionStore = defineStore('session', () => {
    */
   async function getSigilUrl(
     sigilId: string,
-    signal?: AbortSignal,
   ): Promise<{ url: string; revoke: () => void }> {
     if (!hasOpenCodex.value) {
       throw new Error('No codex is currently open')
@@ -675,7 +658,7 @@ export const useSessionStore = defineStore('session', () => {
     }
 
     // Get blob data
-    const result = await OrchestrationService.getBlob(codexId, sigilId, notebook.value.fek, signal)
+    const result = await OrchestrationService.getBlob(codexId, sigilId, notebook.value.fek)
 
     // Infer MIME type from file extension (basic detection)
     const ext = entry.title.split('.').pop()?.toLowerCase()

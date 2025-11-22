@@ -61,12 +61,11 @@ export default class OrchestrationService {
 
   /**
    * Initialize new user account (first-time setup)
-   * Creates root meta and map, uploads to remote storage
+   * Creates root meta and map, saves to cache
    */
   static async initialize(
     email: string,
     lookupKey: string,
-    signal?: AbortSignal,
   ): Promise<InitializeResult> {
     // Step 1: Compute lookup hash
     const lookupHash = this.computeLookupHash(email, lookupKey)
@@ -101,19 +100,7 @@ export default class OrchestrationService {
     const mapBytes = new TextEncoder().encode(mapText)
     const encryptedMap = await CryptoService.encryptAndPack(mapBytes, mek)
 
-    // Step 8: Upload both to remote storage in parallel (fail if this fails)
-    try {
-      await Promise.all([
-        RemoteService.upsertRootMeta(rootMeta, signal),
-        RemoteService.upsertMap(encryptedMap, signal),
-      ])
-    } catch (error) {
-      throw new Error(
-        `Failed to save root meta and map to remote storage during initialization: ${error instanceof Error ? error.message : String(error)}`,
-      )
-    }
-
-    // Step 9: Cache both locally in parallel
+    // Step 8: Cache both locally in parallel
     await Promise.all([CacheService.upsertRootMeta(rootMeta), CacheService.upsertMap(encryptedMap)])
 
     return {
@@ -126,27 +113,25 @@ export default class OrchestrationService {
 
   /**
    * Bootstrap existing user account (returning user)
-   * Fetches and decrypts root meta and map from remote storage
+   * Fetches and decrypts root meta and map from cache
    */
   static async bootstrap(
     email: string,
     lookupKey: string,
-    signal?: AbortSignal,
   ): Promise<BootstrapResult> {
     // Step 1: Compute lookup hash
     const lookupHash = this.computeLookupHash(email, lookupKey)
 
-    // Step 2: Fetch root meta and map from remote storage in parallel (fail if this fails)
-    let rootMeta, encryptedMap
-    try {
-      ;[rootMeta, encryptedMap] = await Promise.all([
-        RemoteService.getRootMeta(signal),
-        RemoteService.getMap(signal),
-      ])
-    } catch (error) {
-      throw new Error(
-        `Failed to fetch root meta and map during bootstrap: ${error instanceof Error ? error.message : String(error)}`,
-      )
+    // Step 2: Fetch root meta and map from cache (fail if this fails)
+    const rootMeta = await CacheService.getRootMeta()
+    const encryptedMap = await CacheService.getMap()
+
+    if (!rootMeta) {
+      throw new Error('Root meta not found in cache')
+    }
+
+    if (!encryptedMap) {
+      throw new Error('Map not found in cache')
     }
 
     // Step 3: Derive MKEK using KDF params from root meta
@@ -174,9 +159,6 @@ export default class OrchestrationService {
       )
     }
 
-    // Step 6: Cache both locally in parallel
-    await Promise.all([CacheService.upsertRootMeta(rootMeta), CacheService.upsertMap(encryptedMap)])
-
     return {
       rootMeta,
       map,
@@ -187,15 +169,11 @@ export default class OrchestrationService {
 
   /**
    * Check if bootstrap is possible
-   * Attempts to fetch root meta from remote storage to verify lookup hash is valid
+   * Attempts to fetch root meta from cache to verify it exists
    */
-  static async canBootstrap(signal?: AbortSignal): Promise<boolean> {
-    try {
-      await RemoteService.getRootMeta(signal)
-      return true
-    } catch {
-      return false
-    }
+  static async canBootstrap(): Promise<boolean> {
+    const rootMeta = await CacheService.getRootMeta()
+    return rootMeta !== null
   }
 
   /**
@@ -207,7 +185,6 @@ export default class OrchestrationService {
     lookupHash: string,
     mek: CryptoKey,
     map: Map,
-    signal?: AbortSignal,
   ): Promise<CreateNotebookResult> {
     // Step 1: Create empty manifest (generates notebook ID)
     const manifest = ManifestService.create(notebookTitle)
@@ -248,20 +225,7 @@ export default class OrchestrationService {
     const mapBytes = new TextEncoder().encode(mapText)
     const encryptedMap = await CryptoService.encryptAndPack(mapBytes, mek)
 
-    // Step 9: Upload all files to remote storage in parallel (fail if this fails)
-    try {
-      await Promise.all([
-        RemoteService.upsertNotebookMeta(notebookId, notebookMeta, signal),
-        RemoteService.upsertManifest(notebookId, encryptedManifest, signal),
-        RemoteService.upsertMap(encryptedMap, signal),
-      ])
-    } catch (error) {
-      throw new Error(
-        `Failed to save notebook files to remote storage: ${error instanceof Error ? error.message : String(error)}`,
-      )
-    }
-
-    // Step 10: Cache all files locally in parallel
+    // Step 9: Cache all files locally in parallel
     await Promise.all([
       CacheService.upsertNotebookMeta(notebookId, notebookMeta),
       CacheService.upsertManifest(notebookId, encryptedManifest),
@@ -279,22 +243,16 @@ export default class OrchestrationService {
 
   /**
    * Load an existing notebook
-   * Fetches meta and manifest, then syncs with remote
+   * Fetches meta and manifest from cache
    */
   static async loadNotebook(
     notebookId: string,
     lookupHash: string,
-    onProgress?: (progress: SyncProgress) => void,
-    signal?: AbortSignal,
   ): Promise<LoadNotebookResult> {
-    // Step 1: Fetch notebook meta from remote storage (fail if this fails)
-    let notebookMeta
-    try {
-      notebookMeta = await RemoteService.getNotebookMeta(notebookId, signal)
-    } catch (error) {
-      throw new Error(
-        `Failed to fetch notebook meta: ${error instanceof Error ? error.message : String(error)}`,
-      )
+    // Step 1: Fetch notebook meta from cache (fail if this fails)
+    const notebookMeta = await CacheService.getNotebookMeta(notebookId)
+    if (!notebookMeta) {
+      throw new Error('Notebook meta not found in cache')
     }
 
     // Step 2: Derive FKEK using KDF params from notebook meta
@@ -310,24 +268,13 @@ export default class OrchestrationService {
       )
     }
 
-    // Step 4: Cache notebook meta locally
-    await CacheService.upsertNotebookMeta(notebookId, notebookMeta)
-
-    // Step 5: Sync notebook with remote using SyncService
-    const syncResult = await SyncService.sync({
-      notebookId,
-      fek,
-      onProgress,
-      signal,
-    })
-
-    // Step 6: Get manifest from cache (after sync)
+    // Step 4: Get manifest from cache
     const encryptedManifest = await CacheService.getManifest(notebookId)
     if (!encryptedManifest) {
-      throw new Error('Manifest not found in cache after sync')
+      throw new Error('Manifest not found in cache')
     }
 
-    // Step 7: Decrypt manifest with FEK
+    // Step 5: Decrypt manifest with FEK
     let manifest
     try {
       const decryptedManifestBuffer = await CryptoService.unpackAndDecrypt(encryptedManifest, fek)
@@ -344,7 +291,6 @@ export default class OrchestrationService {
       notebookMeta,
       manifest,
       fek,
-      syncResult,
     }
   }
 
@@ -359,7 +305,6 @@ export default class OrchestrationService {
     mek: CryptoKey,
     manifest: Manifest,
     map: Map,
-    signal?: AbortSignal,
   ): Promise<UpdateNotebookResult> {
     // Step 1: Update manifest and map titles
     const updatedManifest = ManifestService.updateNotebookTitle(manifest, newTitle)
@@ -376,19 +321,7 @@ export default class OrchestrationService {
       CryptoService.encryptAndPack(mapBytes, mek),
     ])
 
-    // Step 3: Upload both to remote storage in parallel (fail if this fails)
-    try {
-      await Promise.all([
-        RemoteService.upsertManifest(notebookId, encryptedManifest, signal),
-        RemoteService.upsertMap(encryptedMap, signal),
-      ])
-    } catch (error) {
-      throw new Error(
-        `Failed to save updated manifest and map to remote storage: ${error instanceof Error ? error.message : String(error)}`,
-      )
-    }
-
-    // Step 4: Cache both locally in parallel
+    // Step 3: Cache both locally in parallel
     await Promise.all([
       CacheService.upsertManifest(notebookId, encryptedManifest),
       CacheService.upsertMap(encryptedMap),
@@ -402,14 +335,13 @@ export default class OrchestrationService {
 
   /**
    * Delete a notebook
-   * Removes notebook from map and deletes all files from remote and cache
+   * Removes notebook from map and deletes all files from cache
    */
   static async deleteNotebook(
     notebookId: string,
     mek: CryptoKey,
     manifest: Manifest,
     map: Map,
-    signal?: AbortSignal,
   ): Promise<DeleteNotebookResult> {
     // Step 1: Remove notebook entry from map
     const updatedMap = MapService.removeEntry(map, notebookId)
@@ -422,29 +354,15 @@ export default class OrchestrationService {
     // Step 3: Collect all blob UUIDs to delete
     const blobUuids = manifest.entries.map((entry) => entry.uuid)
 
-    // Step 4: Delete all files from remote and cache in parallel
-    try {
-      await Promise.all([
-        // Delete notebook meta
-        RemoteService.deleteNotebookMeta(notebookId, signal),
-        // Delete manifest
-        RemoteService.deleteManifest(notebookId, signal),
-        // Delete all blobs
-        ...blobUuids.map((uuid) => RemoteService.deleteBlob(notebookId, uuid, signal)),
-        // Upload updated map
-        RemoteService.upsertMap(encryptedMap, signal),
-        // Delete from cache
-        CacheService.deleteNotebookMeta(notebookId),
-        CacheService.deleteManifest(notebookId),
-        ...blobUuids.map((uuid) => CacheService.deleteBlob(notebookId, uuid)),
-        // Update map in cache
-        CacheService.upsertMap(encryptedMap),
-      ])
-    } catch (error) {
-      throw new Error(
-        `Failed to delete notebook files: ${error instanceof Error ? error.message : String(error)}`,
-      )
-    }
+    // Step 4: Delete all files from cache and update map in parallel
+    await Promise.all([
+      // Delete from cache
+      CacheService.deleteNotebookMeta(notebookId),
+      CacheService.deleteManifest(notebookId),
+      ...blobUuids.map((uuid) => CacheService.deleteBlob(notebookId, uuid)),
+      // Update map in cache
+      CacheService.upsertMap(encryptedMap),
+    ])
 
     return {
       notebookId,
@@ -454,31 +372,21 @@ export default class OrchestrationService {
 
   /**
    * Get a blob from a notebook
-   * Retrieves and decrypts the blob
+   * Retrieves and decrypts the blob from cache
    */
   static async getBlob(
     notebookId: string,
     uuid: string,
     fek: CryptoKey,
-    signal?: AbortSignal,
   ): Promise<GetBlobResult> {
-    // Step 1: Try to get encrypted blob from cache first
-    let encryptedBlob = await CacheService.getBlob(notebookId, uuid)
+    // Step 1: Get encrypted blob from cache
+    const encryptedBlob = await CacheService.getBlob(notebookId, uuid)
 
-    // Step 2: If not in cache, fetch from remote storage
     if (!encryptedBlob) {
-      try {
-        encryptedBlob = await RemoteService.getBlob(notebookId, uuid, signal)
-        // Cache it for future use
-        await CacheService.upsertBlob(notebookId, uuid, encryptedBlob)
-      } catch (error) {
-        throw new Error(
-          `Failed to fetch blob from remote storage: ${error instanceof Error ? error.message : String(error)}`,
-        )
-      }
+      throw new Error(`Blob with UUID ${uuid} not found in cache`)
     }
 
-    // Step 3: Decrypt blob with FEK
+    // Step 2: Decrypt blob with FEK
     let data
     try {
       data = await CryptoService.unpackAndDecrypt(encryptedBlob, fek)
@@ -496,7 +404,7 @@ export default class OrchestrationService {
 
   /**
    * Create a new blob in a notebook
-   * Encrypts and uploads to both cache and remote, updates manifest
+   * Encrypts and saves to cache, updates manifest
    */
   static async createBlob(
     notebookId: string,
@@ -504,7 +412,6 @@ export default class OrchestrationService {
     metadata: BlobMetadata,
     fek: CryptoKey,
     manifest: Manifest,
-    signal?: AbortSignal,
   ): Promise<CreateBlobResult> {
     // Step 1: Compute hash and size of data
     const dataBuffer =
@@ -533,19 +440,11 @@ export default class OrchestrationService {
     const manifestBytes = new TextEncoder().encode(manifestText)
     const encryptedManifest = await CryptoService.encryptAndPack(manifestBytes, fek)
 
-    // Step 5: Upload blob and manifest to remote and cache in parallel
-    try {
-      await Promise.all([
-        RemoteService.upsertBlob(notebookId, uuid, encryptedBlob, signal),
-        RemoteService.upsertManifest(notebookId, encryptedManifest, signal),
-        CacheService.upsertBlob(notebookId, uuid, encryptedBlob),
-        CacheService.upsertManifest(notebookId, encryptedManifest),
-      ])
-    } catch (error) {
-      throw new Error(
-        `Failed to save blob and manifest to storage: ${error instanceof Error ? error.message : String(error)}`,
-      )
-    }
+    // Step 5: Save blob and manifest to cache in parallel
+    await Promise.all([
+      CacheService.upsertBlob(notebookId, uuid, encryptedBlob),
+      CacheService.upsertManifest(notebookId, encryptedManifest),
+    ])
 
     return {
       uuid,
@@ -555,7 +454,7 @@ export default class OrchestrationService {
 
   /**
    * Update an existing blob in a notebook
-   * Encrypts and uploads to both cache and remote, updates manifest
+   * Encrypts and saves to cache, updates manifest
    */
   static async updateBlob(
     notebookId: string,
@@ -564,7 +463,6 @@ export default class OrchestrationService {
     metadata: BlobMetadata,
     fek: CryptoKey,
     manifest: Manifest,
-    signal?: AbortSignal,
   ): Promise<UpdateBlobResult> {
     // Step 1: Verify blob exists in manifest
     const existingEntry = ManifestService.findEntry(manifest, uuid)
@@ -598,19 +496,11 @@ export default class OrchestrationService {
     const manifestBytes = new TextEncoder().encode(manifestText)
     const encryptedManifest = await CryptoService.encryptAndPack(manifestBytes, fek)
 
-    // Step 6: Upload blob and manifest to remote and cache in parallel
-    try {
-      await Promise.all([
-        RemoteService.upsertBlob(notebookId, uuid, encryptedBlob, signal),
-        RemoteService.upsertManifest(notebookId, encryptedManifest, signal),
-        CacheService.upsertBlob(notebookId, uuid, encryptedBlob),
-        CacheService.upsertManifest(notebookId, encryptedManifest),
-      ])
-    } catch (error) {
-      throw new Error(
-        `Failed to save updated blob and manifest to storage: ${error instanceof Error ? error.message : String(error)}`,
-      )
-    }
+    // Step 6: Save blob and manifest to cache in parallel
+    await Promise.all([
+      CacheService.upsertBlob(notebookId, uuid, encryptedBlob),
+      CacheService.upsertManifest(notebookId, encryptedManifest),
+    ])
 
     return {
       uuid,
@@ -620,14 +510,13 @@ export default class OrchestrationService {
 
   /**
    * Delete a blob from a notebook
-   * Removes from both cache and remote, updates manifest
+   * Removes from cache, updates manifest
    */
   static async deleteBlob(
     notebookId: string,
     uuid: string,
     fek: CryptoKey,
     manifest: Manifest,
-    signal?: AbortSignal,
   ): Promise<DeleteBlobResult> {
     // Step 1: Verify blob exists in manifest
     const existingEntry = ManifestService.findEntry(manifest, uuid)
@@ -643,19 +532,11 @@ export default class OrchestrationService {
     const manifestBytes = new TextEncoder().encode(manifestText)
     const encryptedManifest = await CryptoService.encryptAndPack(manifestBytes, fek)
 
-    // Step 4: Delete blob and upload manifest to remote and cache in parallel
-    try {
-      await Promise.all([
-        RemoteService.deleteBlob(notebookId, uuid, signal),
-        RemoteService.upsertManifest(notebookId, encryptedManifest, signal),
-        CacheService.deleteBlob(notebookId, uuid),
-        CacheService.upsertManifest(notebookId, encryptedManifest),
-      ])
-    } catch (error) {
-      throw new Error(
-        `Failed to delete blob and update manifest in storage: ${error instanceof Error ? error.message : String(error)}`,
-      )
-    }
+    // Step 4: Delete blob and save manifest to cache in parallel
+    await Promise.all([
+      CacheService.deleteBlob(notebookId, uuid),
+      CacheService.upsertManifest(notebookId, encryptedManifest),
+    ])
 
     return {
       uuid,
@@ -699,8 +580,11 @@ export default class OrchestrationService {
       const notebookId = entry.uuid
 
       try {
-        // Step 1: Fetch notebook meta
-        const notebookMeta = await RemoteService.getNotebookMeta(notebookId, signal)
+        // Step 1: Fetch notebook meta from cache
+        const notebookMeta = await CacheService.getNotebookMeta(notebookId)
+        if (!notebookMeta) {
+          throw new Error(`Notebook meta not found in cache for notebook ${notebookId}`)
+        }
 
         // Step 2: Derive FKEK from lookup hash
         const fkek = await CryptoService.deriveFKEK(lookupHash, notebookMeta.kdf)
