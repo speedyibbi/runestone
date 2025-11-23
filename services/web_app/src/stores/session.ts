@@ -43,35 +43,60 @@ export const useSessionStore = defineStore('session', () => {
   // ==================== Session Management ====================
 
   /**
-   * Setup session - bootstrap if possible, otherwise initialize
+   * Setup session - determines whether to bootstrap or initialize
+   * Handles three scenarios:
+   * 1. First time user: Initialize new account
+   * 2. Recurring user (same device): Bootstrap from cache
+   * 3. Recurring user (new device): Bootstrap from remote
    */
-  async function setup(userEmail: string, lookupKey: string): Promise<void> {
+  async function setup(userEmail: string, lookupKey: string, signal?: AbortSignal): Promise<void> {
     // If email and lookupHash are already set, return early
     if (email.value && lookupHash.value) {
       throw new Error('Session already setup')
     }
 
-    // Check if bootstrap is possible
-    const canBootstrap = await OrchestrationService.canBootstrap()
+    // IMPORTANT: Compute and set lookupHash immediately
+    // This is required because FileService needs it for remote operations
+    const computedLookupHash = OrchestrationService.computeLookupHash(userEmail, lookupKey)
+    lookupHash.value = computedLookupHash
+    email.value = userEmail
 
-    if (canBootstrap) {
-      // Bootstrap existing user account
-      const result = await OrchestrationService.bootstrap(userEmail, lookupKey)
+    try {
+      // Check if user data exists in cache
+      const existsInCache = await OrchestrationService.existsInCache()
 
-      // Update state
-      email.value = userEmail
-      lookupHash.value = result.lookupHash
-      root.value.mek = result.mek
-      root.value.map = result.map
-    } else {
-      // Initialize new user account
-      const result = await OrchestrationService.initialize(userEmail, lookupKey)
+      if (existsInCache) {
+        // Scenario 2: Recurring user (same device) - Bootstrap from cache
+        const result = await OrchestrationService.bootstrapFromCache(computedLookupHash)
 
-      // Update state
-      email.value = userEmail
-      lookupHash.value = result.lookupHash
-      root.value.mek = result.mek
-      root.value.map = result.map
+        // Update state
+        root.value.mek = result.mek
+        root.value.map = result.map
+      } else {
+        // Cache is empty - check if user exists remotely
+        const existsRemotely = await OrchestrationService.existsRemotely(signal)
+
+        if (existsRemotely) {
+          // Scenario 3: Recurring user (new device) - Bootstrap from remote
+          const result = await OrchestrationService.bootstrapFromRemote(computedLookupHash, signal)
+
+          // Update state
+          root.value.mek = result.mek
+          root.value.map = result.map
+        } else {
+          // Scenario 1: First time user - Initialize new account
+          const result = await OrchestrationService.initialize(computedLookupHash)
+
+          // Update state
+          root.value.mek = result.mek
+          root.value.map = result.map
+        }
+      }
+    } catch (error) {
+      // If setup fails, clear the session state
+      email.value = null
+      lookupHash.value = null
+      throw error
     }
   }
 

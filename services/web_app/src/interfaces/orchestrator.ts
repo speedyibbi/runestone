@@ -9,7 +9,6 @@ export interface InitializeResult {
   rootMeta: RootMeta
   map: Map
   mek: CryptoKey
-  lookupHash: string
 }
 
 /**
@@ -19,7 +18,6 @@ export interface BootstrapResult {
   rootMeta: RootMeta
   map: Map
   mek: CryptoKey
-  lookupHash: string
 }
 
 /**

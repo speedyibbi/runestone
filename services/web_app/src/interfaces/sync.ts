@@ -9,6 +9,7 @@ export interface SyncProgress {
     | 'downloading'
     | 'uploading'
     | 'saving_manifest'
+    | 'syncing_root'
   current: number
   total: number
 }
@@ -31,6 +32,15 @@ export interface SyncResult {
 export interface SyncOptions {
   notebookId: string
   fek: CryptoKey
+  onProgress?: (progress: SyncProgress) => void
+  signal?: AbortSignal
+}
+
+/**
+ * Root sync options
+ */
+export interface RootSyncOptions {
+  mek: CryptoKey
   onProgress?: (progress: SyncProgress) => void
   signal?: AbortSignal
 }

@@ -2,8 +2,11 @@ import RemoteService from '@/services/l2-storage/remote'
 import CacheService from '@/services/l2-storage/cache'
 import CryptoService from '@/services/cryptography/crypto'
 import ManifestService from '@/services/file-io/manifest'
+import MapService from '@/services/file-io/map'
 import type { Manifest, ManifestEntry } from '@/interfaces/manifest'
-import type { SyncProgress, SyncResult, SyncOptions } from '@/interfaces/sync'
+import type { Map } from '@/interfaces/map'
+import type { RootMeta, NotebookMeta } from '@/interfaces/meta'
+import type { SyncProgress, SyncResult, SyncOptions, RootSyncOptions } from '@/interfaces/sync'
 
 /**
  * SyncService handles synchronization between remote and local cache
@@ -27,18 +30,23 @@ export default class SyncService {
    */
   private static compareManifests(
     cached: Manifest | null,
-    remote: Manifest,
+    remote: Manifest | null,
   ): {
     toDownload: ManifestEntry[]
     toUpload: ManifestEntry[]
   } {
+    if (remote && !cached) {
+      return { toDownload: remote.entries, toUpload: [] }
+    } else if (!remote && cached) {
+      return { toDownload: [], toUpload: cached.entries }
+    }
+
+    if (!cached || !remote) {
+      throw new Error('Manifest not found in either remote or cache')
+    }
+
     const toDownload: ManifestEntry[] = []
     const toUpload: ManifestEntry[] = []
-
-    // If no cached manifest, download everything
-    if (!cached) {
-      return { toDownload: remote.entries, toUpload: [] }
-    }
 
     const cachedEntries = new Map<string, ManifestEntry>()
     for (const entry of cached.entries) {
@@ -179,6 +187,7 @@ export default class SyncService {
 
   /**
    * Perform full sync operation
+   * Syncs notebook meta, manifest, and blobs
    */
   static async sync(options: SyncOptions): Promise<SyncResult> {
     const { notebookId, fek, onProgress, signal } = options
@@ -186,6 +195,39 @@ export default class SyncService {
     const errors: string[] = []
 
     try {
+      // Phase 0: Sync notebook meta (unencrypted)
+      try {
+        let remoteNotebookMeta: NotebookMeta | null = null
+        let cachedNotebookMeta: NotebookMeta | null = null
+
+        try {
+          remoteNotebookMeta = await RemoteService.getNotebookMeta(notebookId, signal)
+        } catch {
+          // Remote notebook meta doesn't exist - will upload from cache
+        }
+
+        cachedNotebookMeta = await CacheService.getNotebookMeta(notebookId)
+
+        // Sync notebook meta (cache is source of truth if both exist)
+        if (cachedNotebookMeta) {
+          // Upload to remote if missing or different
+          if (
+            !remoteNotebookMeta ||
+            JSON.stringify(remoteNotebookMeta) !== JSON.stringify(cachedNotebookMeta)
+          ) {
+            await RemoteService.upsertNotebookMeta(notebookId, cachedNotebookMeta, signal)
+          }
+        } else if (remoteNotebookMeta) {
+          // Download to cache if missing
+          await CacheService.upsertNotebookMeta(notebookId, remoteNotebookMeta)
+        } else {
+          errors.push('Notebook meta not found in either remote or cache')
+        }
+      } catch (error) {
+        const errorMessage = `Failed to sync notebook meta: ${error instanceof Error ? error.message : String(error)}`
+        errors.push(errorMessage)
+      }
+
       // Phase 1: Fetch manifests
       this.notifyProgress(onProgress, {
         phase: 'fetching_manifest',
@@ -193,10 +235,17 @@ export default class SyncService {
         total: 2,
       })
 
-      const [remoteManifestEncrypted, cachedManifestEncrypted] = await Promise.all([
-        RemoteService.getManifest(notebookId, signal),
-        CacheService.getManifest(notebookId),
-      ])
+      // Fetch both manifests, handling missing files gracefully
+      let remoteManifestEncrypted: ArrayBuffer | null = null
+      let cachedManifestEncrypted: ArrayBuffer | null = null
+
+      try {
+        remoteManifestEncrypted = await RemoteService.getManifest(notebookId, signal)
+      } catch {
+        // Remote manifest doesn't exist - will upload from cache
+      }
+
+      cachedManifestEncrypted = await CacheService.getManifest(notebookId)
 
       this.notifyProgress(onProgress, {
         phase: 'fetching_manifest',
@@ -204,15 +253,17 @@ export default class SyncService {
         total: 2,
       })
 
-      // Decrypt remote manifest
-      const remoteManifestDecrypted = await CryptoService.unpackAndDecrypt(
-        remoteManifestEncrypted,
-        fek,
-      )
-      const remoteManifestText = new TextDecoder().decode(remoteManifestDecrypted)
-      const remoteManifest = JSON.parse(remoteManifestText) as Manifest
+      // Decrypt manifests if they exist
+      let remoteManifest: Manifest | null = null
+      if (remoteManifestEncrypted) {
+        const remoteManifestDecrypted = await CryptoService.unpackAndDecrypt(
+          remoteManifestEncrypted,
+          fek,
+        )
+        const remoteManifestText = new TextDecoder().decode(remoteManifestDecrypted)
+        remoteManifest = JSON.parse(remoteManifestText) as Manifest
+      }
 
-      // Decrypt cached manifest if it exists
       let cachedManifest: Manifest | null = null
       if (cachedManifestEncrypted) {
         const cachedManifestDecrypted = await CryptoService.unpackAndDecrypt(
@@ -223,6 +274,11 @@ export default class SyncService {
         cachedManifest = JSON.parse(cachedManifestText) as Manifest
       }
 
+      // Handle case where neither manifest exists
+      if (!remoteManifest && !cachedManifest) {
+        throw new Error('Manifest not found in either remote or cache')
+      }
+
       // Phase 2: Compare manifests
       this.notifyProgress(onProgress, {
         phase: 'comparing',
@@ -230,7 +286,10 @@ export default class SyncService {
         total: 1,
       })
 
-      const syncActions = this.compareManifests(cachedManifest, remoteManifest)
+      // Determine sync actions based on which manifests exist
+      let syncActions: { toDownload: ManifestEntry[]; toUpload: ManifestEntry[] }
+      
+      syncActions = this.compareManifests(cachedManifest, remoteManifest)
 
       this.notifyProgress(onProgress, {
         phase: 'comparing',
@@ -281,9 +340,25 @@ export default class SyncService {
         total: 1,
       })
 
-      const { manifest: mergedManifest, conflicts } = cachedManifest
-        ? ManifestService.merge(cachedManifest, remoteManifest)
-        : { manifest: remoteManifest, conflicts: 0 }
+      // Determine the final manifest to save
+      let mergedManifest: Manifest
+      let conflicts = 0
+
+      if (remoteManifest && cachedManifest) {
+        // Both exist - merge them
+        const mergeResult = ManifestService.merge(cachedManifest, remoteManifest)
+        mergedManifest = mergeResult.manifest
+        conflicts = mergeResult.conflicts
+      } else if (remoteManifest) {
+        // Only remote exists - use it as the merged manifest
+        mergedManifest = remoteManifest
+      } else if (cachedManifest) {
+        // Only cache exists - use it as the merged manifest
+        mergedManifest = cachedManifest
+      } else {
+        // Neither exists (already handled above)
+        throw new Error('Manifest not found in either remote or cache')
+      }
 
       // Encrypt merged manifest
       const mergedManifestText = JSON.stringify(mergedManifest, null, 2)
@@ -315,6 +390,176 @@ export default class SyncService {
         success: errors.length === 0,
         downloaded,
         uploaded,
+        conflicts,
+        errors,
+        duration,
+      }
+    } catch (error) {
+      const duration = Date.now() - startTime
+      const isAborted = error instanceof Error && error.name === 'AbortError'
+      const errorMessage = isAborted
+        ? 'Sync cancelled'
+        : error instanceof Error
+          ? error.message
+          : String(error)
+
+      if (!isAborted) {
+        errors.push(errorMessage)
+      }
+
+      this.notifyProgress(onProgress, {
+        phase: 'idle',
+        current: 0,
+        total: 0,
+      })
+
+      return {
+        success: false,
+        downloaded: 0,
+        uploaded: 0,
+        conflicts: 0,
+        errors,
+        duration,
+      }
+    }
+  }
+
+  /**
+   * Sync root-level data (root meta and map)
+   * Root meta is unencrypted JSON, map is encrypted with MEK
+   */
+  static async syncRoot(options: RootSyncOptions): Promise<SyncResult> {
+    const { mek, onProgress, signal } = options
+    const startTime = Date.now()
+    const errors: string[] = []
+
+    try {
+      this.notifyProgress(onProgress, {
+        phase: 'syncing_root',
+        current: 0,
+        total: 4,
+      })
+
+      // Phase 1: Fetch root meta from both sources
+      let remoteRootMeta: RootMeta | null = null
+      let cachedRootMeta: RootMeta | null = null
+
+      try {
+        remoteRootMeta = await RemoteService.getRootMeta(signal)
+      } catch {
+        // Remote root meta doesn't exist - will upload from cache
+      }
+
+      cachedRootMeta = await CacheService.getRootMeta()
+
+      this.notifyProgress(onProgress, {
+        phase: 'syncing_root',
+        current: 1,
+        total: 4,
+      })
+
+      // Determine which root meta to use (cache should be source of truth if both exist)
+      if (cachedRootMeta) {
+        // Upload to remote if missing or different
+        if (!remoteRootMeta || JSON.stringify(remoteRootMeta) !== JSON.stringify(cachedRootMeta)) {
+          await RemoteService.upsertRootMeta(cachedRootMeta, signal)
+        }
+      } else if (remoteRootMeta) {
+        // Download to cache if missing
+        await CacheService.upsertRootMeta(remoteRootMeta)
+      } else {
+        errors.push('Root meta not found in either remote or cache')
+      }
+
+      this.notifyProgress(onProgress, {
+        phase: 'syncing_root',
+        current: 2,
+        total: 4,
+      })
+
+      // Phase 2: Fetch encrypted maps from both sources
+      let remoteMapEncrypted: ArrayBuffer | null = null
+      let cachedMapEncrypted: ArrayBuffer | null = null
+
+      try {
+        remoteMapEncrypted = await RemoteService.getMap(signal)
+      } catch {
+        // Remote map doesn't exist - will upload from cache
+      }
+
+      cachedMapEncrypted = await CacheService.getMap()
+
+      // Decrypt maps if they exist
+      let remoteMap: Map | null = null
+      if (remoteMapEncrypted) {
+        const remoteMapDecrypted = await CryptoService.unpackAndDecrypt(remoteMapEncrypted, mek)
+        const remoteMapText = new TextDecoder().decode(remoteMapDecrypted)
+        remoteMap = JSON.parse(remoteMapText) as Map
+      }
+
+      let cachedMap: Map | null = null
+      if (cachedMapEncrypted) {
+        const cachedMapDecrypted = await CryptoService.unpackAndDecrypt(cachedMapEncrypted, mek)
+        const cachedMapText = new TextDecoder().decode(cachedMapDecrypted)
+        cachedMap = JSON.parse(cachedMapText) as Map
+      }
+
+      this.notifyProgress(onProgress, {
+        phase: 'syncing_root',
+        current: 3,
+        total: 4,
+      })
+
+      // Merge maps and save
+      let finalMap: Map
+      let conflicts = 0
+
+      if (remoteMap && cachedMap) {
+        // Both exist - merge them
+        const mergeResult = MapService.merge(cachedMap, remoteMap)
+        finalMap = mergeResult.map
+        conflicts = mergeResult.conflicts
+      } else if (remoteMap) {
+        // Only remote exists
+        finalMap = remoteMap
+      } else if (cachedMap) {
+        // Only cache exists
+        finalMap = cachedMap
+      } else {
+        errors.push('Map not found in either remote or cache')
+        // Create an empty map as fallback
+        finalMap = MapService.create()
+      }
+
+      // Encrypt and save final map to both locations
+      const finalMapText = JSON.stringify(finalMap, null, 2)
+      const finalMapBytes = new TextEncoder().encode(finalMapText)
+      const encryptedFinalMap = await CryptoService.encryptAndPack(finalMapBytes, mek)
+
+      await Promise.all([
+        RemoteService.upsertMap(encryptedFinalMap, signal),
+        CacheService.upsertMap(encryptedFinalMap),
+      ])
+
+      this.notifyProgress(onProgress, {
+        phase: 'syncing_root',
+        current: 4,
+        total: 4,
+      })
+
+      const duration = Date.now() - startTime
+
+      // Final notification
+      this.notifyProgress(onProgress, {
+        phase: 'idle',
+        current: 0,
+        total: 0,
+      })
+
+      return {
+        success: errors.length === 0,
+        downloaded: 0, // Not tracking individual file downloads for root sync
+        uploaded: 0, // Not tracking individual file uploads for root sync
         conflicts,
         errors,
         duration,

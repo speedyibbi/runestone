@@ -52,7 +52,7 @@ export default class OrchestrationService {
    * Compute lookup hash from email and lookup key
    * Uses HMAC-SHA256(email, lookup_key)
    */
-  private static computeLookupHash(email: string, lookupKey: string): string {
+  static computeLookupHash(email: string, lookupKey: string): string {
     const emailBytes = new TextEncoder().encode(email)
     const keyBytes = new TextEncoder().encode(lookupKey)
     const hashBytes = hmac(sha256, keyBytes, emailBytes)
@@ -63,27 +63,21 @@ export default class OrchestrationService {
    * Initialize new user account (first-time setup)
    * Creates root meta and map, saves to cache
    */
-  static async initialize(
-    email: string,
-    lookupKey: string,
-  ): Promise<InitializeResult> {
-    // Step 1: Compute lookup hash
-    const lookupHash = this.computeLookupHash(email, lookupKey)
-
-    // Step 2: Generate MEK (Map Encryption Key)
+  static async initialize(lookupHash: string): Promise<InitializeResult> {
+    // Step 1: Generate MEK (Map Encryption Key)
     const mek = await CryptoService.generateKey()
 
-    // Step 3: Generate salt and derive MKEK (Map Key Encryption Key) from lookup hash
+    // Step 2: Generate salt and derive MKEK (Map Key Encryption Key) from lookup hash
     const salt = crypto.getRandomValues(new Uint8Array(__APP_CONFIG__.crypto.kdf.saltLength))
     const mkek = await CryptoService.deriveMKEK(lookupHash, {
       ...this.DEFAULT_PBKDF2_PARAMS,
       salt,
     })
 
-    // Step 4: Encrypt MEK with MKEK
+    // Step 3: Encrypt MEK with MKEK
     const encryptedMek = await CryptoService.encryptKey(mek, mkek)
 
-    // Step 5: Create root meta with KDF parameters and encrypted MEK
+    // Step 4: Create root meta with KDF parameters and encrypted MEK
     const rootMeta = MetaService.createRootMeta(
       {
         ...this.DEFAULT_PBKDF2_PARAMS,
@@ -92,37 +86,30 @@ export default class OrchestrationService {
       encryptedMek,
     )
 
-    // Step 6: Create empty map
+    // Step 5: Create empty map
     const map = MapService.create()
 
-    // Step 7: Encrypt map with MEK
+    // Step 6: Encrypt map with MEK
     const mapText = JSON.stringify(map, null, 2)
     const mapBytes = new TextEncoder().encode(mapText)
     const encryptedMap = await CryptoService.encryptAndPack(mapBytes, mek)
 
-    // Step 8: Cache both locally in parallel
+    // Step 7: Cache both locally in parallel
     await Promise.all([CacheService.upsertRootMeta(rootMeta), CacheService.upsertMap(encryptedMap)])
 
     return {
       rootMeta,
       map,
       mek,
-      lookupHash,
     }
   }
 
   /**
-   * Bootstrap existing user account (returning user)
+   * Bootstrap existing user account from cache (returning user, same device)
    * Fetches and decrypts root meta and map from cache
    */
-  static async bootstrap(
-    email: string,
-    lookupKey: string,
-  ): Promise<BootstrapResult> {
-    // Step 1: Compute lookup hash
-    const lookupHash = this.computeLookupHash(email, lookupKey)
-
-    // Step 2: Fetch root meta and map from cache (fail if this fails)
+  static async bootstrapFromCache(lookupHash: string): Promise<BootstrapResult> {
+    // Step 1: Fetch root meta and map from cache (fail if this fails)
     const rootMeta = await CacheService.getRootMeta()
     const encryptedMap = await CacheService.getMap()
 
@@ -134,10 +121,10 @@ export default class OrchestrationService {
       throw new Error('Map not found in cache')
     }
 
-    // Step 3: Derive MKEK using KDF params from root meta
+    // Step 2: Derive MKEK using KDF params from root meta
     const mkek = await CryptoService.deriveMKEK(lookupHash, rootMeta.kdf)
 
-    // Step 4: Decrypt encrypted MEK to get MEK
+    // Step 3: Decrypt encrypted MEK to get MEK
     let mek
     try {
       mek = await CryptoService.decryptKey(rootMeta.encrypted_mek, mkek)
@@ -147,7 +134,7 @@ export default class OrchestrationService {
       )
     }
 
-    // Step 5: Decrypt map with MEK
+    // Step 4: Decrypt map with MEK
     let map
     try {
       const decryptedMapBuffer = await CryptoService.unpackAndDecrypt(encryptedMap, mek)
@@ -163,17 +150,105 @@ export default class OrchestrationService {
       rootMeta,
       map,
       mek,
-      lookupHash,
     }
   }
 
   /**
-   * Check if bootstrap is possible
+   * Bootstrap existing user account from remote (returning user, new device)
+   * Fetches and decrypts root meta and map from remote, then caches locally
+   */
+  static async bootstrapFromRemote(
+    lookupHash: string,
+    signal?: AbortSignal,
+  ): Promise<BootstrapResult> {
+    // Step 1: Fetch root meta and map from remote (fail if this fails)
+    const [rootMeta, encryptedMap] = await Promise.all([
+      RemoteService.getRootMeta(signal),
+      RemoteService.getMap(signal),
+    ])
+
+    if (!rootMeta) {
+      throw new Error('Root meta not found remotely')
+    }
+
+    if (!encryptedMap) {
+      throw new Error('Map not found remotely')
+    }
+
+    // Step 2: Derive MKEK using KDF params from root meta
+    const mkek = await CryptoService.deriveMKEK(lookupHash, rootMeta.kdf)
+
+    // Step 3: Decrypt encrypted MEK to get MEK
+    let mek
+    try {
+      mek = await CryptoService.decryptKey(rootMeta.encrypted_mek, mkek)
+    } catch (error) {
+      throw new Error(
+        `Failed to decrypt MEK (invalid lookup key?): ${error instanceof Error ? error.message : String(error)}`,
+      )
+    }
+
+    // Step 4: Decrypt map with MEK
+    let map
+    try {
+      const decryptedMapBuffer = await CryptoService.unpackAndDecrypt(encryptedMap, mek)
+      const mapText = new TextDecoder().decode(decryptedMapBuffer)
+      map = JSON.parse(mapText) as Map
+    } catch (error) {
+      throw new Error(
+        `Failed to decrypt map: ${error instanceof Error ? error.message : String(error)}`,
+      )
+    }
+
+    // Step 5: Cache both locally for future use
+    await Promise.all([CacheService.upsertRootMeta(rootMeta), CacheService.upsertMap(encryptedMap)])
+
+    return {
+      rootMeta,
+      map,
+      mek,
+    }
+  }
+
+  /**
+   * Check if user data exists in cache
    * Attempts to fetch root meta from cache to verify it exists
    */
-  static async canBootstrap(): Promise<boolean> {
-    const rootMeta = await CacheService.getRootMeta()
-    return rootMeta !== null
+  static async existsInCache(): Promise<boolean> {
+    const [rootMeta, rootMap] = await Promise.all([
+      CacheService.getRootMeta(),
+      CacheService.getMap(),
+    ])
+    return rootMeta !== null && rootMap !== null
+  }
+
+  /**
+   * Check if user data exists remotely
+   * Attempts to fetch root meta from remote to verify account exists
+   */
+  static async existsRemotely(signal?: AbortSignal): Promise<boolean> {
+    try {
+      await RemoteService.getRootMeta(signal)
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  /**
+   * Check if bootstrap is possible remotely
+   * Attempts to fetch root meta from remote to verify it exists
+   */
+  static async canBootstrapRemotely(): Promise<boolean> {
+    try {
+      await Promise.all([
+        RemoteService.getRootMeta(),
+        RemoteService.getMap(),
+      ])
+      return true   
+    } catch {
+      return false
+    }
   }
 
   /**
@@ -242,10 +317,10 @@ export default class OrchestrationService {
   }
 
   /**
-   * Load an existing notebook
+   * Load an existing notebook from cache
    * Fetches meta and manifest from cache
    */
-  static async loadNotebook(
+  static async loadNotebookFromCache(
     notebookId: string,
     lookupHash: string,
   ): Promise<LoadNotebookResult> {
@@ -291,6 +366,88 @@ export default class OrchestrationService {
       notebookMeta,
       manifest,
       fek,
+    }
+  }
+
+  /**
+   * Load an existing notebook from remote
+   * Fetches meta and manifest from remote, then caches locally
+   */
+  static async loadNotebookFromRemote(
+    notebookId: string,
+    lookupHash: string,
+    signal?: AbortSignal,
+  ): Promise<LoadNotebookResult> {
+    // Step 1: Fetch notebook meta from remote (fail if this fails)
+    const notebookMeta = await RemoteService.getNotebookMeta(notebookId, signal)
+
+    // Step 2: Derive FKEK using KDF params from notebook meta
+    const fkek = await CryptoService.deriveFKEK(lookupHash, notebookMeta.kdf)
+
+    // Step 3: Decrypt encrypted FEK to get FEK
+    let fek
+    try {
+      fek = await CryptoService.decryptKey(notebookMeta.encrypted_fek, fkek)
+    } catch (error) {
+      throw new Error(
+        `Failed to decrypt FEK (invalid lookup key?): ${error instanceof Error ? error.message : String(error)}`,
+      )
+    }
+
+    // Step 4: Get manifest from remote
+    const encryptedManifest = await RemoteService.getManifest(notebookId, signal)
+    if (!encryptedManifest) {
+      throw new Error('Manifest not found remotely')
+    }
+
+    // Step 5: Decrypt manifest with FEK
+    let manifest
+    try {
+      const decryptedManifestBuffer = await CryptoService.unpackAndDecrypt(encryptedManifest, fek)
+      const manifestText = new TextDecoder().decode(decryptedManifestBuffer)
+      manifest = JSON.parse(manifestText) as Manifest
+    } catch (error) {
+      throw new Error(
+        `Failed to decrypt manifest: ${error instanceof Error ? error.message : String(error)}`,
+      )
+    }
+
+    // Step 6: Cache both locally for future use
+    await Promise.all([
+      CacheService.upsertNotebookMeta(notebookId, notebookMeta),
+      CacheService.upsertManifest(notebookId, encryptedManifest),
+    ])
+
+    return {
+      notebookId,
+      notebookMeta,
+      manifest,
+      fek,
+    }
+  }
+
+  /**
+   * Load an existing notebook
+   * Tries cache first, then remote if not found in cache
+   */
+  static async loadNotebook(
+    notebookId: string,
+    lookupHash: string,
+    signal?: AbortSignal,
+  ): Promise<LoadNotebookResult> {
+    // Try to load from cache first
+    try {
+      return await this.loadNotebookFromCache(notebookId, lookupHash)
+    } catch (cacheError) {
+      // Cache failed, try remote (new device scenario)
+      try {
+        return await this.loadNotebookFromRemote(notebookId, lookupHash, signal)
+      } catch (remoteError) {
+        // Both failed - throw an informative error
+        throw new Error(
+          `Failed to load notebook from cache or remote. Cache error: ${cacheError instanceof Error ? cacheError.message : String(cacheError)}. Remote error: ${remoteError instanceof Error ? remoteError.message : String(remoteError)}`,
+        )
+      }
     }
   }
 
@@ -617,5 +774,22 @@ export default class OrchestrationService {
     }
 
     return results
+  }
+
+  /**
+   * Sync root-level data (root meta and map)
+   * Should be called before syncing notebooks to ensure map is up-to-date
+   */
+  static async syncRoot(
+    mek: CryptoKey,
+    onProgress?: (progress: SyncProgress) => void,
+    signal?: AbortSignal,
+  ): Promise<SyncResult> {
+    // Use SyncService to sync root-level data
+    return await SyncService.syncRoot({
+      mek,
+      onProgress,
+      signal,
+    })
   }
 }
