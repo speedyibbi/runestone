@@ -87,9 +87,6 @@ export const config = Object.freeze({
       manifest: {
         version: Number(process.env.NOTEBOOK_MANIFEST_VERSION) ?? 1,
       },
-      blobs: {
-        maxSize: Number(process.env.NOTEBOOK_BLOBS_CACHE_MAX_SIZE) ?? 50,
-      },
     },
   },
 });
