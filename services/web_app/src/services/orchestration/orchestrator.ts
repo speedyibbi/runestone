@@ -241,11 +241,8 @@ export default class OrchestrationService {
    */
   static async canBootstrapRemotely(): Promise<boolean> {
     try {
-      await Promise.all([
-        RemoteService.getRootMeta(),
-        RemoteService.getMap(),
-      ])
-      return true   
+      await Promise.all([RemoteService.getRootMeta(), RemoteService.getMap()])
+      return true
     } catch {
       return false
     }
@@ -531,11 +528,7 @@ export default class OrchestrationService {
    * Get a blob from a notebook
    * Retrieves and decrypts the blob from cache
    */
-  static async getBlob(
-    notebookId: string,
-    uuid: string,
-    fek: CryptoKey,
-  ): Promise<GetBlobResult> {
+  static async getBlob(notebookId: string, uuid: string, fek: CryptoKey): Promise<GetBlobResult> {
     // Step 1: Get encrypted blob from cache
     const encryptedBlob = await CacheService.getBlob(notebookId, uuid)
 

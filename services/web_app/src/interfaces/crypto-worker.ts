@@ -5,14 +5,14 @@ export enum CryptoWorkerMessageType {
   // Key derivation
   DERIVE_MKEK = 'DERIVE_MKEK',
   DERIVE_FKEK = 'DERIVE_FKEK',
-  
+
   // Key operations
   GENERATE_KEY = 'GENERATE_KEY',
   ENCRYPT_KEY = 'ENCRYPT_KEY',
   DECRYPT_KEY = 'DECRYPT_KEY',
   EXPORT_KEY = 'EXPORT_KEY',
   IMPORT_KEY = 'IMPORT_KEY',
-  
+
   // Blob operations
   ENCRYPT_BLOB = 'ENCRYPT_BLOB',
   DECRYPT_BLOB = 'DECRYPT_BLOB',

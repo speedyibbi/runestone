@@ -288,7 +288,7 @@ export default class SyncService {
 
       // Determine sync actions based on which manifests exist
       let syncActions: { toDownload: ManifestEntry[]; toUpload: ManifestEntry[] }
-      
+
       syncActions = this.compareManifests(cachedManifest, remoteManifest)
 
       this.notifyProgress(onProgress, {

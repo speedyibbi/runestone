@@ -12,7 +12,10 @@ import { CryptoWorkerMessageType as MessageType } from '@/interfaces/crypto-work
  */
 export class CryptoWorkerClient {
   private worker: Worker
-  private pendingRequests: Map<string, { resolve: (value: any) => void; reject: (error: Error) => void }>
+  private pendingRequests: Map<
+    string,
+    { resolve: (value: any) => void; reject: (error: Error) => void }
+  >
   private requestIdCounter: number
 
   constructor() {
@@ -213,7 +216,7 @@ export class CryptoWorkerClient {
   async encryptBlob(data: ArrayBuffer, key: SerializedCryptoKey): Promise<SerializedEncryptedData> {
     // Clone the buffer to avoid transferring it (since we need to keep the original)
     const dataClone = data.slice(0)
-    
+
     const request: CryptoWorkerRequest = {
       id: this.generateRequestId(),
       type: MessageType.ENCRYPT_BLOB,
@@ -238,7 +241,7 @@ export class CryptoWorkerClient {
   ): Promise<ArrayBuffer> {
     // Clone the ciphertext to avoid transferring it
     const ciphertextClone = encryptedData.ciphertext.slice(0)
-    
+
     const request: CryptoWorkerRequest = {
       id: this.generateRequestId(),
       type: MessageType.DECRYPT_BLOB,
@@ -264,7 +267,7 @@ export class CryptoWorkerClient {
   async encryptAndPack(data: ArrayBuffer, key: SerializedCryptoKey): Promise<Uint8Array> {
     // Clone the buffer to avoid transferring it
     const dataClone = data.slice(0)
-    
+
     const request: CryptoWorkerRequest = {
       id: this.generateRequestId(),
       type: MessageType.ENCRYPT_AND_PACK,
@@ -286,7 +289,7 @@ export class CryptoWorkerClient {
   async unpackAndDecrypt(data: ArrayBuffer, key: SerializedCryptoKey): Promise<ArrayBuffer> {
     // Clone the buffer to avoid transferring it
     const dataClone = data.slice(0)
-    
+
     const request: CryptoWorkerRequest = {
       id: this.generateRequestId(),
       type: MessageType.UNPACK_AND_DECRYPT,

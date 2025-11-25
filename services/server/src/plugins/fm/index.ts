@@ -22,7 +22,10 @@ export default <FastifyPluginCallback>function (fastify, options, done) {
       const { "x-lookup": lookup } = request.headers;
 
       const hmac = crypto
-        .createHmac("sha256", Array.isArray(lookup) ? lookup[0] : (lookup ?? ""))
+        .createHmac(
+          "sha256",
+          Array.isArray(lookup) ? lookup[0] : (lookup ?? ""),
+        )
         .digest("hex");
 
       request.hmac = hmac;

@@ -173,10 +173,7 @@ export const useSessionStore = defineStore('session', () => {
     }
 
     // Load notebook
-    const result = await OrchestrationService.loadNotebook(
-      codexId,
-      lookupHash.value,
-    )
+    const result = await OrchestrationService.loadNotebook(codexId, lookupHash.value)
 
     // Update session state
     notebook.value.fek = result.fek
@@ -565,10 +562,7 @@ export const useSessionStore = defineStore('session', () => {
   /**
    * Create a new sigil
    */
-  async function createSigil(
-    title: string,
-    data: ArrayBuffer,
-  ): Promise<string> {
+  async function createSigil(title: string, data: ArrayBuffer): Promise<string> {
     if (!hasOpenCodex.value) {
       throw new Error('No codex is currently open')
     }
@@ -646,9 +640,7 @@ export const useSessionStore = defineStore('session', () => {
    * Automatically manages URL lifecycle - old URLs are revoked when new ones are created
    * Returns an object with the URL and a manual revoke function
    */
-  async function getSigilUrl(
-    sigilId: string,
-  ): Promise<{ url: string; revoke: () => void }> {
+  async function getSigilUrl(sigilId: string): Promise<{ url: string; revoke: () => void }> {
     if (!hasOpenCodex.value) {
       throw new Error('No codex is currently open')
     }

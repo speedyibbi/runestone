@@ -367,10 +367,7 @@ async function encryptAndPack(data: ArrayBuffer, key: SerializedCryptoKey): Prom
 /**
  * Unpack storage format and decrypt data
  */
-async function unpackAndDecrypt(
-  data: ArrayBuffer,
-  key: SerializedCryptoKey,
-): Promise<ArrayBuffer> {
+async function unpackAndDecrypt(data: ArrayBuffer, key: SerializedCryptoKey): Promise<ArrayBuffer> {
   const encryptedData = unpackEncrypted(data)
   return await decryptBlob(encryptedData, key)
 }
