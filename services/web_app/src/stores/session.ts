@@ -11,7 +11,6 @@ import type { SyncProgress, SyncResult } from '@/interfaces/sync'
  */
 export const useSessionStore = defineStore('session', () => {
   // ==================== State ====================
-  const email = ref<string | null>(null)
   const lookupHash = ref<string | null>(null)
 
   const root = ref<{
@@ -35,7 +34,7 @@ export const useSessionStore = defineStore('session', () => {
   const sigilUrlCache = ref<globalThis.Map<string, string>>(new globalThis.Map())
 
   // ==================== Computed ====================
-  const isActive = computed(() => email.value !== null && lookupHash.value !== null)
+  const isActive = computed(() => lookupHash.value !== null)
   const hasOpenCodex = computed(
     () => notebook.value.fek !== null && notebook.value.manifest !== null,
   )
@@ -49,17 +48,16 @@ export const useSessionStore = defineStore('session', () => {
    * 2. Recurring user (same device): Bootstrap from cache
    * 3. Recurring user (new device): Bootstrap from remote
    */
-  async function setup(userEmail: string, lookupKey: string, signal?: AbortSignal): Promise<void> {
-    // If email and lookupHash are already set, return early
-    if (email.value && lookupHash.value) {
+  async function setup(userPassphrase: string, signal?: AbortSignal): Promise<void> {
+    // If lookupHash is already set, return early
+    if (lookupHash.value) {
       throw new Error('Session already setup')
     }
 
     // IMPORTANT: Compute and set lookupHash immediately
     // This is required because FileService needs it for remote operations
-    const computedLookupHash = OrchestrationService.computeLookupHash(userEmail, lookupKey)
+    const computedLookupHash = OrchestrationService.computeLookupHash(userPassphrase)
     lookupHash.value = computedLookupHash
-    email.value = userEmail
 
     try {
       // Check if user data exists in cache
@@ -94,7 +92,6 @@ export const useSessionStore = defineStore('session', () => {
       }
     } catch (error) {
       // If setup fails, clear the session state
-      email.value = null
       lookupHash.value = null
       throw error
     }
@@ -107,26 +104,11 @@ export const useSessionStore = defineStore('session', () => {
     // Revoke all blob URLs before clearing state
     revokeAllSigilUrls()
 
-    email.value = null
     lookupHash.value = null
     root.value.mek = null
     root.value.map = null
     notebook.value.fek = null
     notebook.value.manifest = null
-  }
-
-  /**
-   * Get current user email
-   */
-  function getEmail(): string | null {
-    return email.value
-  }
-
-  /**
-   * Get current lookup hash
-   */
-  function getLookupHash(): string | null {
-    return lookupHash.value
   }
 
   // ==================== Codex (Notebook) Operations ====================
@@ -838,8 +820,6 @@ export const useSessionStore = defineStore('session', () => {
     // Session Management
     setup,
     teardown,
-    getEmail,
-    getLookupHash,
 
     // Codex Operations
     listCodexes,

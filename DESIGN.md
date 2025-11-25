@@ -57,7 +57,7 @@ The following technical terms are presented to users with different names:
 ### Key Derivation Flow:
 
 ```
-email + lookup_key → [HMAC-SHA256] → lookup_hash
+passphrase → [SHA256] → lookup_hash
 
 lookup_hash + root_salt → [PBKDF2] → MKEK → decrypt encrypted_mek → MEK → decrypt map.json.enc
 
@@ -66,7 +66,7 @@ lookup_hash + notebook_salt → [Argon2id] → FKEK → decrypt encrypted_fek �
 FEK → decrypt manifest.json.enc, blobs, search.db.enc
 ```
 
-**Note**: The system architecture supports using the same lookup_key for all notebooks (user convenience) or different keys per notebook (future flexibility). Each derivation is independent due to unique salts and KDF parameters. The lookup_hash is computed once from email and lookup_key, then used for all key derivations.
+**Note**: The lookup_hash is computed once from the passphrase using SHA256, then used for all key derivations. Each notebook's encryption is independent due to unique salts and KDF parameters.
 
 ### Root meta.json structure:
 
@@ -166,7 +166,7 @@ FEK → decrypt manifest.json.enc, blobs, search.db.enc
 
 ## 5. Filenames & IDs
 
-- **Lookup Hash**: HMAC-SHA256(email, lookup_key) → used as root storage directory.
+- **Lookup Hash**: SHA256(passphrase) → used as root storage directory.
 - **Notebook ID**: random UUID v4.
 - **Blob IDs**: random UUID v4.
 - **Storage paths**:
@@ -184,8 +184,8 @@ FEK → decrypt manifest.json.enc, blobs, search.db.enc
 
 ### First-time setup (new device):
 
-1. User enters **email + lookup_key** (once).
-2. Compute `lookup_hash = HMAC-SHA256(email, lookup_key)`.
+1. User enters **passphrase** (once).
+2. Compute `lookup_hash = SHA256(passphrase)`.
 3. Fetch `/<lookup_hash>/meta.json` (root meta).
 4. Derive `MKEK = PBKDF2(lookup_hash, root_salt, 10k iterations)`.
 5. Decrypt `encrypted_mek` with MKEK to get MEK.
@@ -263,7 +263,7 @@ opfs/
 
 ## 10. Server Responsibilities
 
-- **Path derivation**: Compute `lookup_hash = HMAC(email, lookup_key)` to determine storage root path.
+- **Path derivation**: Compute `lookup_hash = SHA256(passphrase)` to determine storage root path.
 - **Return root meta.json** when requested (`/<lookup_hash>/meta.json`).
 - **Return map.json.enc** when requested (`/<lookup_hash>/map.json.enc`).
 - **Return notebook meta.json** when requested (`/<lookup_hash>/<notebook_id>/meta.json`).
@@ -273,7 +273,7 @@ opfs/
 
 **Zero-Knowledge Guarantee**:
 
-- Server never sees email (only lookup_hash).
-- Server never sees lookup_key, passphrases, or any encryption keys (MKEK, MEK, FKEK, FEK).
+- Server never sees the passphrase (only lookup_hash derived from it).
+- Server never sees any encryption keys (MKEK, MEK, FKEK, FEK).
 - Server never sees decrypted data (notebook titles, note content, metadata).
 - Server only handles encrypted blobs and metadata.

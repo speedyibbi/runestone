@@ -1,4 +1,3 @@
-import { hmac } from '@noble/hashes/hmac'
 import { sha256 } from '@noble/hashes/sha2'
 import CryptoService from '@/services/cryptography/crypto'
 import MetaService from '@/services/file-io/meta'
@@ -49,13 +48,12 @@ export default class OrchestrationService {
   }
 
   /**
-   * Compute lookup hash from email and lookup key
-   * Uses HMAC-SHA256(email, lookup_key)
+   * Compute lookup hash from passphrase
+   * Uses SHA256(passphrase)
    */
-  static computeLookupHash(email: string, lookupKey: string): string {
-    const emailBytes = new TextEncoder().encode(email)
-    const keyBytes = new TextEncoder().encode(lookupKey)
-    const hashBytes = hmac(sha256, keyBytes, emailBytes)
+  static computeLookupHash(passphrase: string): string {
+    const passphraseBytes = new TextEncoder().encode(passphrase)
+    const hashBytes = sha256(passphraseBytes)
     return toBase64(hashBytes)
   }
 
