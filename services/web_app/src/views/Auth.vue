@@ -14,7 +14,7 @@ const handleSubmit = () => {
       <input
         v-model="passphrase"
         type="password"
-        placeholder="Enter passphrase"
+        placeholder="Passphrase"
         @keyup.enter="handleSubmit"
         autofocus
       />
@@ -29,7 +29,7 @@ main {
   display: flex;
   justify-content: center;
   align-items: center;
-  background-color: #000015;
+  background-color: var(--color-background);
 }
 
 .input-container {
@@ -39,23 +39,23 @@ main {
 }
 
 input {
-  width: 400px;
-  padding: 1rem;
-  font-size: 1rem;
-  border: 2px solid #ccaaff;
-  border-radius: 8px;
-  background-color: rgba(0, 0, 21, 0.8);
-  color: #ffffff;
+  width: 35rem;
+  padding: 1rem 0;
+  font-size: 1.5rem;
+  border: none;
+  border-bottom: 0.1rem solid var(--color-accent);
+  background-color: transparent;
+  color: var(--color-foreground);
   text-align: center;
+  transition: border-bottom-color 0.2s ease;
 }
 
 input::placeholder {
-  color: rgba(204, 170, 255, 0.5);
+  color: var(--color-accent);
 }
 
 input:focus {
   outline: none;
-  border-color: #ffffff;
-  box-shadow: 0 0 20px rgba(204, 170, 255, 0.3);
+  border-bottom-color: var(--color-foreground);
 }
 </style>
