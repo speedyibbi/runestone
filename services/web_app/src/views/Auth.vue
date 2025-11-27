@@ -24,12 +24,11 @@ const handleSubmit = () => {
 
 <style scoped>
 main {
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  height: 100%;
   display: flex;
   justify-content: center;
   align-items: center;
-  background-color: var(--color-background);
 }
 
 .input-container {
@@ -41,12 +40,12 @@ main {
 input {
   width: 35rem;
   padding: 1rem 0;
+  color: var(--color-foreground);
   font-size: 1.5rem;
+  text-align: center;
   border: none;
   border-bottom: 0.1rem solid var(--color-accent);
   background-color: transparent;
-  color: var(--color-foreground);
-  text-align: center;
   transition: border-bottom-color 0.2s ease;
 }
 

@@ -1,16 +1,13 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
 
-/* Variables */
+/* Theme */
 :root {
   --color-accent: #4f535b;
   --color-foreground: #ffffff;
   --color-background: #000000;
-}
 
-/* Fonts */
-:root {
   --font-primary: 'Inter', sans-serif;
-  font-family: var(--font-primary);
+
   font-size: calc(100vmin * 0.01);
 }
 

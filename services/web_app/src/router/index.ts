@@ -8,6 +8,10 @@ const router = createRouter({
     {
       path: '/',
       name: 'auth',
+      meta: {
+        title: 'Unlock Vault',
+        description: 'Unlock your vault to access your data',
+      },
       component: Auth,
     },
   ],
