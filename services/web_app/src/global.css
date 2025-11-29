@@ -5,6 +5,8 @@
   --color-accent: #4f535b;
   --color-foreground: #ffffff;
   --color-background: #000000;
+  --color-selection: #4f535b4d;
+  --color-selection-focused: #4f535b66;
 
   --font-primary: 'Inter', sans-serif;
 
