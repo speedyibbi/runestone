@@ -3,7 +3,7 @@ import { EditorState, Selection, TextSelection, NodeSelection, Plugin } from 'pr
 import { EditorView } from 'prosemirror-view'
 import { Schema, type MarkType, type NodeType } from 'prosemirror-model'
 import { schema as basicSchema } from 'prosemirror-schema-basic'
-import { addListNodes } from 'prosemirror-schema-list'
+import { addListNodes, sinkListItem, liftListItem, splitListItem } from 'prosemirror-schema-list'
 import { keymap } from 'prosemirror-keymap'
 import { baseKeymap, toggleMark, setBlockType, wrapIn } from 'prosemirror-commands'
 import { history, undo, redo } from 'prosemirror-history'
@@ -478,12 +478,55 @@ function buildKeymap(schema: Schema) {
     'Shift-Ctrl-0': setBlockType(schema.nodes.paragraph),
     'Shift-Ctrl->': wrapIn(schema.nodes.blockquote),
 
+    // List operations (with 10-level depth limit)
+    'Tab': sinkListItemWithLimit(schema.nodes.list_item, 10),
+    'Shift-Tab': liftListItem(schema.nodes.list_item),
+    'Enter': splitListItem(schema.nodes.list_item),
+
     // Navigation that skips horizontal rules
     'ArrowUp': skipHorizontalRule('up'),
     'ArrowDown': skipHorizontalRule('down'),
   }
 
   return keys
+}
+
+// ============================================================================
+// LIST DEPTH LIMITER
+// ============================================================================
+
+/**
+ * Calculate the depth of a list item (how many parent lists it has)
+ */
+function getListDepth($pos: any): number {
+  let depth = 0
+  for (let i = $pos.depth; i > 0; i--) {
+    const node = $pos.node(i)
+    if (node.type.name === 'bullet_list' || node.type.name === 'ordered_list') {
+      depth++
+    }
+  }
+  return depth
+}
+
+/**
+ * Sink list item with depth limit (max 10 levels)
+ */
+function sinkListItemWithLimit(nodeType: NodeType, maxDepth: number = 10) {
+  return (state: any, dispatch: any) => {
+    const { $from } = state.selection
+    
+    // Check current depth
+    const currentDepth = getListDepth($from)
+    
+    // Prevent sinking if already at max depth
+    if (currentDepth >= maxDepth) {
+      return false
+    }
+    
+    // Use the built-in sinkListItem command
+    return sinkListItem(nodeType)(state, dispatch)
+  }
 }
 
 // ============================================================================
@@ -802,6 +845,8 @@ export interface EditorCommands {
   makeParagraph: () => void
   makeBlockquote: () => void
   makeCodeBlock: () => void
+  makeBulletList: () => void
+  makeOrderedList: () => void
   insertHorizontalRule: () => void
   insertFootnote: () => void
 }
@@ -920,6 +965,22 @@ export function useEditor(): UseEditorReturn {
       if (!editorView.value) return
       const view = editorView.value as EditorView
       const command = setBlockType(schema.nodes.code_block)
+      command(view.state, view.dispatch, view)
+      view.focus()
+    },
+
+    makeBulletList() {
+      if (!editorView.value) return
+      const view = editorView.value as EditorView
+      const command = wrapIn(schema.nodes.bullet_list)
+      command(view.state, view.dispatch, view)
+      view.focus()
+    },
+
+    makeOrderedList() {
+      if (!editorView.value) return
+      const view = editorView.value as EditorView
+      const command = wrapIn(schema.nodes.ordered_list)
       command(view.state, view.dispatch, view)
       view.focus()
     },

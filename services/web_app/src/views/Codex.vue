@@ -33,6 +33,8 @@ const { editorElement, bubbleMenu, bubbleMenuElement, commands } = useEditor()
       <button @mousedown.prevent="commands.makeHeading(6)" title="Heading 6">H6</button>
       <button @mousedown.prevent="commands.makeParagraph" title="Paragraph">P</button>
       <span class="separator"></span>
+      <button @mousedown.prevent="commands.makeBulletList" title="Bullet List">•</button>
+      <button @mousedown.prevent="commands.makeOrderedList" title="Numbered List">1.</button>
       <button @mousedown.prevent="commands.makeBlockquote" title="Quote">" "</button>
       <button @mousedown.prevent="commands.makeCodeBlock" title="Code Block">&lt;/&gt;</button>
       <button @mousedown.prevent="commands.insertHorizontalRule" title="Horizontal Rule">—</button>
@@ -122,16 +124,90 @@ main {
   margin-bottom: 1rem;
 }
 
-:deep(.ProseMirror ul) {
-  list-style: disc;
-}
-
-:deep(.ProseMirror ol) {
-  list-style: decimal;
-}
-
 :deep(.ProseMirror li) {
   margin-bottom: 0.25rem;
+}
+
+/* Bullet list styles - cycles every 3 levels, up to 10 levels */
+:deep(.ProseMirror ul) {
+  list-style-type: disc;
+}
+
+:deep(.ProseMirror ul ul) {
+  list-style-type: circle;
+}
+
+:deep(.ProseMirror ul ul ul) {
+  list-style-type: square;
+}
+
+:deep(.ProseMirror ul ul ul ul) {
+  list-style-type: disc;
+}
+
+:deep(.ProseMirror ul ul ul ul ul) {
+  list-style-type: circle;
+}
+
+:deep(.ProseMirror ul ul ul ul ul ul) {
+  list-style-type: square;
+}
+
+:deep(.ProseMirror ul ul ul ul ul ul ul) {
+  list-style-type: disc;
+}
+
+:deep(.ProseMirror ul ul ul ul ul ul ul ul) {
+  list-style-type: circle;
+}
+
+:deep(.ProseMirror ul ul ul ul ul ul ul ul ul) {
+  list-style-type: square;
+}
+
+:deep(.ProseMirror ul ul ul ul ul ul ul ul ul ul) {
+  list-style-type: disc;
+}
+
+/* Ordered list styles - cycles every 3 levels, up to 10 levels */
+:deep(.ProseMirror ol) {
+  list-style-type: decimal;
+}
+
+:deep(.ProseMirror ol ol) {
+  list-style-type: lower-alpha;
+}
+
+:deep(.ProseMirror ol ol ol) {
+  list-style-type: lower-roman;
+}
+
+:deep(.ProseMirror ol ol ol ol) {
+  list-style-type: decimal;
+}
+
+:deep(.ProseMirror ol ol ol ol ol) {
+  list-style-type: lower-alpha;
+}
+
+:deep(.ProseMirror ol ol ol ol ol ol) {
+  list-style-type: lower-roman;
+}
+
+:deep(.ProseMirror ol ol ol ol ol ol ol) {
+  list-style-type: decimal;
+}
+
+:deep(.ProseMirror ol ol ol ol ol ol ol ol) {
+  list-style-type: lower-alpha;
+}
+
+:deep(.ProseMirror ol ol ol ol ol ol ol ol ol) {
+  list-style-type: lower-roman;
+}
+
+:deep(.ProseMirror ol ol ol ol ol ol ol ol ol ol) {
+  list-style-type: decimal;
 }
 
 :deep(.ProseMirror code) {
