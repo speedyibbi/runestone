@@ -1,213 +1,7 @@
 <script lang="ts" setup>
-import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
-import { EditorState } from 'prosemirror-state'
-import { EditorView } from 'prosemirror-view'
-import { Schema, DOMParser, DOMSerializer } from 'prosemirror-model'
-import { schema as basicSchema } from 'prosemirror-schema-basic'
-import { addListNodes } from 'prosemirror-schema-list'
-import { keymap } from 'prosemirror-keymap'
-import { baseKeymap, toggleMark, setBlockType, wrapIn } from 'prosemirror-commands'
-import { history, undo, redo } from 'prosemirror-history'
-import { inputRules, wrappingInputRule, textblockTypeInputRule, smartQuotes, emDash, ellipsis } from 'prosemirror-inputrules'
+import { useEditor } from '@/composables/useEditor'
 
-// Create schema with list support
-const mySchema = new Schema({
-  nodes: addListNodes(basicSchema.spec.nodes, 'paragraph block*', 'block'),
-  marks: basicSchema.spec.marks
-})
-
-const editorElement = ref<HTMLElement | null>(null)
-const bubbleMenu = ref<HTMLElement | null>(null)
-let editorView: EditorView | null = null
-
-// Bubble menu state
-const showBubble = ref(false)
-const bubblePosition = ref({ top: 0, left: 0 })
-
-// Input rules for markdown shortcuts
-function buildInputRules(schema: Schema) {
-  const rules = []
-  
-  // Headings: # space = h1, ## space = h2, ### space = h3
-  rules.push(textblockTypeInputRule(/^#\s/, schema.nodes.heading, { level: 1 }))
-  rules.push(textblockTypeInputRule(/^##\s/, schema.nodes.heading, { level: 2 }))
-  rules.push(textblockTypeInputRule(/^###\s/, schema.nodes.heading, { level: 3 }))
-  
-  // Blockquote: > space
-  rules.push(wrappingInputRule(/^\s*>\s/, schema.nodes.blockquote))
-  
-  // Code block: ``` space
-  rules.push(textblockTypeInputRule(/^```\s/, schema.nodes.code_block))
-  
-  // Bullet list: - space or * space
-  rules.push(wrappingInputRule(/^\s*([-+*])\s/, schema.nodes.bullet_list))
-  
-  // Ordered list: 1. space
-  rules.push(wrappingInputRule(/^(\d+)\.\s/, schema.nodes.ordered_list))
-  
-  // Add smart quotes and other typographic helpers
-  rules.push(...smartQuotes)
-  rules.push(ellipsis)
-  rules.push(emDash)
-  
-  return inputRules({ rules })
-}
-
-// Keybindings
-function buildKeymap(schema: Schema) {
-  const keys: { [key: string]: any } = {
-    'Mod-z': undo,
-    'Mod-y': redo,
-    'Mod-Shift-z': redo,
-    'Mod-b': toggleMark(schema.marks.strong),
-    'Mod-i': toggleMark(schema.marks.em),
-    'Mod-`': toggleMark(schema.marks.code),
-    'Shift-Ctrl-1': setBlockType(schema.nodes.heading, { level: 1 }),
-    'Shift-Ctrl-2': setBlockType(schema.nodes.heading, { level: 2 }),
-    'Shift-Ctrl-3': setBlockType(schema.nodes.heading, { level: 3 }),
-    'Shift-Ctrl-0': setBlockType(schema.nodes.paragraph),
-    'Shift-Ctrl->': wrapIn(schema.nodes.blockquote),
-  }
-  
-  return keys
-}
-
-// Update bubble menu position
-function updateBubbleMenu(view: EditorView) {
-  const { state } = view
-  const { from, to, empty } = state.selection
-  
-  // Hide if selection is empty
-  if (empty) {
-    showBubble.value = false
-    return
-  }
-  
-  // Get coordinates of selection
-  const start = view.coordsAtPos(from)
-  const end = view.coordsAtPos(to)
-  
-  // Calculate initial position (centered above selection)
-  let left = (start.left + end.left) / 2
-  let top = start.top - 50 // 50px above selection
-  
-  // Show bubble temporarily to measure it
-  showBubble.value = true
-  
-  // Wait for next tick to ensure bubble is rendered
-  nextTick(() => {
-    if (!bubbleMenu.value) return
-    
-    const menuRect = bubbleMenu.value.getBoundingClientRect()
-    const menuWidth = menuRect.width
-    const menuHeight = menuRect.height
-    
-    // Adjust horizontal position if going off screen
-    // Account for transform: translateX(-50%)
-    const leftEdge = left - menuWidth / 2
-    const rightEdge = left + menuWidth / 2
-    
-    if (leftEdge < 10) {
-      // Too far left, adjust
-      left = menuWidth / 2 + 10
-    } else if (rightEdge > window.innerWidth - 10) {
-      // Too far right, adjust
-      left = window.innerWidth - menuWidth / 2 - 10
-    }
-    
-    // Adjust vertical position if going off top
-    if (top < 10) {
-      // Position below selection instead
-      top = end.bottom + 10
-    }
-    
-    bubblePosition.value = { top, left }
-  })
-}
-
-// Bubble menu commands
-function toggleStrong() {
-  if (!editorView) return
-  const command = toggleMark(mySchema.marks.strong)
-  command(editorView.state, editorView.dispatch)
-  editorView.focus()
-}
-
-function toggleEm() {
-  if (!editorView) return
-  const command = toggleMark(mySchema.marks.em)
-  command(editorView.state, editorView.dispatch)
-  editorView.focus()
-}
-
-function toggleCode() {
-  if (!editorView) return
-  const command = toggleMark(mySchema.marks.code)
-  command(editorView.state, editorView.dispatch)
-  editorView.focus()
-}
-
-function makeHeading(level: number) {
-  if (!editorView) return
-  const command = setBlockType(mySchema.nodes.heading, { level })
-  command(editorView.state, editorView.dispatch)
-  editorView.focus()
-}
-
-function makeParagraph() {
-  if (!editorView) return
-  const command = setBlockType(mySchema.nodes.paragraph)
-  command(editorView.state, editorView.dispatch)
-  editorView.focus()
-}
-
-function makeBlockquote() {
-  if (!editorView) return
-  const command = wrapIn(mySchema.nodes.blockquote)
-  command(editorView.state, editorView.dispatch)
-  editorView.focus()
-}
-
-function makeCodeBlock() {
-  if (!editorView) return
-  const command = setBlockType(mySchema.nodes.code_block)
-  command(editorView.state, editorView.dispatch)
-  editorView.focus()
-}
-
-onMounted(() => {
-  if (!editorElement.value) return
-  
-  const state = EditorState.create({
-    schema: mySchema,
-    plugins: [
-      history(),
-      buildInputRules(mySchema),
-      keymap(buildKeymap(mySchema)),
-      keymap(baseKeymap),
-    ],
-  })
-  
-  editorView = new EditorView(editorElement.value, {
-    state,
-    dispatchTransaction(transaction) {
-      if (!editorView) return
-      const newState = editorView.state.apply(transaction)
-      editorView.updateState(newState)
-      
-      // Update bubble menu on selection change
-      if (transaction.selectionSet) {
-        updateBubbleMenu(editorView)
-      }
-    },
-  })
-})
-
-onBeforeUnmount(() => {
-  if (editorView) {
-    editorView.destroy()
-  }
-})
+const { editorElement, bubbleMenu, commands } = useEditor()
 </script>
 
 <template>
@@ -215,25 +9,25 @@ onBeforeUnmount(() => {
     <div ref="editorElement" class="editor"></div>
     
     <div 
-      v-if="showBubble" 
-      ref="bubbleMenu" 
+      v-if="bubbleMenu.show.value" 
+      ref="bubbleMenu.element.value" 
       class="bubble-menu"
       :style="{
-        top: `${bubblePosition.top}px`,
-        left: `${bubblePosition.left}px`,
+        top: `${bubbleMenu.position.value.top}px`,
+        left: `${bubbleMenu.position.value.left}px`,
       }"
     >
-      <button @mousedown.prevent="toggleStrong" title="Bold (Ctrl+B)">B</button>
-      <button @mousedown.prevent="toggleEm" title="Italic (Ctrl+I)">I</button>
-      <button @mousedown.prevent="toggleCode" title="Code (Ctrl+`)">{ }</button>
+      <button @mousedown.prevent="commands.toggleStrong" title="Bold (Ctrl+B)">B</button>
+      <button @mousedown.prevent="commands.toggleEm" title="Italic (Ctrl+I)">I</button>
+      <button @mousedown.prevent="commands.toggleCode" title="Code (Ctrl+`)">{ }</button>
       <span class="separator"></span>
-      <button @mousedown.prevent="makeHeading(1)" title="Heading 1">H1</button>
-      <button @mousedown.prevent="makeHeading(2)" title="Heading 2">H2</button>
-      <button @mousedown.prevent="makeHeading(3)" title="Heading 3">H3</button>
-      <button @mousedown.prevent="makeParagraph" title="Paragraph">P</button>
+      <button @mousedown.prevent="commands.makeHeading(1)" title="Heading 1">H1</button>
+      <button @mousedown.prevent="commands.makeHeading(2)" title="Heading 2">H2</button>
+      <button @mousedown.prevent="commands.makeHeading(3)" title="Heading 3">H3</button>
+      <button @mousedown.prevent="commands.makeParagraph" title="Paragraph">P</button>
       <span class="separator"></span>
-      <button @mousedown.prevent="makeBlockquote" title="Quote">" "</button>
-      <button @mousedown.prevent="makeCodeBlock" title="Code Block">&lt;/&gt;</button>
+      <button @mousedown.prevent="commands.makeBlockquote" title="Quote">" "</button>
+      <button @mousedown.prevent="commands.makeCodeBlock" title="Code Block">&lt;/&gt;</button>
     </div>
   </main>
 </template>
