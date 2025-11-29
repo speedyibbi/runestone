@@ -8,7 +8,7 @@
 
   --font-primary: 'Inter', sans-serif;
 
-  font-size: calc(100vmin * 0.01);
+  font-size: calc(100vmin * 0.015);
 }
 
 :root::selection {
