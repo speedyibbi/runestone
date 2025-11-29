@@ -23,6 +23,7 @@ const { editorElement, bubbleMenu, bubbleMenuElement, commands } = useEditor()
       <button @mousedown.prevent="commands.toggleStrikethrough" title="Strikethrough (Ctrl+Shift+X)">S</button>
       <button @mousedown.prevent="commands.toggleHighlight" title="Highlight (Ctrl+Shift+H)">H</button>
       <button @mousedown.prevent="commands.toggleCode" title="Code (Ctrl+`)">{ }</button>
+      <button @mousedown.prevent="commands.insertFootnote" title="Insert Footnote (Ctrl+Shift+F)">[^]</button>
       <span class="separator"></span>
       <button @mousedown.prevent="commands.makeHeading(1)" title="Heading 1">H1</button>
       <button @mousedown.prevent="commands.makeHeading(2)" title="Heading 2">H2</button>
@@ -191,6 +192,27 @@ main {
 }
 
 :deep(.ProseMirror hr.ProseMirror-selectednode) {
+  outline: none;
+  background: none;
+}
+
+:deep(.ProseMirror sup.footnote-ref) {
+  color: var(--color-accent);
+  font-weight: 600;
+  cursor: help;
+  text-decoration: none;
+  padding: 0 0.125rem;
+  font-size: 0.75em;
+  vertical-align: super;
+  line-height: 0;
+  user-select: none;
+}
+
+:deep(.ProseMirror sup.footnote-ref:hover) {
+  text-decoration: underline;
+}
+
+:deep(.ProseMirror sup.footnote-ref.ProseMirror-selectednode) {
   outline: none;
   background: none;
 }

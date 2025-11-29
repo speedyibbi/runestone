@@ -25,16 +25,50 @@ import {
  * Create the editor schema with basic nodes and marks plus list support
  */
 function createEditorSchema() {
-  // Add horizontal rule node
-  const nodes = addListNodes(basicSchema.spec.nodes, 'paragraph block*', 'block').addToEnd('horizontal_rule', {
-    group: 'block',
-    atom: true, // Makes it indivisible
-    selectable: false, // Makes it non-selectable
-    parseDOM: [{ tag: 'hr' }],
-    toDOM() {
-      return ['hr']
-    },
-  })
+  // Add horizontal rule node and footnote reference
+  const nodes = addListNodes(basicSchema.spec.nodes, 'paragraph block*', 'block')
+    .addToEnd('horizontal_rule', {
+      group: 'block',
+      atom: true, // Makes it indivisible
+      selectable: false, // Makes it non-selectable
+      parseDOM: [{ tag: 'hr' }],
+      toDOM() {
+        return ['hr']
+      },
+    })
+    .addToEnd('footnote_reference', {
+      group: 'inline',
+      inline: true,
+      atom: true,
+      selectable: false, // Makes it non-selectable
+      attrs: {
+        number: { default: '1' },
+        content: { default: '' },
+      },
+      parseDOM: [
+        {
+          tag: 'sup.footnote-ref',
+          getAttrs(dom: any) {
+            return {
+              number: dom.getAttribute('data-number') || '1',
+              content: dom.getAttribute('data-content') || '',
+            }
+          },
+        },
+      ],
+      toDOM(node) {
+        return [
+          'sup',
+          {
+            class: 'footnote-ref',
+            'data-number': node.attrs.number,
+            'data-content': node.attrs.content,
+            title: node.attrs.content || `Footnote ${node.attrs.number}`,
+          },
+          `[${node.attrs.number}]`,
+        ]
+      },
+    })
 
   // Add strikethrough and highlight marks
   const marks = basicSchema.spec.marks.addToEnd('strikethrough', {
@@ -236,6 +270,26 @@ function buildInputRules(schema: Schema) {
   // Code: `text`
   rules.push(markInputRule(/`([^`]+)`$/, schema.marks.code))
 
+  // Footnote: [^1] or [^identifier]
+  rules.push(
+    new InputRule(/\[\^([a-zA-Z0-9]+)\]$/, (state, match, start, end) => {
+      const tr = state.tr
+      const footnoteNumber = match[1]
+      
+      // Create the footnote reference node
+      const footnoteNode = schema.nodes.footnote_reference.create({
+        number: footnoteNumber,
+        content: '', // Can be populated later
+      })
+      
+      // Delete the matched text and insert the footnote node
+      tr.delete(start, end)
+      tr.insert(start, footnoteNode)
+      
+      return tr
+    })
+  )
+
   // ──────────────────────────────────────────────────────────────────────
   // BLOCK TYPES (HEADINGS, CODE BLOCKS)
   // ──────────────────────────────────────────────────────────────────────
@@ -387,6 +441,32 @@ function buildKeymap(schema: Schema) {
     'Mod-`': toggleMark(schema.marks.code),
     'Mod-Shift-x': toggleMark(schema.marks.strikethrough),
     'Mod-Shift-h': toggleMark(schema.marks.highlight),
+    'Mod-Shift-f': (state: any, dispatch: any, view: any) => {
+      // Insert footnote
+      if (!view) return false
+      
+      // Find the highest existing footnote number
+      let maxFootnoteNum = 0
+      state.doc.descendants((node: any) => {
+        if (node.type.name === 'footnote_reference') {
+          const num = parseInt(node.attrs.number, 10)
+          if (!isNaN(num) && num > maxFootnoteNum) {
+            maxFootnoteNum = num
+          }
+        }
+      })
+      
+      const footnoteNumber = (maxFootnoteNum + 1).toString()
+      const footnoteNode = schema.nodes.footnote_reference.create({
+        number: footnoteNumber,
+        content: '',
+      })
+      
+      if (dispatch) {
+        dispatch(state.tr.replaceSelectionWith(footnoteNode, false))
+      }
+      return true
+    },
 
     // Block formatting
     'Shift-Ctrl-1': setBlockType(schema.nodes.heading, { level: 1 }),
@@ -723,6 +803,7 @@ export interface EditorCommands {
   makeBlockquote: () => void
   makeCodeBlock: () => void
   insertHorizontalRule: () => void
+  insertFootnote: () => void
 }
 
 export interface UseEditorReturn {
@@ -863,6 +944,35 @@ export function useEditor(): UseEditorReturn {
       const cursorPos = endOfBlock + hrNode.nodeSize + 1
       transaction.setSelection(Selection.near(transaction.doc.resolve(cursorPos)))
       
+      dispatch(transaction)
+      view.focus()
+    },
+
+    insertFootnote() {
+      if (!editorView.value) return
+      const view = editorView.value as EditorView
+      const { state, dispatch } = view
+      
+      // Find the highest existing footnote number
+      let maxFootnoteNum = 0
+      state.doc.descendants((node) => {
+        if (node.type.name === 'footnote_reference') {
+          const num = parseInt(node.attrs.number, 10)
+          if (!isNaN(num) && num > maxFootnoteNum) {
+            maxFootnoteNum = num
+          }
+        }
+      })
+      
+      // Create new footnote with next number
+      const footnoteNumber = (maxFootnoteNum + 1).toString()
+      const footnoteNode = schema.nodes.footnote_reference.create({
+        number: footnoteNumber,
+        content: '',
+      })
+      
+      // Insert the footnote at current position
+      const transaction = state.tr.replaceSelectionWith(footnoteNode, false)
       dispatch(transaction)
       view.focus()
     },
