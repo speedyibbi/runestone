@@ -3,7 +3,30 @@ import { ref } from 'vue';
 import { useMDEditor } from '@/composables/useMDEditor';
 
 const editorElement = ref<HTMLElement>();
-const { getContent, setContent } = useMDEditor(editorElement);
+const {
+  getContent,
+  setContent,
+  toggleBold,
+  toggleItalic,
+  toggleStrikethrough,
+  toggleInlineCode,
+  toggleBlockquote,
+  setHeadingLevel,
+  insertHR,
+} = useMDEditor(editorElement);
+
+// Expose methods for potential toolbar or command palette use
+defineExpose({
+  getContent,
+  setContent,
+  toggleBold,
+  toggleItalic,
+  toggleStrikethrough,
+  toggleInlineCode,
+  toggleBlockquote,
+  setHeadingLevel,
+  insertHR,
+});
 </script>
 
 <template>
