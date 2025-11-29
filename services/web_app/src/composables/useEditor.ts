@@ -91,19 +91,109 @@ function buildInputRules(schema: Schema) {
   // ──────────────────────────────────────────────────────────────────────
   // INLINE MARKS
   // ──────────────────────────────────────────────────────────────────────
-  // Order matters: check bold before italic to avoid conflicts
+  // Order matters: check longest matches first to avoid conflicts
 
-  // Bold: **text**
-  rules.push(markInputRule(/\*\*([^*]+)\*\*$/, schema.marks.strong))
+  // Bold + Italic: ***text*** (check this FIRST before bold/italic alone)
+  rules.push(
+    new InputRule(/\*\*\*([^*]+)\*\*\*$/, (state, match, start, end) => {
+      const tr = state.tr
+      if (match[1]) {
+        const textStart = start + match[0].indexOf(match[1])
+        const textEnd = textStart + match[1].length
+        if (textEnd < end) tr.delete(textEnd, end)
+        if (textStart > start) tr.delete(start, textStart)
+        end = start + match[1].length
+      }
+      tr.addMark(start, end, schema.marks.strong.create())
+      tr.addMark(start, end, schema.marks.em.create())
+      return tr
+    })
+  )
 
-  // Bold: __text__
-  rules.push(markInputRule(/__([^_]+)__$/, schema.marks.strong))
+  // Bold + Italic: ___text___
+  rules.push(
+    new InputRule(/___([^_]+)___$/, (state, match, start, end) => {
+      const tr = state.tr
+      if (match[1]) {
+        const textStart = start + match[0].indexOf(match[1])
+        const textEnd = textStart + match[1].length
+        if (textEnd < end) tr.delete(textEnd, end)
+        if (textStart > start) tr.delete(start, textStart)
+        end = start + match[1].length
+      }
+      tr.addMark(start, end, schema.marks.strong.create())
+      tr.addMark(start, end, schema.marks.em.create())
+      return tr
+    })
+  )
 
-  // Italic: *text* (checked after bold to avoid conflicts)
-  rules.push(markInputRule(/\*([^*]+)\*$/, schema.marks.em))
+  // Bold: **text** - Must be preceded by space, start, or non-* character
+  rules.push(
+    new InputRule(/(^|[^*])\*\*([^*]+)\*\*$/, (state, match, start, end) => {
+      const tr = state.tr
+      if (match[2]) {
+        const prefix = match[1] || ''
+        const textStart = start + prefix.length + 2 // prefix + **
+        const textEnd = textStart + match[2].length
+        if (textEnd < end) tr.delete(textEnd, end) // delete closing **
+        tr.delete(textStart - 2, textStart) // delete opening **
+        tr.addMark(textStart - 2, textStart - 2 + match[2].length, schema.marks.strong.create())
+        tr.removeStoredMark(schema.marks.strong)
+      }
+      return tr
+    })
+  )
 
-  // Italic: _text_
-  rules.push(markInputRule(/_([^_]+)_$/, schema.marks.em))
+  // Bold: __text__ - Must be preceded by space, start, or non-_ character  
+  rules.push(
+    new InputRule(/(^|[^_])__([^_]+)__$/, (state, match, start, end) => {
+      const tr = state.tr
+      if (match[2]) {
+        const prefix = match[1] || ''
+        const textStart = start + prefix.length + 2
+        const textEnd = textStart + match[2].length
+        if (textEnd < end) tr.delete(textEnd, end)
+        tr.delete(textStart - 2, textStart)
+        tr.addMark(textStart - 2, textStart - 2 + match[2].length, schema.marks.strong.create())
+        tr.removeStoredMark(schema.marks.strong)
+      }
+      return tr
+    })
+  )
+
+  // Italic: *text* - Must be preceded by space, start, or non-* character
+  rules.push(
+    new InputRule(/(^|[^*])\*([^*]+)\*$/, (state, match, start, end) => {
+      const tr = state.tr
+      if (match[2]) {
+        const prefix = match[1] || ''
+        const textStart = start + prefix.length + 1 // prefix + *
+        const textEnd = textStart + match[2].length
+        if (textEnd < end) tr.delete(textEnd, end) // delete closing *
+        tr.delete(textStart - 1, textStart) // delete opening *
+        tr.addMark(textStart - 1, textStart - 1 + match[2].length, schema.marks.em.create())
+        tr.removeStoredMark(schema.marks.em)
+      }
+      return tr
+    })
+  )
+
+  // Italic: _text_ - Must be preceded by space, start, or non-_ character
+  rules.push(
+    new InputRule(/(^|[^_])_([^_]+)_$/, (state, match, start, end) => {
+      const tr = state.tr
+      if (match[2]) {
+        const prefix = match[1] || ''
+        const textStart = start + prefix.length + 1
+        const textEnd = textStart + match[2].length
+        if (textEnd < end) tr.delete(textEnd, end)
+        tr.delete(textStart - 1, textStart)
+        tr.addMark(textStart - 1, textStart - 1 + match[2].length, schema.marks.em.create())
+        tr.removeStoredMark(schema.marks.em)
+      }
+      return tr
+    })
+  )
 
   // Code: `text`
   rules.push(markInputRule(/`([^`]+)`$/, schema.marks.code))
@@ -120,6 +210,15 @@ function buildInputRules(schema: Schema) {
 
   // Heading 3: ### space
   rules.push(textblockTypeInputRule(/^###\s/, schema.nodes.heading, { level: 3 }))
+
+  // Heading 4: #### space
+  rules.push(textblockTypeInputRule(/^####\s/, schema.nodes.heading, { level: 4 }))
+
+  // Heading 5: ##### space
+  rules.push(textblockTypeInputRule(/^#####\s/, schema.nodes.heading, { level: 5 }))
+
+  // Heading 6: ###### space
+  rules.push(textblockTypeInputRule(/^######\s/, schema.nodes.heading, { level: 6 }))
 
   // Code block: ``` space
   rules.push(textblockTypeInputRule(/^```\s/, schema.nodes.code_block))
@@ -176,6 +275,9 @@ function buildKeymap(schema: Schema) {
     'Shift-Ctrl-1': setBlockType(schema.nodes.heading, { level: 1 }),
     'Shift-Ctrl-2': setBlockType(schema.nodes.heading, { level: 2 }),
     'Shift-Ctrl-3': setBlockType(schema.nodes.heading, { level: 3 }),
+    'Shift-Ctrl-4': setBlockType(schema.nodes.heading, { level: 4 }),
+    'Shift-Ctrl-5': setBlockType(schema.nodes.heading, { level: 5 }),
+    'Shift-Ctrl-6': setBlockType(schema.nodes.heading, { level: 6 }),
     'Shift-Ctrl-0': setBlockType(schema.nodes.paragraph),
     'Shift-Ctrl->': wrapIn(schema.nodes.blockquote),
   }

@@ -25,6 +25,9 @@ const { editorElement, bubbleMenu, bubbleMenuElement, commands } = useEditor()
       <button @mousedown.prevent="commands.makeHeading(1)" title="Heading 1">H1</button>
       <button @mousedown.prevent="commands.makeHeading(2)" title="Heading 2">H2</button>
       <button @mousedown.prevent="commands.makeHeading(3)" title="Heading 3">H3</button>
+      <button @mousedown.prevent="commands.makeHeading(4)" title="Heading 4">H4</button>
+      <button @mousedown.prevent="commands.makeHeading(5)" title="Heading 5">H5</button>
+      <button @mousedown.prevent="commands.makeHeading(6)" title="Heading 6">H6</button>
       <button @mousedown.prevent="commands.makeParagraph" title="Paragraph">P</button>
       <span class="separator"></span>
       <button @mousedown.prevent="commands.makeBlockquote" title="Quote">" "</button>
@@ -84,6 +87,29 @@ main {
   font-weight: 600;
   margin: 1rem 0 0.75rem;
   line-height: 1.4;
+}
+
+:deep(.ProseMirror h4) {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin: 0.875rem 0 0.625rem;
+  line-height: 1.4;
+}
+
+:deep(.ProseMirror h5) {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0.75rem 0 0.5rem;
+  line-height: 1.5;
+}
+
+:deep(.ProseMirror h6) {
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin: 0.625rem 0 0.5rem;
+  line-height: 1.5;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 :deep(.ProseMirror ul),
