@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { useEditor } from '@/composables/useEditor'
 
-const { editorElement, bubbleMenu, commands } = useEditor()
+const { editorElement, bubbleMenu, bubbleMenuElement, commands } = useEditor()
 </script>
 
 <template>
@@ -10,8 +10,9 @@ const { editorElement, bubbleMenu, commands } = useEditor()
     
     <div 
       v-if="bubbleMenu.show.value" 
-      ref="bubbleMenu.element.value" 
+      ref="bubbleMenuElement" 
       class="bubble-menu"
+      :class="{ visible: bubbleMenu.visible.value }"
       :style="{
         top: `${bubbleMenu.position.value.top}px`,
         left: `${bubbleMenu.position.value.left}px`,
@@ -143,7 +144,6 @@ main {
 /* Bubble menu */
 .bubble-menu {
   position: fixed;
-  transform: translateX(-50%);
   background-color: var(--color-foreground);
   border: 1px solid var(--color-accent);
   border-radius: 0.375rem;
@@ -153,8 +153,14 @@ main {
   align-items: center;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
   z-index: 1000;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.bubble-menu.visible {
+  opacity: 1;
   pointer-events: all;
-  transition: top 0.1s ease, left 0.1s ease;
 }
 
 .bubble-menu button {
