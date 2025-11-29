@@ -1,5 +1,5 @@
 import { ref, shallowRef, onMounted, onBeforeUnmount, nextTick, type Ref } from 'vue'
-import { EditorState } from 'prosemirror-state'
+import { EditorState, Selection, TextSelection, NodeSelection, Plugin } from 'prosemirror-state'
 import { EditorView } from 'prosemirror-view'
 import { Schema, type MarkType, type NodeType } from 'prosemirror-model'
 import { schema as basicSchema } from 'prosemirror-schema-basic'
@@ -25,9 +25,41 @@ import {
  * Create the editor schema with basic nodes and marks plus list support
  */
 function createEditorSchema() {
+  // Add horizontal rule node
+  const nodes = addListNodes(basicSchema.spec.nodes, 'paragraph block*', 'block').addToEnd('horizontal_rule', {
+    group: 'block',
+    atom: true, // Makes it indivisible
+    selectable: false, // Makes it non-selectable
+    parseDOM: [{ tag: 'hr' }],
+    toDOM() {
+      return ['hr']
+    },
+  })
+
+  // Add strikethrough and highlight marks
+  const marks = basicSchema.spec.marks.addToEnd('strikethrough', {
+    parseDOM: [
+      { tag: 's' },
+      { tag: 'strike' },
+      { tag: 'del' },
+      { style: 'text-decoration=line-through' },
+    ],
+    toDOM() {
+      return ['s', 0]
+    },
+  }).addToEnd('highlight', {
+    parseDOM: [
+      { tag: 'mark' },
+      { style: 'background-color' },
+    ],
+    toDOM() {
+      return ['mark', 0]
+    },
+  })
+
   return new Schema({
-    nodes: addListNodes(basicSchema.spec.nodes, 'paragraph block*', 'block'),
-    marks: basicSchema.spec.marks,
+    nodes,
+    marks,
   })
 }
 
@@ -195,6 +227,12 @@ function buildInputRules(schema: Schema) {
     })
   )
 
+  // Strikethrough: ~~text~~
+  rules.push(markInputRule(/~~([^~]+)~~$/, schema.marks.strikethrough))
+
+  // Highlight: ==text==
+  rules.push(markInputRule(/==([^=]+)==$/, schema.marks.highlight))
+
   // Code: `text`
   rules.push(markInputRule(/`([^`]+)`$/, schema.marks.code))
 
@@ -222,6 +260,32 @@ function buildInputRules(schema: Schema) {
 
   // Code block: ``` space
   rules.push(textblockTypeInputRule(/^```\s/, schema.nodes.code_block))
+
+  // Horizontal rule: --- or *** (followed by space or end of line)
+  rules.push(
+    new InputRule(/^(---|\*\*\*)$/, (state, match, start, end) => {
+      const tr = state.tr
+      const $start = tr.doc.resolve(start)
+      
+      // Get the position of the parent paragraph
+      const paragraphStart = $start.before()
+      const paragraphEnd = $start.after()
+      
+      // Create paragraphs above and below, plus the hr
+      const paragraphAbove = schema.nodes.paragraph.create()
+      const hrNode = schema.nodes.horizontal_rule.create()
+      const paragraphBelow = schema.nodes.paragraph.create()
+      
+      // Replace the entire paragraph containing --- with paragraph + hr + paragraph
+      tr.replaceWith(paragraphStart, paragraphEnd, [paragraphAbove, hrNode, paragraphBelow])
+      
+      // Move cursor to the paragraph below the hr
+      const cursorPos = paragraphStart + paragraphAbove.nodeSize + hrNode.nodeSize + 1
+      tr.setSelection(Selection.near(tr.doc.resolve(cursorPos)))
+      
+      return tr
+    })
+  )
 
   // ──────────────────────────────────────────────────────────────────────
   // WRAPPING BLOCKS (BLOCKQUOTES, LISTS)
@@ -260,6 +324,57 @@ function buildInputRules(schema: Schema) {
  * Modify this function to add or change keyboard shortcuts.
  */
 function buildKeymap(schema: Schema) {
+  // Helper to skip over horizontal rules when navigating
+  const skipHorizontalRule = (dir: 'up' | 'down') => (state: any, dispatch: any) => {
+    const { $head } = state.selection
+    
+    // Get the position after the current block
+    const afterBlock = $head.after()
+    const beforeBlock = $head.before()
+    
+    if (dir === 'down') {
+      // Check if the next block is a horizontal rule
+      if (afterBlock < state.doc.content.size) {
+        const nodeAfter = state.doc.nodeAt(afterBlock)
+        if (nodeAfter && nodeAfter.type.name === 'horizontal_rule') {
+          // Skip to the block after the HR
+          const skipTo = afterBlock + nodeAfter.nodeSize
+          if (skipTo < state.doc.content.size) {
+            const targetNode = state.doc.nodeAt(skipTo)
+            if (targetNode) {
+              const targetPos = skipTo + 1
+              if (dispatch) {
+                dispatch(state.tr.setSelection(TextSelection.near(state.doc.resolve(targetPos))))
+              }
+              return true
+            }
+          }
+        }
+      }
+    } else {
+      // Check if the previous block is a horizontal rule  
+      if (beforeBlock > 0) {
+        const nodeBefore = state.doc.nodeAt(beforeBlock - 1)
+        if (nodeBefore && nodeBefore.type.name === 'horizontal_rule') {
+          // Skip to the block before the HR
+          const skipTo = beforeBlock - nodeBefore.nodeSize - 1
+          if (skipTo >= 0) {
+            const targetNode = state.doc.nodeAt(skipTo)
+            if (targetNode) {
+              const targetPos = skipTo + targetNode.nodeSize
+              if (dispatch) {
+                dispatch(state.tr.setSelection(TextSelection.near(state.doc.resolve(targetPos))))
+              }
+              return true
+            }
+          }
+        }
+      }
+    }
+    
+    return false
+  }
+
   const keys: { [key: string]: any } = {
     // History
     'Mod-z': undo,
@@ -270,6 +385,8 @@ function buildKeymap(schema: Schema) {
     'Mod-b': toggleMark(schema.marks.strong),
     'Mod-i': toggleMark(schema.marks.em),
     'Mod-`': toggleMark(schema.marks.code),
+    'Mod-Shift-x': toggleMark(schema.marks.strikethrough),
+    'Mod-Shift-h': toggleMark(schema.marks.highlight),
 
     // Block formatting
     'Shift-Ctrl-1': setBlockType(schema.nodes.heading, { level: 1 }),
@@ -280,9 +397,96 @@ function buildKeymap(schema: Schema) {
     'Shift-Ctrl-6': setBlockType(schema.nodes.heading, { level: 6 }),
     'Shift-Ctrl-0': setBlockType(schema.nodes.paragraph),
     'Shift-Ctrl->': wrapIn(schema.nodes.blockquote),
+
+    // Navigation that skips horizontal rules
+    'ArrowUp': skipHorizontalRule('up'),
+    'ArrowDown': skipHorizontalRule('down'),
   }
 
   return keys
+}
+
+// ============================================================================
+// HORIZONTAL RULE SKIP PLUGIN
+// ============================================================================
+
+/**
+ * Plugin that prevents cursor from landing on or inside horizontal rules
+ */
+function horizontalRuleSkipPlugin(schema: Schema) {
+  return new Plugin({
+    appendTransaction(transactions, oldState, newState) {
+      const { selection } = newState
+      const { $anchor, $head } = selection
+      
+      // Check if the selection is a NodeSelection on an HR
+      if (selection instanceof NodeSelection && selection.node.type.name === 'horizontal_rule') {
+        const tr = newState.tr
+        const pos = selection.from
+        
+        // Try to move cursor to after the HR
+        const afterHR = pos + selection.node.nodeSize
+        if (afterHR < newState.doc.content.size) {
+          tr.setSelection(TextSelection.near(newState.doc.resolve(afterHR)))
+          return tr
+        }
+        
+        // Try to move cursor to before the HR
+        if (pos > 0) {
+          tr.setSelection(TextSelection.near(newState.doc.resolve(pos)))
+          return tr
+        }
+      }
+      
+      // Check if cursor position is at an HR node
+      const nodeAtPos = newState.doc.nodeAt($anchor.pos)
+      if (nodeAtPos && nodeAtPos.type.name === 'horizontal_rule') {
+        const tr = newState.tr
+        const pos = $anchor.pos
+        
+        // Move to after the HR
+        const afterHR = pos + nodeAtPos.nodeSize
+        if (afterHR <= newState.doc.content.size) {
+          tr.setSelection(TextSelection.near(newState.doc.resolve(afterHR)))
+          return tr
+        }
+      }
+      
+      // Check if parent is HR (shouldn't happen with atom, but just in case)
+      if ($anchor.parent.type.name === 'horizontal_rule') {
+        const tr = newState.tr
+        const afterHR = $anchor.after()
+        
+        if (afterHR < newState.doc.content.size) {
+          tr.setSelection(TextSelection.near(newState.doc.resolve(afterHR)))
+          return tr
+        }
+        
+        const beforeHR = $anchor.before()
+        if (beforeHR > 0) {
+          tr.setSelection(TextSelection.near(newState.doc.resolve(beforeHR)))
+          return tr
+        }
+      }
+      
+      return null
+    },
+    
+    // Prevent clicking/selecting the HR
+    props: {
+      handleClick(view, pos, event) {
+        const node = view.state.doc.nodeAt(pos)
+        if (node && node.type.name === 'horizontal_rule') {
+          // Find the position after the HR
+          const afterHR = pos + node.nodeSize
+          const tr = view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(afterHR)))
+          view.dispatch(tr)
+          return true
+        }
+        return false
+      },
+    },
+  })
 }
 
 // ============================================================================
@@ -460,10 +664,13 @@ export interface EditorCommands {
   toggleStrong: () => void
   toggleEm: () => void
   toggleCode: () => void
+  toggleStrikethrough: () => void
+  toggleHighlight: () => void
   makeHeading: (level: number) => void
   makeParagraph: () => void
   makeBlockquote: () => void
   makeCodeBlock: () => void
+  insertHorizontalRule: () => void
 }
 
 export interface UseEditorReturn {
@@ -536,6 +743,22 @@ export function useEditor(): UseEditorReturn {
       view.focus()
     },
 
+    toggleStrikethrough() {
+      if (!editorView.value) return
+      const view = editorView.value as EditorView
+      const command = toggleMark(schema.marks.strikethrough)
+      command(view.state, view.dispatch, view)
+      view.focus()
+    },
+
+    toggleHighlight() {
+      if (!editorView.value) return
+      const view = editorView.value as EditorView
+      const command = toggleMark(schema.marks.highlight)
+      command(view.state, view.dispatch, view)
+      view.focus()
+    },
+
     makeHeading(level: number) {
       if (!editorView.value) return
       const view = editorView.value as EditorView
@@ -567,6 +790,30 @@ export function useEditor(): UseEditorReturn {
       command(view.state, view.dispatch, view)
       view.focus()
     },
+
+    insertHorizontalRule() {
+      if (!editorView.value) return
+      const view = editorView.value as EditorView
+      const { state, dispatch } = view
+      
+      // Get the position at the end of the current block
+      const { $from } = state.selection
+      const endOfBlock = $from.after()
+      
+      // Create hr node and paragraphs
+      const hrNode = schema.nodes.horizontal_rule.create()
+      const paragraphBelow = schema.nodes.paragraph.create()
+      
+      // Insert hr and paragraph at the end of current block
+      const transaction = state.tr.insert(endOfBlock, [hrNode, paragraphBelow])
+      
+      // Move cursor into the new paragraph after the hr
+      const cursorPos = endOfBlock + hrNode.nodeSize + 1
+      transaction.setSelection(Selection.near(transaction.doc.resolve(cursorPos)))
+      
+      dispatch(transaction)
+      view.focus()
+    },
   }
 
   // ──────────────────────────────────────────────────────────────────────
@@ -583,6 +830,7 @@ export function useEditor(): UseEditorReturn {
         buildInputRules(schema),
         keymap(buildKeymap(schema)),
         keymap(baseKeymap),
+        horizontalRuleSkipPlugin(schema),
       ],
     })
 

@@ -20,6 +20,8 @@ const { editorElement, bubbleMenu, bubbleMenuElement, commands } = useEditor()
     >
       <button @mousedown.prevent="commands.toggleStrong" title="Bold (Ctrl+B)">B</button>
       <button @mousedown.prevent="commands.toggleEm" title="Italic (Ctrl+I)">I</button>
+      <button @mousedown.prevent="commands.toggleStrikethrough" title="Strikethrough (Ctrl+Shift+X)">S</button>
+      <button @mousedown.prevent="commands.toggleHighlight" title="Highlight (Ctrl+Shift+H)">H</button>
       <button @mousedown.prevent="commands.toggleCode" title="Code (Ctrl+`)">{ }</button>
       <span class="separator"></span>
       <button @mousedown.prevent="commands.makeHeading(1)" title="Heading 1">H1</button>
@@ -32,6 +34,7 @@ const { editorElement, bubbleMenu, bubbleMenuElement, commands } = useEditor()
       <span class="separator"></span>
       <button @mousedown.prevent="commands.makeBlockquote" title="Quote">" "</button>
       <button @mousedown.prevent="commands.makeCodeBlock" title="Code Block">&lt;/&gt;</button>
+      <button @mousedown.prevent="commands.insertHorizontalRule" title="Horizontal Rule">—</button>
     </div>
   </main>
 </template>
@@ -165,6 +168,31 @@ main {
 
 :deep(.ProseMirror em) {
   font-style: italic;
+}
+
+:deep(.ProseMirror s) {
+  text-decoration: line-through;
+}
+
+:deep(.ProseMirror mark) {
+  background-color: rgba(255, 235, 59, 0.4);
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.125rem;
+}
+
+:deep(.ProseMirror hr) {
+  border: none;
+  border-top: 1px solid var(--color-accent);
+  margin: 2rem 0;
+  opacity: 0.5;
+  user-select: none;
+  cursor: default;
+  outline: none;
+}
+
+:deep(.ProseMirror hr.ProseMirror-selectednode) {
+  outline: none;
+  background: none;
 }
 
 /* Bubble menu */
