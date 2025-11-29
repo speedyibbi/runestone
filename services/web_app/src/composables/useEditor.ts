@@ -621,13 +621,51 @@ function updateBubbleMenu(view: EditorView, bubbleMenu: BubbleMenuState) {
 }
 
 /**
+ * Calculate bubble menu position at mouse coordinates (for right-click without selection)
+ */
+function calculateBubblePositionAtMouse(
+  menuElement: HTMLElement,
+  mouseX: number,
+  mouseY: number
+): { top: number; left: number } {
+  const menuRect = menuElement.getBoundingClientRect()
+  const menuWidth = menuRect.width
+  const menuHeight = menuRect.height
+  const padding = 10
+  const offset = 8
+
+  // Start at mouse position
+  let left = mouseX
+  let top = mouseY - menuHeight - offset
+
+  // Check if menu fits above mouse
+  if (top < padding) {
+    // Not enough space above, show below
+    top = mouseY + offset
+  }
+
+  // Check horizontal bounds
+  if (left + menuWidth > window.innerWidth - padding) {
+    left = window.innerWidth - menuWidth - padding
+  }
+  
+  if (left < padding) {
+    left = padding
+  }
+
+  return { top, left }
+}
+
+/**
  * Show bubble menu immediately (for right-click)
  */
-function showBubbleMenuImmediately(view: EditorView, bubbleMenu: BubbleMenuState) {
+function showBubbleMenuImmediately(
+  view: EditorView, 
+  bubbleMenu: BubbleMenuState,
+  mouseEvent?: { x: number; y: number }
+) {
   const { state } = view
   const { from, to, empty } = state.selection
-
-  if (empty) return
 
   // Clear any pending show timer
   if (bubbleMenu.showTimer.current) {
@@ -642,14 +680,28 @@ function showBubbleMenuImmediately(view: EditorView, bubbleMenu: BubbleMenuState
 
   nextTick(() => {
     if (!bubbleMenu.element.value) return
-    if (state.selection.empty) return
 
-    const position = calculateBubblePosition(
-      view,
-      bubbleMenu.element.value,
-      from,
-      to
-    )
+    let position: { top: number; left: number }
+
+    if (empty && mouseEvent) {
+      // No selection: position at mouse cursor
+      position = calculateBubblePositionAtMouse(
+        bubbleMenu.element.value,
+        mouseEvent.x,
+        mouseEvent.y
+      )
+    } else if (!empty) {
+      // Has selection: position relative to selection
+      position = calculateBubblePosition(
+        view,
+        bubbleMenu.element.value,
+        from,
+        to
+      )
+    } else {
+      // No selection and no mouse event - shouldn't happen, but handle gracefully
+      return
+    }
     
     bubbleMenu.position.value = position
     bubbleMenu.visible.value = true
@@ -853,15 +905,15 @@ export function useEditor(): UseEditorReturn {
     const handleContextMenu = (event: MouseEvent) => {
       if (!editorView.value) return
       
-      // Check if there's a selection
-      const { empty } = editorView.value.state.selection
+      // Always prevent browser context menu
+      event.preventDefault()
       
-      if (!empty) {
-        // Prevent browser context menu
-        event.preventDefault()
-        // Show bubble menu immediately (no delay for right-click)
-        showBubbleMenuImmediately(editorView.value, bubbleMenu)
-      }
+      // Show bubble menu immediately (no delay for right-click)
+      // Pass mouse coordinates for positioning when there's no selection
+      showBubbleMenuImmediately(editorView.value, bubbleMenu, {
+        x: event.clientX,
+        y: event.clientY
+      })
     }
 
     editorElement.value.addEventListener('contextmenu', handleContextMenu)
