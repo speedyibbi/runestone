@@ -2,7 +2,6 @@ import { onMounted, onUnmounted, type Ref } from 'vue';
 import { EditorView } from '@codemirror/view';
 import { EditorState } from '@codemirror/state';
 import { markdown } from '@codemirror/lang-markdown';
-import { languages } from '@codemirror/language-data';
 
 export function useEditor(editorElement: Ref<HTMLElement | undefined>) {
   let editorView: EditorView | null = null;
@@ -17,7 +16,7 @@ export function useEditor(editorElement: Ref<HTMLElement | undefined>) {
       doc: '',
       extensions: [
         markdown({
-          codeLanguages: languages,
+          codeLanguages: [],
         }),
         EditorView.lineWrapping,
       ],
