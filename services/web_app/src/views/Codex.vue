@@ -18,11 +18,21 @@ main {
   height: 100%;
   display: flex;
   flex-direction: column;
+  align-items: center;
   position: relative;
+  overflow-x: hidden;
+  overflow-y: scroll;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+main::-webkit-scrollbar {
+  display: none;
 }
 
 .editor {
   flex: 1;
-  overflow: hidden;
+  width: 100%;
+  max-width: 75rem;
 }
 </style>
