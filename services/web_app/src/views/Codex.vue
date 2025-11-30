@@ -1,9 +1,9 @@
 <script lang="ts" setup>
 import { ref } from 'vue';
-import { useMDEditor } from '@/composables/useMDEditor';
+import { useEditor } from '@/composables/useEditor';
 
 const editorElement = ref<HTMLElement>();
-const { getContent, setContent } = useMDEditor(editorElement);
+const { getContent, setContent } = useEditor(editorElement);
 </script>
 
 <template>

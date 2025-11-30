@@ -4,7 +4,7 @@ import { EditorState } from '@codemirror/state';
 import { markdown } from '@codemirror/lang-markdown';
 import { languages } from '@codemirror/language-data';
 
-export function useMDEditor(editorElement: Ref<HTMLElement | undefined>) {
+export function useEditor(editorElement: Ref<HTMLElement | undefined>) {
   let editorView: EditorView | null = null;
 
   const initializeEditor = () => {
