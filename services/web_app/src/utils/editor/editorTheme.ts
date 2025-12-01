@@ -1,120 +1,123 @@
-import { EditorView } from '@codemirror/view';
-import type { Extension } from '@codemirror/state';
-import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
-import { tags as t } from '@lezer/highlight';
+import { EditorView } from '@codemirror/view'
+import type { Extension } from '@codemirror/state'
+import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
+import { tags as t } from '@lezer/highlight'
 
 /**
  * Minimal, sleek editor theme that uses CSS variables from global.css
  */
-export const minimalTheme = EditorView.theme({
-  '&': {
-    color: 'var(--color-foreground)',
-    backgroundColor: 'var(--color-background)',
-    fontFamily: 'var(--font-primary)',
-    fontSize: '1rem',
-    height: '100%',
+export const minimalTheme = EditorView.theme(
+  {
+    '&': {
+      color: 'var(--color-foreground)',
+      backgroundColor: 'var(--color-background)',
+      fontFamily: 'var(--font-primary)',
+      fontSize: '1rem',
+      height: '100%',
+    },
+
+    '.cm-content': {
+      caretColor: 'var(--color-foreground)',
+      padding: '2rem',
+    },
+
+    '.cm-cursor, .cm-dropCursor': {
+      borderLeftColor: 'var(--color-foreground)',
+      borderLeftWidth: '2px',
+    },
+
+    '&.cm-focused': {
+      outline: 'none',
+    },
+
+    '&.cm-focused .cm-selectionBackground, ::selection': {
+      backgroundColor: 'var(--color-selection-focused)',
+    },
+
+    '.cm-selectionBackground': {
+      backgroundColor: 'var(--color-selection)',
+    },
+
+    '.cm-activeLine': {
+      backgroundColor: 'transparent',
+    },
+
+    '.cm-gutters': {
+      display: 'none', // No line numbers
+    },
+
+    '.cm-line': {
+      padding: '0',
+      lineHeight: '1.6',
+    },
+
+    '.cm-scroller': {
+      fontFamily: 'var(--font-primary)',
+      lineHeight: '1.6',
+    },
+
+    // Code blocks
+    '.cm-line .tok-monospace': {
+      fontFamily: 'var(--font-code)',
+    },
+
+    // Search panel styling
+    '.cm-panel': {
+      backgroundColor: 'var(--color-background)',
+      color: 'var(--color-foreground)',
+      border: '1px solid var(--color-accent)',
+    },
+
+    '.cm-panel input': {
+      backgroundColor: 'var(--color-background)',
+      color: 'var(--color-foreground)',
+      border: '1px solid var(--color-accent)',
+      padding: '0.25rem 0.5rem',
+      fontFamily: 'var(--font-code)',
+    },
+
+    '.cm-panel button': {
+      backgroundColor: 'transparent',
+      color: 'var(--color-foreground)',
+      border: '1px solid var(--color-accent)',
+      padding: '0.25rem 0.5rem',
+      cursor: 'pointer',
+      fontFamily: 'var(--font-code)',
+    },
+
+    '.cm-panel button:hover': {
+      backgroundColor: 'var(--color-accent)',
+    },
+
+    // Search match highlighting
+    '.cm-searchMatch': {
+      backgroundColor: 'var(--color-accent)',
+      outline: '1px solid var(--color-accent)',
+    },
+
+    '.cm-searchMatch-selected': {
+      backgroundColor: 'var(--color-selection-focused)',
+    },
+
+    // Autocomplete styling
+    '.cm-tooltip-autocomplete': {
+      backgroundColor: 'var(--color-background)',
+      border: '1px solid var(--color-accent)',
+      fontFamily: 'var(--font-code)',
+    },
+
+    '.cm-tooltip-autocomplete > ul > li': {
+      color: 'var(--color-foreground)',
+      padding: '0.25rem 0.5rem',
+    },
+
+    '.cm-tooltip-autocomplete > ul > li[aria-selected]': {
+      backgroundColor: 'var(--color-accent)',
+      color: 'var(--color-foreground)',
+    },
   },
-  
-  '.cm-content': {
-    caretColor: 'var(--color-foreground)',
-    padding: '2rem',
-  },
-  
-  '.cm-cursor, .cm-dropCursor': {
-    borderLeftColor: 'var(--color-foreground)',
-    borderLeftWidth: '2px',
-  },
-  
-  '&.cm-focused': {
-    outline: 'none',
-  },
-  
-  '&.cm-focused .cm-selectionBackground, ::selection': {
-    backgroundColor: 'var(--color-selection-focused)',
-  },
-  
-  '.cm-selectionBackground': {
-    backgroundColor: 'var(--color-selection)',
-  },
-  
-  '.cm-activeLine': {
-    backgroundColor: 'transparent',
-  },
-  
-  '.cm-gutters': {
-    display: 'none', // No line numbers
-  },
-  
-  '.cm-line': {
-    padding: '0',
-    lineHeight: '1.6',
-  },
-  
-  '.cm-scroller': {
-    fontFamily: 'var(--font-primary)',
-    lineHeight: '1.6',
-  },
-  
-  // Code blocks
-  '.cm-line .tok-monospace': {
-    fontFamily: 'var(--font-code)',
-  },
-  
-  // Search panel styling
-  '.cm-panel': {
-    backgroundColor: 'var(--color-background)',
-    color: 'var(--color-foreground)',
-    border: '1px solid var(--color-accent)',
-  },
-  
-  '.cm-panel input': {
-    backgroundColor: 'var(--color-background)',
-    color: 'var(--color-foreground)',
-    border: '1px solid var(--color-accent)',
-    padding: '0.25rem 0.5rem',
-    fontFamily: 'var(--font-code)',
-  },
-  
-  '.cm-panel button': {
-    backgroundColor: 'transparent',
-    color: 'var(--color-foreground)',
-    border: '1px solid var(--color-accent)',
-    padding: '0.25rem 0.5rem',
-    cursor: 'pointer',
-    fontFamily: 'var(--font-code)',
-  },
-  
-  '.cm-panel button:hover': {
-    backgroundColor: 'var(--color-accent)',
-  },
-  
-  // Search match highlighting
-  '.cm-searchMatch': {
-    backgroundColor: 'var(--color-accent)',
-    outline: '1px solid var(--color-accent)',
-  },
-  
-  '.cm-searchMatch-selected': {
-    backgroundColor: 'var(--color-selection-focused)',
-  },
-  
-  // Autocomplete styling
-  '.cm-tooltip-autocomplete': {
-    backgroundColor: 'var(--color-background)',
-    border: '1px solid var(--color-accent)',
-    fontFamily: 'var(--font-code)',
-  },
-  
-  '.cm-tooltip-autocomplete > ul > li': {
-    color: 'var(--color-foreground)',
-    padding: '0.25rem 0.5rem',
-  },
-  
-  '.cm-tooltip-autocomplete > ul > li[aria-selected]': {
-    backgroundColor: 'var(--color-accent)',
-    color: 'var(--color-foreground)',
-  },
-}, { dark: true });
+  { dark: true },
+)
 
 /**
  * Minimal syntax highlighting for Markdown
@@ -127,41 +130,42 @@ const minimalHighlightStyle = HighlightStyle.define([
   { tag: t.heading4, fontSize: '1.2rem', fontWeight: '600', color: 'var(--color-foreground)' },
   { tag: t.heading5, fontSize: '1.1rem', fontWeight: '600', color: 'var(--color-foreground)' },
   { tag: t.heading6, fontSize: '1rem', fontWeight: '600', color: 'var(--color-foreground)' },
-  
+
   // Emphasis
   { tag: t.emphasis, fontStyle: 'italic' },
   { tag: t.strong, fontWeight: '700' },
   { tag: t.strikethrough, textDecoration: 'line-through' },
-  
+
   // Inline code and code blocks
-  { tag: t.monospace, fontFamily: 'var(--font-code)', backgroundColor: 'var(--color-selection)', padding: '0.1rem 0.3rem' },
+  {
+    tag: t.monospace,
+    fontFamily: 'var(--font-code)',
+    backgroundColor: 'var(--color-selection)',
+    padding: '0.1rem 0.3rem',
+  },
   { tag: t.special(t.string), fontFamily: 'var(--font-code)', color: 'var(--color-foreground)' },
   { tag: t.atom, fontFamily: 'var(--font-code)' },
-  
+
   // Links
   { tag: t.link, color: 'var(--color-foreground)', textDecoration: 'underline' },
   { tag: t.url, color: 'var(--color-foreground)', textDecoration: 'underline' },
-  
+
   // Lists
   { tag: t.list, color: 'var(--color-foreground)' },
   { tag: t.processingInstruction, color: 'var(--color-accent)', fontWeight: '600' },
-  
+
   // Quotes
   { tag: t.quote, fontStyle: 'italic', color: 'var(--color-muted)' },
-  
+
   // Meta elements (markdown syntax characters like *, **, ~~, etc.)
   { tag: t.meta, color: 'var(--color-muted)' },
   { tag: t.comment, color: 'var(--color-muted)', fontStyle: 'italic' },
-  
+
   // Default
   { tag: t.content, color: 'var(--color-foreground)' },
-]);
+])
 
 /**
  * Complete theme extension combining base theme and syntax highlighting
  */
-export const editorTheme: Extension = [
-  minimalTheme,
-  syntaxHighlighting(minimalHighlightStyle),
-];
-
+export const editorTheme: Extension = [minimalTheme, syntaxHighlighting(minimalHighlightStyle)]

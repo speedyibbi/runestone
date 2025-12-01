@@ -1,9 +1,9 @@
 <script lang="ts" setup>
-import { ref } from 'vue';
-import { useEditor } from '@/composables/useEditor';
+import { ref } from 'vue'
+import { useEditor } from '@/composables/useEditor'
 
-const editorElement = ref<HTMLElement>();
-const { getContent, setContent } = useEditor(editorElement);
+const editorElement = ref<HTMLElement>()
+const { getContent, setContent } = useEditor(editorElement)
 </script>
 
 <template>
