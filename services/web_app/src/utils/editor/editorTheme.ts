@@ -115,6 +115,14 @@ export const minimalTheme = EditorView.theme(
       backgroundColor: 'var(--color-accent)',
       color: 'var(--color-foreground)',
     },
+
+    // Horizontal rules (---, ***, ___) - visual styling
+    '.cm-line:has(.tok-contentSeparator)': {
+      borderTop: '1px solid var(--color-accent)',
+      marginTop: '1rem',
+      marginBottom: '1rem',
+      paddingTop: '0.5rem',
+    },
   },
   { dark: true },
 )
@@ -160,6 +168,9 @@ const minimalHighlightStyle = HighlightStyle.define([
   // Meta elements (markdown syntax characters like *, **, ~~, etc.)
   { tag: t.meta, color: 'var(--color-muted)' },
   { tag: t.comment, color: 'var(--color-muted)', fontStyle: 'italic' },
+
+  // Horizontal rules (---, ***, ___)
+  { tag: t.contentSeparator, color: 'var(--color-accent)' },
 
   // Default
   { tag: t.content, color: 'var(--color-foreground)' },
