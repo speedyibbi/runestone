@@ -6,8 +6,8 @@ import { indentUnit } from '@codemirror/language'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { search, searchKeymap } from '@codemirror/search'
 import { autocompletion, completionKeymap } from '@codemirror/autocomplete'
-import { editorTheme } from '@/utils/editor/editorTheme'
-import { customListKeyBindings } from '@/utils/editor/editorCustomizations'
+import { theme } from '@/utils/editor/theme'
+import { customMarkdownKeyBindings } from '@/utils/editor/customizations'
 
 export function useEditor(editorElement: Ref<HTMLElement | undefined>) {
   let editorView: EditorView | null = null
@@ -19,18 +19,17 @@ export function useEditor(editorElement: Ref<HTMLElement | undefined>) {
     }
 
     const startState = EditorState.create({
-      doc: '# Welcome to Runestone\n\nStart writing your markdown here...\n\n---\n## Features\n\n- **Bold text**\n- *Italic text*\n- ***Bold and italic text***\n- ~~Strikethrough text~~\n- `Code snippets`\n\n```javascript\nconst example = "code block";\n```\n\n> Blockquote example\n\n## Tables\n\n| Column 1 | Column 2 | Column 3 |\n|-----------|-----------|-----------|\n| Row 1, Col 1 | Row 1, Col 2 | Row 1, Col 3 |\n| Row 2, Col 1 | Row 2, Col 2 | Row 2, Col 3 |\n',
+      doc: '# Welcome to Runestone\n\nA markdown editor that fully complies with the [Markdown Guide](https://www.markdownguide.org/basic-syntax/) specification.\n\n---\n\n## Headings\n\n# Heading 1\n## Heading 2\n### Heading 3\n#### Heading 4\n##### Heading 5\n###### Heading 6\n\n---\n\n## Emphasis\n\n**Bold text** with double asterisks or __double underscores__\n\n*Italic text* with single asterisk or _single underscore_\n\n***Bold and italic*** together\n\n~~Strikethrough~~ with double tildes (GFM extension)\n\n---\n\n## Lists\n\n### Ordered Lists\n\n1. First item\n2. Second item\n3. Third item\n\t1. Nested item (press Tab on numbered list)\n\t2. Another nested item\n4. Fourth item\n\n### Unordered Lists\n\n- Item with dash\n- Another item\n\t- Nested item\n\t- Another nested\n- Back to main level\n\n### Task Lists (GFM)\n\n- [ ] Unchecked task\n- [x] Checked task\n- [ ] Another task\n\n---\n\n## Code\n\nInline `code` with backticks.\n\nCode block with triple backticks:\n\n```javascript\nconst greeting = "Hello, World!";\nconsole.log(greeting);\n```\n\n---\n\n## Blockquotes\n\n> This is a blockquote.\n> It can span multiple lines.\n>\n> And include multiple paragraphs.\n\n---\n\n## Links\n\n[Inline link](https://example.com "Optional title")\n\n[Reference-style link][ref]\n\n[ref]: https://example.com\n\nAutolink: https://example.com\n\n---\n\n## Images\n\n![Alt text](https://via.placeholder.com/150 "Image title")\n\n---\n\n## Tables (GFM)\n\n| Syntax | Description | Notes |\n|--------|-------------|-------|\n| Header | Title | Here |\n| List | Paragraph | Text |\n\n---\n\n## Horizontal Rules\n\nThree or more hyphens:\n\n---\n\nOr asterisks:\n\n***\n\nOr underscores:\n\n___\n\n---\n\n## Try These Features\n\n1. Press **Enter** in a list to continue it automatically\n2. Press **Tab** on a numbered list to indent (resets to 1.)\n3. Press **Shift+Tab** to outdent (smart numbering)\n4. Press **Enter** on an empty list item to exit the list\n5. Press **Enter** in a blockquote to continue it\n\nHappy writing! 📝\n',
       extensions: [
         // Custom theme
-        editorTheme,
+        theme,
 
         // Use tabs instead of spaces
         indentUnit.of('\t'),
 
-        // GitHub Flavored Markdown support (includes strikethrough, tables, task lists, etc.)
+        // GitHub Flavored Markdown support (CommonMark + GFM extensions)
         markdown({
           base: markdownLanguage,
-          codeLanguages: [],
         }),
 
         // Line wrapping
@@ -49,8 +48,9 @@ export function useEditor(editorElement: Ref<HTMLElement | undefined>) {
 
         // Keymaps (order matters - more specific keymaps should come first)
         keymap.of([
-          // Custom key bindings (must come before default keymaps)
-          ...customListKeyBindings,
+          // Custom markdown key bindings (must come before default keymaps)
+          // Handles Enter for list continuation, Tab/Shift-Tab for smart indentation
+          ...customMarkdownKeyBindings,
           ...completionKeymap,
           ...searchKeymap,
           ...historyKeymap,
