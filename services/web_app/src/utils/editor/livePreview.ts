@@ -1,10 +1,12 @@
 /**
- * Hides markdown syntax characters when cursor is not on the line
+ * - Hides markdown syntax characters when cursor is not on the line
+ * - Renders images inline
+ * - Makes links clickable with Ctrl/Cmd+Click
  */
 
 import { ViewPlugin, Decoration, EditorView, WidgetType } from '@codemirror/view'
 import type { DecorationSet, ViewUpdate } from '@codemirror/view'
-import type { Range } from '@codemirror/state'
+import type { Range, Extension } from '@codemirror/state'
 import { syntaxTree } from '@codemirror/language'
 
 /**
@@ -378,3 +380,87 @@ export const livePreviewPlugin = ViewPlugin.fromClass(
     decorations: (v) => v.decorations,
   }
 )
+
+/**
+ * Get link URL at a given position
+ */
+function getLinkAtPos(view: EditorView, pos: number): string | null {
+  const tree = syntaxTree(view.state)
+  const node = tree.resolveInner(pos, 1)
+  
+  // Check if we're in a Link node
+  let linkNode = node
+  while (linkNode && linkNode.parent) {
+    if (linkNode.type.name === 'Link') {
+      // Found a link, extract the URL
+      const urlNode = linkNode.node.getChild('URL')
+      if (urlNode) {
+        let url = view.state.doc.sliceString(urlNode.from, urlNode.to)
+        // Remove parentheses if present
+        url = url.replace(/^\(|\)$/g, '').trim()
+        return url
+      }
+      return null
+    }
+    linkNode = linkNode.parent
+  }
+  
+  // Check if we're in an Autolink
+  let autolinkNode = node
+  while (autolinkNode && autolinkNode.parent) {
+    if (autolinkNode.type.name === 'Autolink') {
+      const url = view.state.doc.sliceString(autolinkNode.from, autolinkNode.to)
+      return url.trim()
+    }
+    autolinkNode = autolinkNode.parent
+  }
+  
+  return null
+}
+
+/**
+ * Handle click events to detect Ctrl/Cmd+Click on links
+ */
+function handleClick(event: MouseEvent, view: EditorView): boolean {
+  // Only handle left mouse button with Ctrl or Cmd key
+  if (event.button !== 0) return false
+  if (!event.ctrlKey && !event.metaKey) return false
+  
+  // Get the position where the click occurred
+  const pos = view.posAtCoords({ x: event.clientX, y: event.clientY })
+  if (pos === null) return false
+  
+  // Check if there's a link at this position
+  const url = getLinkAtPos(view, pos)
+  if (!url) return false
+  
+  // Prevent default behavior and open the link
+  event.preventDefault()
+  event.stopPropagation()
+  
+  // Open the link in a new tab
+  try {
+    // Handle relative URLs, data URIs, and absolute URLs
+    if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('//')) {
+      window.open(url, '_blank', 'noopener,noreferrer')
+    } else if (url.startsWith('mailto:') || url.startsWith('tel:')) {
+      window.location.href = url
+    } else {
+      // For relative URLs, might need special handling based on your app
+      window.open(url, '_blank', 'noopener,noreferrer')
+    }
+  } catch (error) {
+    console.error('Failed to open link:', error)
+  }
+  
+  return true
+}
+
+/**
+ * Extension to make links clickable with Ctrl/Cmd+Click
+ */
+export const clickableLinks: Extension = EditorView.domEventHandlers({
+  mousedown(event, view) {
+    return handleClick(event, view)
+  },
+})

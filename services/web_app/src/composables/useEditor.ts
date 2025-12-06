@@ -8,7 +8,7 @@ import { search, searchKeymap } from '@codemirror/search'
 import { autocompletion, completionKeymap } from '@codemirror/autocomplete'
 import { theme } from '@/utils/editor/theme'
 import { customMarkdownKeyBindings } from '@/utils/editor/customizations'
-import { livePreviewPlugin } from '@/utils/editor/livePreview'
+import { livePreviewPlugin, clickableLinks } from '@/utils/editor/livePreview'
 
 export function useEditor(editorElement: Ref<HTMLElement | undefined>) {
   let editorView: EditorView | null = null
@@ -35,6 +35,9 @@ export function useEditor(editorElement: Ref<HTMLElement | undefined>) {
 
         // Live preview - hide markdown syntax when not editing
         livePreviewPlugin,
+
+        // Clickable links - Ctrl/Cmd+Click to open
+        clickableLinks,
 
         // Line wrapping
         EditorView.lineWrapping,

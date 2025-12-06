@@ -219,11 +219,11 @@ const minimalHighlightStyle = HighlightStyle.define([
   // Code block language identifier (e.g., ```javascript)
   { tag: t.labelName, fontFamily: 'var(--font-code)', color: 'var(--color-accent)', fontSize: '0.85rem' },
 
-  // Links (inline and reference style)
+  // Links (inline and reference style) - clickable with Ctrl/Cmd+Click
   { tag: t.link, color: 'var(--color-foreground)', textDecoration: 'underline', cursor: 'pointer' },
   
-  // URLs in links and autolinks
-  { tag: t.url, color: 'var(--color-foreground)', textDecoration: 'underline' },
+  // URLs in links and autolinks - also clickable
+  { tag: t.url, color: 'var(--color-foreground)', textDecoration: 'underline', cursor: 'pointer' },
 
   // Ordered and unordered lists
   { tag: t.list, color: 'var(--color-foreground)' },
