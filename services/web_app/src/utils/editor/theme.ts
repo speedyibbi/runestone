@@ -123,6 +123,40 @@ export const minimalTheme = EditorView.theme(
       marginBottom: '1rem',
       paddingTop: '0.5rem',
     },
+
+    // Horizontal rule widget (live preview)
+    '.cm-hr-widget': {
+      height: '1px',
+      backgroundColor: 'var(--color-accent)',
+      width: '100%',
+    },
+
+    // Blockquote line styling (live preview)
+    '.cm-blockquote-line': {
+      borderLeft: '4px solid var(--color-accent)',
+      paddingLeft: '1rem',
+      backgroundColor: 'rgba(255, 255, 255, 0.03)',
+      fontStyle: 'italic',
+    },
+
+    // Image placeholder (live preview)
+    '.cm-image-placeholder': {
+      display: 'inline-block',
+      padding: '0.25rem 0.5rem',
+      backgroundColor: 'var(--color-accent)',
+      color: 'var(--color-background)',
+      borderRadius: '3px',
+      fontSize: '0.875rem',
+      fontWeight: '600',
+    },
+
+    // Reference definition indicator (live preview)
+    '.cm-reference-definition': {
+      display: 'inline-block',
+      fontSize: '0.75rem',
+      opacity: 0.5,
+      cursor: 'help',
+    },
   },
   { dark: true },
 )

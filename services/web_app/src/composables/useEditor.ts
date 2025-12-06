@@ -8,6 +8,7 @@ import { search, searchKeymap } from '@codemirror/search'
 import { autocompletion, completionKeymap } from '@codemirror/autocomplete'
 import { theme } from '@/utils/editor/theme'
 import { customMarkdownKeyBindings } from '@/utils/editor/customizations'
+import { livePreviewPlugin } from '@/utils/editor/livePreview'
 
 export function useEditor(editorElement: Ref<HTMLElement | undefined>) {
   let editorView: EditorView | null = null
@@ -31,6 +32,9 @@ export function useEditor(editorElement: Ref<HTMLElement | undefined>) {
         markdown({
           base: markdownLanguage,
         }),
+
+        // Live preview - hide markdown syntax when not editing
+        livePreviewPlugin,
 
         // Line wrapping
         EditorView.lineWrapping,
