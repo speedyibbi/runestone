@@ -14,6 +14,7 @@ import { syntaxTree } from '@codemirror/language'
  */
 function buildDecorations(view: EditorView): DecorationSet {
   const decorations: Range<Decoration>[] = []
+  const checkboxDecorations: Range<Decoration>[] = []
   
   // Get the line number where the cursor is
   const cursorLine = view.state.doc.lineAt(view.state.selection.main.head).number
@@ -124,7 +125,6 @@ function buildDecorations(view: EditorView): DecorationSet {
                 Decoration.widget({
                   widget: new ImageWidget(url, alt),
                   side: 1, // Place after the markdown
-                  block: true,
                 }).range(node.to)
               )
             } else {
@@ -139,8 +139,8 @@ function buildDecorations(view: EditorView): DecorationSet {
           return // Don't process further for images
         }
         
-        // Don't hide syntax on cursor line (for non-images)
-        if (onCursorLine) return
+        // Don't hide syntax on cursor line (except for images and task lists)
+        if (onCursorLine && nodeType !== 'ListItem') return
         
         // Hide heading marks (# symbols)
         if (nodeType === 'HeaderMark') {
@@ -192,6 +192,50 @@ function buildDecorations(view: EditorView): DecorationSet {
           decorations.push(
             Decoration.replace({}).range(node.from, node.to)
           )
+        }
+        
+        // Replace task markers with clickable checkboxes
+        // Note: Process this BEFORE other decorations to ensure proper ordering
+        else if (nodeType === 'ListItem') {
+          // Get the line text
+          const lineStart = view.state.doc.lineAt(node.from)
+          const lineText = lineStart.text
+          
+          // Check if this is a task list item (- [ ] or - [x])
+          const taskMatch = lineText.match(/^(\s*)([-*+])\s+(\[[ xX]\])/)
+          if (taskMatch) {
+            // Calculate positions for list marker and checkbox
+            const indentLength = taskMatch[1].length
+            const markerLength = taskMatch[2].length // - or * or +
+            const spaceAfterMarker = 1
+            
+            // Position of the list marker (- or * or +)
+            const listMarkerStart = lineStart.from + indentLength
+            
+            // Position of the checkbox marker [ ] or [x]
+            const checkboxStart = listMarkerStart + markerLength + spaceAfterMarker
+            const checkboxEnd = checkboxStart + 3 // [x] is 3 characters
+            
+            // Space after checkbox
+            const spaceAfterCheckbox = 1
+            const replaceEnd = checkboxEnd + spaceAfterCheckbox
+            
+            // Show checkbox UNLESS cursor is within the "- [ ] " part
+            const cursorPos = view.state.selection.main.head
+            const cursorInTaskMarker = onCursorLine && cursorPos >= listMarkerStart && cursorPos <= replaceEnd
+            
+            if (!cursorInTaskMarker) {
+              const isChecked = taskMatch[3].includes('x') || taskMatch[3].includes('X')
+              
+              // Replace entire "- [ ] " with just the checkbox
+              checkboxDecorations.push(
+                Decoration.replace({
+                  widget: new CheckboxWidget(isChecked, checkboxStart),
+                }).range(listMarkerStart, replaceEnd)
+              )
+            }
+            // Note: Don't return false - allow processing of nested ListItems
+          }
         }
         
         // Hide link brackets, parentheses, and other marks
@@ -252,10 +296,16 @@ function buildDecorations(view: EditorView): DecorationSet {
     })
   }
   
-  // Sort all decorations by position
-  decorations.sort((a, b) => a.from - b.from || a.value.startSide - b.value.startSide)
+  // Combine all decorations: checkboxes first, then others
+  const allDecorations = [
+    ...checkboxDecorations,
+    ...decorations,
+  ]
   
-  return Decoration.set(decorations)
+  // Sort all decorations by position
+  allDecorations.sort((a, b) => a.from - b.from || a.value.startSide - b.value.startSide)
+  
+  return Decoration.set(allDecorations)
 }
 
 /**
@@ -337,6 +387,69 @@ class ReferenceDefinitionWidget extends WidgetType {
   }
   
   ignoreEvent(): boolean {
+    return false
+  }
+}
+
+/**
+ * Widget for clickable checkboxes in task lists
+ * Replaces [ ] and [x] with interactive checkboxes
+ */
+class CheckboxWidget extends WidgetType {
+  constructor(
+    readonly checked: boolean,
+    readonly pos: number
+  ) {
+    super()
+  }
+  
+  eq(other: CheckboxWidget): boolean {
+    return other.checked === this.checked && other.pos === this.pos
+  }
+  
+  toDOM(view: EditorView): HTMLElement {
+    const wrapper = document.createElement('span')
+    wrapper.className = 'cm-checkbox-wrapper'
+    wrapper.style.display = 'inline-block'
+    
+    const checkbox = document.createElement('input')
+    checkbox.type = 'checkbox'
+    checkbox.checked = this.checked
+    checkbox.className = 'cm-task-checkbox'
+    
+    // Add inline styling to ensure visibility
+    checkbox.style.width = '16px'
+    checkbox.style.height = '16px'
+    checkbox.style.margin = '0 0.5rem 0 0'
+    checkbox.style.cursor = 'pointer'
+    checkbox.style.verticalAlign = 'middle'
+    checkbox.style.appearance = 'auto'
+    
+    // Handle checkbox toggle on mousedown (before the checkbox toggles)
+    checkbox.addEventListener('mousedown', (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      
+      // Toggle the checkbox state manually
+      const newChecked = !this.checked
+      const newValue = newChecked ? '[x]' : '[ ]'
+      
+      // Update the document - this will rebuild decorations with new state
+      view.dispatch({
+        changes: {
+          from: this.pos,
+          to: this.pos + 3,
+          insert: newValue,
+        },
+      })
+    })
+    
+    wrapper.appendChild(checkbox)
+    return wrapper
+  }
+  
+  ignoreEvent(): boolean {
+    // Let the widget handle all events
     return false
   }
 }

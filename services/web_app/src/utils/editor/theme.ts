@@ -178,6 +178,13 @@ export const minimalTheme = EditorView.theme(
       opacity: 0.5,
       cursor: 'help',
     },
+
+    // Task list checkboxes (live preview)
+    '.cm-task-checkbox': {
+      marginRight: '0.5rem',
+      cursor: 'pointer',
+      accentColor: 'var(--color-accent)',
+    },
   },
   { dark: true },
 )
