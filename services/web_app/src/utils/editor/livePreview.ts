@@ -501,7 +501,19 @@ function getLinkAtPos(view: EditorView, pos: number): string | null {
   const tree = syntaxTree(view.state)
   const node = tree.resolveInner(pos, 1)
   
-  // Check if we're in a Link node
+  // Check if the node itself is a URL (for autolinks in GFM)
+  if (node.type.name === 'URL') {
+    // Check if this URL is part of a Link or standalone autolink
+    const parent = node.parent
+    
+    if (parent && parent.type.name !== 'Link') {
+      // This is a standalone autolink URL, not inside [text](url)
+      const url = view.state.doc.sliceString(node.from, node.to)
+      return url.trim()
+    }
+  }
+  
+  // Check if we're in a Link node [text](url)
   let linkNode = node
   while (linkNode && linkNode.parent) {
     if (linkNode.type.name === 'Link') {
@@ -518,7 +530,7 @@ function getLinkAtPos(view: EditorView, pos: number): string | null {
     linkNode = linkNode.parent
   }
   
-  // Check if we're in an Autolink
+  // Check if we're in an Autolink wrapper node
   let autolinkNode = node
   while (autolinkNode && autolinkNode.parent) {
     if (autolinkNode.type.name === 'Autolink') {
