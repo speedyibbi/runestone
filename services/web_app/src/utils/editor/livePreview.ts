@@ -235,6 +235,26 @@ function buildDecorations(view: EditorView): DecorationSet {
               )
             }
             // Note: Don't return false - allow processing of nested ListItems
+          } else {
+            // This is a regular bullet list item (not a task list)
+            const bulletMatch = lineText.match(/^(\s*)([-*+])\s+/)
+            if (bulletMatch) {
+              const indentLength = bulletMatch[1].length
+              const markerLength = bulletMatch[2].length
+              const spaceLength = 1
+              
+              const markerStart = lineStart.from + indentLength
+              const markerEnd = markerStart + markerLength + spaceLength
+              
+              // Show bullet UNLESS cursor is on this line
+              if (!onCursorLine) {
+                decorations.push(
+                  Decoration.replace({
+                    widget: new BulletWidget(),
+                  }).range(markerStart, markerEnd)
+                )
+              }
+            }
           }
         }
         
@@ -395,6 +415,28 @@ class ReferenceDefinitionWidget extends WidgetType {
  * Widget for clickable checkboxes in task lists
  * Replaces [ ] and [x] with interactive checkboxes
  */
+// Widget for regular bullet list items
+class BulletWidget extends WidgetType {
+  eq(other: BulletWidget): boolean {
+    return true // All bullet widgets are the same
+  }
+  
+  toDOM(): HTMLElement {
+    const span = document.createElement('span')
+    span.className = 'cm-bullet'
+    span.textContent = '• '
+    span.style.color = 'var(--text-color-secondary, #888)'
+    span.style.userSelect = 'none'
+    span.style.marginRight = '0.5rem'
+    return span
+  }
+  
+  ignoreEvent(): boolean {
+    return false
+  }
+}
+
+// Widget for task list checkboxes
 class CheckboxWidget extends WidgetType {
   constructor(
     readonly checked: boolean,
