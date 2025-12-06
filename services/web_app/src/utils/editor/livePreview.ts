@@ -19,7 +19,10 @@ function buildDecorations(view: EditorView): DecorationSet {
   // Track which lines have blockquote markers for styling
   const blockquoteLines = new Set<number>()
   
-  // First pass: collect blockquote lines
+  // Track which lines have images (to avoid hiding their child nodes on cursor line)
+  const imageLines = new Set<number>()
+  
+  // First pass: collect blockquote lines and image lines
   for (const { from, to } of view.visibleRanges) {
     syntaxTree(view.state).iterate({
       from,
@@ -28,6 +31,9 @@ function buildDecorations(view: EditorView): DecorationSet {
         const line = view.state.doc.lineAt(node.from).number
         if (line !== cursorLine && node.type.name === 'QuoteMark') {
           blockquoteLines.add(line)
+        }
+        if (node.type.name === 'Image') {
+          imageLines.add(line)
         }
       },
     })
@@ -50,11 +56,89 @@ function buildDecorations(view: EditorView): DecorationSet {
       to,
       enter: (node) => {
         const line = view.state.doc.lineAt(node.from).number
-        
-        // Don't hide syntax on cursor line
-        if (line === cursorLine) return
-        
         const nodeType = node.type.name
+        const onCursorLine = line === cursorLine
+        const onImageLine = imageLines.has(line)
+        
+        // If cursor is on an image line, don't hide any syntax - let user edit
+        if (onCursorLine && onImageLine) {
+          // Only add the image widget below, don't hide anything
+          if (nodeType === 'Image') {
+            const imageNode = node.node
+            let alt = ''
+            let url = ''
+            
+            const altNode = imageNode.getChild('LinkLabel')
+            if (altNode) {
+              alt = view.state.doc.sliceString(altNode.from, altNode.to)
+              alt = alt.replace(/^\[|\]$/g, '')
+            }
+            
+            const urlNode = imageNode.getChild('URL')
+            if (urlNode) {
+              url = view.state.doc.sliceString(urlNode.from, urlNode.to)
+              url = url.replace(/^\(|\)$/g, '')
+            }
+            
+            if (url) {
+              decorations.push(
+                Decoration.widget({
+                  widget: new ImageWidget(url, alt),
+                  side: 1,
+                }).range(node.to)
+              )
+            }
+          }
+          return // Don't hide any child nodes
+        }
+        
+        // Special handling for images - always render them
+        if (nodeType === 'Image') {
+          // Extract alt text and URL from the image node
+          const imageNode = node.node
+          let alt = ''
+          let url = ''
+          
+          // Get alt text (from LinkLabel child)
+          const altNode = imageNode.getChild('LinkLabel')
+          if (altNode) {
+            alt = view.state.doc.sliceString(altNode.from, altNode.to)
+            // Remove brackets
+            alt = alt.replace(/^\[|\]$/g, '')
+          }
+          
+          // Get URL (from URL child)
+          const urlNode = imageNode.getChild('URL')
+          if (urlNode) {
+            url = view.state.doc.sliceString(urlNode.from, urlNode.to)
+            // Remove parentheses if present
+            url = url.replace(/^\(|\)$/g, '')
+          }
+          
+          if (url) {
+            if (onCursorLine) {
+              // On cursor line: show markdown AND image below it
+              decorations.push(
+                Decoration.widget({
+                  widget: new ImageWidget(url, alt),
+                  side: 1, // Place after the markdown
+                  block: true,
+                }).range(node.to)
+              )
+            } else {
+              // Off cursor line: replace markdown with image
+              decorations.push(
+                Decoration.replace({
+                  widget: new ImageWidget(url, alt),
+                }).range(node.from, node.to)
+              )
+            }
+          }
+          return // Don't process further for images
+        }
+        
+        // Don't hide syntax on cursor line (for non-images)
+        if (onCursorLine) return
         
         // Hide heading marks (# symbols)
         if (nodeType === 'HeaderMark') {
@@ -162,15 +246,6 @@ function buildDecorations(view: EditorView): DecorationSet {
             }
           }
         }
-        
-        // Hide image syntax completely
-        else if (nodeType === 'Image') {
-          decorations.push(
-            Decoration.replace({
-              widget: new ImagePlaceholderWidget(),
-            }).range(node.from, node.to)
-          )
-        }
       },
     })
   }
@@ -182,15 +257,63 @@ function buildDecorations(view: EditorView): DecorationSet {
 }
 
 /**
- * Widget for images (placeholder for now)
- * Will be replaced with actual image rendering in Phase 1
+ * Widget for rendering inline images
+ * Displays actual images in the editor
  */
-class ImagePlaceholderWidget extends WidgetType {
+class ImageWidget extends WidgetType {
+  constructor(
+    readonly src: string,
+    readonly alt: string
+  ) {
+    super()
+  }
+  
+  eq(other: ImageWidget): boolean {
+    return other.src === this.src && other.alt === this.alt
+  }
+  
   toDOM(): HTMLElement {
-    const placeholder = document.createElement('span')
-    placeholder.className = 'cm-image-placeholder'
-    placeholder.textContent = '🖼️ Image'
-    return placeholder
+    const container = document.createElement('span')
+    container.className = 'cm-image-widget'
+    
+    const img = document.createElement('img')
+    img.src = this.src
+    img.alt = this.alt
+    img.className = 'cm-image'
+    
+    // Set max dimensions for images
+    img.style.maxWidth = '100%'
+    img.style.height = 'auto'
+    img.style.display = 'block'
+    img.style.margin = '0.5rem 0'
+    img.style.borderRadius = '4px'
+    
+    // Handle loading states
+    img.onload = () => {
+      img.style.opacity = '1'
+    }
+    
+    // Handle errors - show fallback
+    img.onerror = () => {
+      img.style.display = 'none'
+      const error = document.createElement('span')
+      error.className = 'cm-image-error'
+      error.textContent = `🖼️ Image not found: ${this.alt || this.src}`
+      container.appendChild(error)
+    }
+    
+    // Start with slightly transparent while loading
+    img.style.opacity = '0.5'
+    img.style.transition = 'opacity 0.2s'
+    
+    container.appendChild(img)
+    
+    // Add a wrapper for better layout
+    const wrapper = document.createElement('div')
+    wrapper.className = 'cm-image-wrapper'
+    wrapper.appendChild(container)
+    
+    return wrapper
   }
   
   ignoreEvent(): boolean {

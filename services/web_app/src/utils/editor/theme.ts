@@ -139,15 +139,36 @@ export const minimalTheme = EditorView.theme(
       fontStyle: 'italic',
     },
 
-    // Image placeholder (live preview)
-    '.cm-image-placeholder': {
+    // Image widget wrapper (live preview)
+    '.cm-image-wrapper': {
+      display: 'block',
+      margin: '0.5rem 0',
+    },
+
+    // Image widget container (live preview)
+    '.cm-image-widget': {
+      display: 'block',
+      lineHeight: 0,
+    },
+
+    // Inline images (live preview)
+    '.cm-image': {
+      maxWidth: '100%',
+      height: 'auto',
+      display: 'block',
+      borderRadius: '4px',
+      cursor: 'pointer',
+    },
+
+    // Image error fallback (live preview)
+    '.cm-image-error': {
       display: 'inline-block',
-      padding: '0.25rem 0.5rem',
-      backgroundColor: 'var(--color-accent)',
-      color: 'var(--color-background)',
-      borderRadius: '3px',
+      padding: '0.5rem 1rem',
+      backgroundColor: 'rgba(255, 100, 100, 0.1)',
+      color: 'var(--color-muted)',
+      borderRadius: '4px',
       fontSize: '0.875rem',
-      fontWeight: '600',
+      border: '1px dashed rgba(255, 100, 100, 0.3)',
     },
 
     // Reference definition indicator (live preview)
