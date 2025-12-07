@@ -4,20 +4,31 @@ import { syntaxTree } from '@codemirror/language'
 import { ViewPlugin, ViewUpdate, EditorView } from '@codemirror/view'
 
 /**
- * Folding service for Markdown headings.
- * Allows folding/unfolding content under headings.
+ * Folding service for Markdown headings and code blocks.
+ * Allows folding/unfolding content under headings and inside code blocks.
  */
 export const markdownHeadingFolding = foldService.of((state: EditorState, from: number, to: number) => {
   const tree = syntaxTree(state)
   const node = tree.resolveInner(from, 1)
   
   // Check if we're at a heading
-  let headingNode = node
-  while (headingNode && headingNode.parent) {
-    if (headingNode.type.name.startsWith('ATXHeading')) {
-      return getFoldRangeForHeading(state, headingNode)
+  let currentNode = node
+  while (currentNode && currentNode.parent) {
+    if (currentNode.type.name.startsWith('ATXHeading')) {
+      return getFoldRangeForHeading(state, currentNode)
     }
-    headingNode = headingNode.parent
+    if (currentNode.type.name === 'FencedCode') {
+      // Only allow folding from the first line of the code block
+      const codeBlockFirstLine = state.doc.lineAt(currentNode.from)
+      const cursorLine = state.doc.lineAt(from)
+      
+      if (codeBlockFirstLine.number === cursorLine.number) {
+        return getFoldRangeForCodeBlock(state, currentNode)
+      }
+      // Don't continue searching parent nodes if we're inside a code block
+      return null
+    }
+    currentNode = currentNode.parent
   }
   
   return null
@@ -63,6 +74,37 @@ function getFoldRangeForHeading(state: EditorState, headingNode: any) {
   })
   
   // Return the fold range if there's any content to fold
+  if (foldEnd > foldStart) {
+    return { from: foldStart, to: foldEnd }
+  }
+  
+  return null
+}
+
+/**
+ * Calculate the fold range for a code block.
+ * The fold range includes everything from the end of the opening ``` line
+ * to the start of the closing ``` line.
+ */
+function getFoldRangeForCodeBlock(state: EditorState, codeBlockNode: any) {
+  // Get the first line (opening ```)
+  const firstLine = state.doc.lineAt(codeBlockNode.from)
+  
+  // Get the last line (closing ```)
+  const lastLine = state.doc.lineAt(codeBlockNode.to)
+  
+  // If the code block is only one or two lines, don't fold
+  if (lastLine.number <= firstLine.number + 1) {
+    return null
+  }
+  
+  // Start folding from the end of the opening line
+  const foldStart = firstLine.to
+  
+  // End folding at the start of the closing line
+  const foldEnd = lastLine.from
+  
+  // Return the fold range
   if (foldEnd > foldStart) {
     return { from: foldStart, to: foldEnd }
   }
@@ -157,24 +199,32 @@ export const activeLineFoldGutter = ViewPlugin.fromClass(
         const gutterElements = Array.from(foldGutter.querySelectorAll('.cm-gutterElement'))
         if (gutterElements.length === 0) return
         
-        // Check if cursor is anywhere on a line with a heading
+        // Check if cursor is anywhere on a line with a heading or code block opening
         const tree = syntaxTree(view.state)
         
         // Check all nodes on the current line, not just at cursor position
-        let isOnHeading = false
+        let isOnFoldableLine = false
         tree.iterate({
           from: cursorLine.from,
           to: cursorLine.to,
           enter: (node) => {
             if (node.type.name.startsWith('ATXHeading')) {
-              isOnHeading = true
+              isOnFoldableLine = true
               return false
+            }
+            // Check if we're on the first line of a code block
+            if (node.type.name === 'FencedCode') {
+              const codeBlockFirstLine = view.state.doc.lineAt(node.from)
+              if (codeBlockFirstLine.number === cursorLine.number) {
+                isOnFoldableLine = true
+                return false
+              }
             }
           }
         })
         
-        // If not on a heading line, no chevron to highlight
-        if (!isOnHeading) return
+        // If not on a foldable line, no chevron to highlight
+        if (!isOnFoldableLine) return
         
         // Find which gutter element corresponds to this line by comparing positions
         // Use the start of the line for consistency
