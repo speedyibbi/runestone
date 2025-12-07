@@ -380,6 +380,11 @@ export const minimalTheme = EditorView.theme(
       borderRight: 'none',
     },
 
+    // Override cursor for add column button (must come after th styles)
+    '.cm-table-widget .cm-table-add-column-header': {
+      cursor: 'pointer',
+    },
+
     '.cm-table-widget td': {
       padding: '0.75rem 1rem',
       color: 'var(--color-foreground)',
