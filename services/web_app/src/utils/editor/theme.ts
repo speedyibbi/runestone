@@ -43,7 +43,65 @@ export const minimalTheme = EditorView.theme(
     },
 
     '.cm-gutters': {
-      display: 'none', // No line numbers
+      backgroundColor: 'transparent',
+      border: 'none',
+    },
+
+    '.cm-lineNumbers': {
+      display: 'none', // Hide line numbers
+    },
+
+    '.cm-foldGutter': {
+      width: '2rem',
+      color: 'var(--text-color-secondary, #888)',
+      cursor: 'pointer',
+      userSelect: 'none',
+    },
+
+    '.cm-foldGutter .cm-gutterElement': {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      height: '100%',
+      opacity: 0,
+      transition: 'opacity 0.2s ease, transform 0.2s ease',
+    },
+
+    // Show chevron on active line (cursor on that line)
+    '.cm-foldGutter .cm-activeLine-gutter': {
+      opacity: 0.6,
+    },
+
+    // Show chevron on direct hover
+    '.cm-foldGutter .cm-gutterElement:hover': {
+      opacity: 1,
+    },
+
+    '.cm-foldGutter .cm-gutterElement:hover .cm-fold-marker': {
+      transform: 'scale(1.15)',
+    },
+
+    '.cm-fold-marker': {
+      color: 'var(--color-foreground)',
+    },
+
+    // Fold placeholder styling (shown when content is folded)
+    '.cm-foldPlaceholder': {
+      backgroundColor: 'transparent',
+      border: 'none',
+      color: 'var(--text-color-secondary, #888)',
+      fontSize: '0.9rem',
+      fontWeight: '300',
+      padding: '0',
+      margin: '0 0.2rem',
+      opacity: 0.3,
+      cursor: 'pointer',
+      transition: 'opacity 0.2s ease',
+      verticalAlign: 'baseline',
+    },
+
+    '.cm-foldPlaceholder:hover': {
+      opacity: 0.6,
     },
 
     '.cm-line': {

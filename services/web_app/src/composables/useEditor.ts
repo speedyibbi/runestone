@@ -2,13 +2,14 @@ import { onMounted, onUnmounted, type Ref } from 'vue'
 import { EditorView, keymap } from '@codemirror/view'
 import { EditorState } from '@codemirror/state'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
-import { indentUnit } from '@codemirror/language'
+import { indentUnit, foldKeymap } from '@codemirror/language'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { search, searchKeymap } from '@codemirror/search'
 import { autocompletion, completionKeymap } from '@codemirror/autocomplete'
 import { theme } from '@/utils/editor/theme'
 import { customMarkdownKeyBindings } from '@/utils/editor/customizations'
 import { livePreviewPlugin, clickableLinks } from '@/utils/editor/livePreview'
+import { markdownHeadingFolding, markdownFoldGutter, activeLineFoldGutter } from '@/utils/editor/folding'
 
 export function useEditor(editorElement: Ref<HTMLElement | undefined>) {
   let editorView: EditorView | null = null
@@ -39,6 +40,11 @@ export function useEditor(editorElement: Ref<HTMLElement | undefined>) {
         // Clickable links - Ctrl/Cmd+Click to open
         clickableLinks,
 
+        // Folding support for headings
+        markdownHeadingFolding,
+        markdownFoldGutter,
+        activeLineFoldGutter,
+
         // Line wrapping
         EditorView.lineWrapping,
 
@@ -58,6 +64,7 @@ export function useEditor(editorElement: Ref<HTMLElement | undefined>) {
           // Custom markdown key bindings (must come before default keymaps)
           // Handles Enter for list continuation, Tab/Shift-Tab for smart indentation
           ...customMarkdownKeyBindings,
+          ...foldKeymap,
           ...completionKeymap,
           ...searchKeymap,
           ...historyKeymap,
