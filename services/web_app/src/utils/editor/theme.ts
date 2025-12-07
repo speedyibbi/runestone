@@ -17,8 +17,9 @@ export const minimalTheme = EditorView.theme(
     },
 
     '.cm-content': {
+      maxWidth: '100%',
       caretColor: 'var(--color-foreground)',
-      padding: '2rem',
+      padding: '2rem 2rem 2rem 0',
     },
 
     '.cm-cursor, .cm-dropCursor': {
@@ -242,6 +243,95 @@ export const minimalTheme = EditorView.theme(
       marginRight: '0.5rem',
       cursor: 'pointer',
       accentColor: 'var(--color-accent)',
+    },
+
+    // Hidden table markdown lines (collapsed to zero height)
+    '.cm-table-hidden-line': {
+      height: '0 !important',
+      padding: '0 !important',
+      margin: '0 !important',
+      lineHeight: '0 !important',
+      overflow: 'hidden',
+    },
+
+    // Table wrapper (enables horizontal scrolling)
+    '.cm-table-wrapper': {
+      width: '100%',
+      overflowX: 'scroll',
+      overflowY: 'hidden',
+      margin: '0.5rem 0',
+      border: '1px solid rgba(255, 255, 255, 0.15)',
+      borderRadius: '6px',
+      backgroundColor: 'transparent',
+    },
+
+    // Custom scrollbar for table wrapper
+    '.cm-table-wrapper::-webkit-scrollbar': {
+      height: '2px',
+    },
+
+    '.cm-table-wrapper::-webkit-scrollbar-track': {
+      backgroundColor: 'rgba(255, 255, 255, 0.05)',
+      borderRadius: '0 0 6px 6px',
+    },
+
+    '.cm-table-wrapper::-webkit-scrollbar-thumb': {
+      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+      borderRadius: '4px',
+    },
+
+    '.cm-table-wrapper::-webkit-scrollbar-thumb:hover': {
+      backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    },
+
+    // Table widget (live preview)
+    '.cm-table-widget': {
+      width: '100%',
+      borderCollapse: 'collapse',
+      margin: '0',
+      fontSize: 'inherit',
+      backgroundColor: 'transparent',
+      border: 'none',
+      tableLayout: 'auto',
+      display: 'table',
+    },
+
+    '.cm-table-widget thead': {
+      backgroundColor: 'rgba(255, 255, 255, 0.08)',
+      borderBottom: '2px solid rgba(255, 255, 255, 0.2)',
+    },
+
+    '.cm-table-widget th': {
+      padding: '0.75rem 1rem',
+      fontWeight: '600',
+      color: 'var(--color-foreground)',
+      textAlign: 'left',
+      borderRight: '1px solid rgba(255, 255, 255, 0.1)',
+      whiteSpace: 'nowrap',
+    },
+
+    '.cm-table-widget th:last-child': {
+      borderRight: 'none',
+    },
+
+    '.cm-table-widget td': {
+      padding: '0.75rem 1rem',
+      color: 'var(--color-foreground)',
+      borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+      borderRight: '1px solid rgba(255, 255, 255, 0.08)',
+      whiteSpace: 'nowrap',
+    },
+
+    '.cm-table-widget td:last-child': {
+      borderRight: 'none',
+    },
+
+    '.cm-table-widget tbody tr:last-child td': {
+      borderBottom: 'none',
+    },
+
+    '.cm-table-widget tbody tr:hover': {
+      backgroundColor: 'rgba(255, 255, 255, 0.05)',
     },
   },
   { dark: true },

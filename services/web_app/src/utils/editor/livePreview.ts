@@ -10,6 +10,130 @@ import type { Range, Extension } from '@codemirror/state'
 import { syntaxTree } from '@codemirror/language'
 
 /**
+ * Parse table data from a Table node
+ */
+interface TableData {
+  headers: string[]
+  alignments: ('left' | 'center' | 'right')[]
+  rows: string[][]
+}
+
+function parseTable(view: EditorView, tableNode: any): TableData | null {
+  // Get the full table text and parse it line by line
+  const tableText = view.state.doc.sliceString(tableNode.from, tableNode.to)
+  const lines = tableText.split('\n').filter(line => line.trim())
+  
+  if (lines.length < 2) {
+    return null // Need at least header and delimiter
+  }
+  
+  // Parse header row (first line)
+  const headerLine = lines[0]
+  const headers = headerLine.split('|')
+    .map(cell => cell.trim())
+    .filter(cell => cell && cell !== '')
+  
+  if (headers.length === 0) {
+    return null
+  }
+  
+  // Parse delimiter row (second line) for alignments
+  const delimiterLine = lines[1]
+  const delimiterCells = delimiterLine.split('|')
+    .map(cell => cell.trim())
+    .filter(cell => cell && cell !== '')
+  
+  const alignments: ('left' | 'center' | 'right')[] = delimiterCells.map((cell) => {
+    const trimmed = cell.trim()
+    if (trimmed.startsWith(':') && trimmed.endsWith(':')) {
+      return 'center'
+    } else if (trimmed.endsWith(':')) {
+      return 'right'
+    } else {
+      return 'left'
+    }
+  })
+  
+  // Parse data rows (remaining lines)
+  const rows: string[][] = []
+  for (let i = 2; i < lines.length; i++) {
+    const line = lines[i]
+    const cells = line.split('|')
+      .map(cell => cell.trim())
+      .filter(cell => cell !== '')
+    
+    if (cells.length > 0) {
+      rows.push(cells)
+    }
+  }
+  
+  return { headers, alignments, rows }
+}
+
+/**
+ * Widget to render tables
+ */
+class TableWidget extends WidgetType {
+  constructor(readonly data: TableData) {
+    super()
+  }
+  
+  eq(other: TableWidget): boolean {
+    return JSON.stringify(this.data) === JSON.stringify(other.data)
+  }
+  
+  toDOM(): HTMLElement {
+    // Create wrapper for horizontal scrolling
+    const wrapper = document.createElement('div')
+    wrapper.className = 'cm-table-wrapper'
+    
+    const table = document.createElement('table')
+    table.className = 'cm-table-widget'
+    
+    // Create header
+    const thead = document.createElement('thead')
+    const headerRow = document.createElement('tr')
+    
+    this.data.headers.forEach((header, i) => {
+      const th = document.createElement('th')
+      th.textContent = header
+      if (this.data.alignments[i]) {
+        th.style.textAlign = this.data.alignments[i]
+      }
+      headerRow.appendChild(th)
+    })
+    
+    thead.appendChild(headerRow)
+    table.appendChild(thead)
+    
+    // Create body
+    const tbody = document.createElement('tbody')
+    
+    this.data.rows.forEach((row) => {
+      const tr = document.createElement('tr')
+      row.forEach((cell, i) => {
+        const td = document.createElement('td')
+        td.textContent = cell
+        if (this.data.alignments[i]) {
+          td.style.textAlign = this.data.alignments[i]
+        }
+        tr.appendChild(td)
+      })
+      tbody.appendChild(tr)
+    })
+    
+    table.appendChild(tbody)
+    wrapper.appendChild(table)
+    
+    return wrapper
+  }
+  
+  ignoreEvent(): boolean {
+    return false
+  }
+}
+
+/**
  * Build decorations to hide markdown syntax
  */
 function buildDecorations(view: EditorView): DecorationSet {
@@ -25,7 +149,11 @@ function buildDecorations(view: EditorView): DecorationSet {
   // Track which lines have images (to avoid hiding their child nodes on cursor line)
   const imageLines = new Set<number>()
   
-  // First pass: collect blockquote lines and image lines
+  // Track which lines are part of tables
+  const tableLines = new Set<number>()
+  const processedTables = new Set<number>()
+  
+  // First pass: collect blockquote lines, image lines, and table lines
   for (const { from, to } of view.visibleRanges) {
     syntaxTree(view.state).iterate({
       from,
@@ -37,6 +165,14 @@ function buildDecorations(view: EditorView): DecorationSet {
         }
         if (node.type.name === 'Image') {
           imageLines.add(line)
+        }
+        // Track all lines that are part of a table
+        if (node.type.name === 'Table') {
+          const tableStartLine = view.state.doc.lineAt(node.from).number
+          const tableEndLine = view.state.doc.lineAt(node.to).number
+          for (let i = tableStartLine; i <= tableEndLine; i++) {
+            tableLines.add(i)
+          }
         }
       },
     })
@@ -62,6 +198,53 @@ function buildDecorations(view: EditorView): DecorationSet {
         const nodeType = node.type.name
         const onCursorLine = line === cursorLine
         const onImageLine = imageLines.has(line)
+        const onTableLine = tableLines.has(line)
+        
+        // Handle table rendering
+        if (nodeType === 'Table' && !processedTables.has(node.from)) {
+          processedTables.add(node.from)
+          
+          // Check if cursor is on any line of this table
+          const tableStartLine = view.state.doc.lineAt(node.from).number
+          const tableEndLine = view.state.doc.lineAt(node.to).number
+          const cursorOnTable = cursorLine >= tableStartLine && cursorLine <= tableEndLine
+          
+          if (!cursorOnTable) {
+            // Parse and render the table
+            const tableData = parseTable(view, node)
+            if (tableData) {
+              // Add the table widget at the start of the table
+              decorations.push(
+                Decoration.widget({
+                  widget: new TableWidget(tableData),
+                  side: -1,
+                }).range(node.from)
+              )
+              
+              // Hide all lines of the table by replacing each line's content and collapsing the line
+              // Don't collapse the first line since that's where the widget is placed
+              for (let lineNum = tableStartLine; lineNum <= tableEndLine; lineNum++) {
+                const lineObj = view.state.doc.line(lineNum)
+                
+                // Replace the line content (but not the line break)
+                decorations.push(
+                  Decoration.replace({}).range(lineObj.from, lineObj.to)
+                )
+                
+                // Collapse all lines EXCEPT the first one (where the widget is displayed)
+                if (lineNum > tableStartLine) {
+                  decorations.push(
+                    Decoration.line({
+                      attributes: { class: 'cm-table-hidden-line' },
+                    }).range(lineObj.from)
+                  )
+                }
+              }
+            }
+          }
+          
+          return false // Don't process children if we're rendering the table
+        }
         
         // If cursor is on an image line, don't hide any syntax - let user edit
         if (onCursorLine && onImageLine) {
