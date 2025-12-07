@@ -254,14 +254,21 @@ export const minimalTheme = EditorView.theme(
       overflow: 'hidden',
     },
 
-    // Table wrapper (enables horizontal scrolling)
-    '.cm-table-wrapper': {
+    // Table container (holds wrapper and add row button)
+    '.cm-table-container': {
       width: '100%',
-      overflowX: 'scroll',
-      overflowY: 'hidden',
       margin: '0.5rem 0',
       border: '1px solid rgba(255, 255, 255, 0.15)',
       borderRadius: '6px',
+      overflow: 'hidden',
+      backgroundColor: 'transparent',
+    },
+
+    // Table wrapper (enables horizontal scrolling)
+    '.cm-table-wrapper': {
+      width: '100%',
+      overflowX: 'auto',
+      overflowY: 'hidden',
       backgroundColor: 'transparent',
     },
 
@@ -282,6 +289,53 @@ export const minimalTheme = EditorView.theme(
 
     '.cm-table-wrapper::-webkit-scrollbar-thumb:hover': {
       backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    },
+
+    // Add column button in header
+    '.cm-table-add-column-header': {
+      padding: '0.75rem 1rem',
+      fontWeight: 'normal',
+      textAlign: 'center',
+      cursor: 'pointer',
+      color: 'var(--color-accent)',
+      fontSize: '0.9em',
+      borderRight: 'none',
+      userSelect: 'none',
+      backgroundColor: 'transparent',
+      transition: 'background-color 0.2s',
+      whiteSpace: 'nowrap',
+    },
+
+    '.cm-table-add-column-header:hover': {
+      backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    },
+
+    // Placeholder cells under the Add Column button
+    '.cm-table-add-column-placeholder': {
+      padding: '0.75rem 1rem',
+      backgroundColor: 'transparent',
+      borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+      borderRight: 'none',
+      userSelect: 'none',
+      pointerEvents: 'none',
+      whiteSpace: 'nowrap',
+    },
+
+    // Add row button (below table)
+    '.cm-table-add-row': {
+      textAlign: 'center',
+      padding: '0.5rem',
+      cursor: 'pointer',
+      color: 'var(--color-accent)',
+      fontSize: '0.9em',
+      borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+      userSelect: 'none',
+      backgroundColor: 'transparent',
+      transition: 'background-color 0.2s',
+    },
+
+    '.cm-table-add-row:hover': {
+      backgroundColor: 'rgba(255, 255, 255, 0.05)',
     },
 
     // Table widget (live preview)
@@ -308,6 +362,18 @@ export const minimalTheme = EditorView.theme(
       textAlign: 'left',
       borderRight: '1px solid rgba(255, 255, 255, 0.1)',
       whiteSpace: 'nowrap',
+      cursor: 'text',
+      transition: 'background-color 0.2s',
+    },
+
+    '.cm-table-widget th:hover': {
+      backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    },
+
+    '.cm-table-widget th:focus': {
+      outline: 'none',
+      backgroundColor: 'rgba(255, 255, 255, 0.05)',
+      boxShadow: 'inset 0 0 0 1px var(--color-accent)',
     },
 
     '.cm-table-widget th:last-child': {
@@ -320,6 +386,18 @@ export const minimalTheme = EditorView.theme(
       borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
       borderRight: '1px solid rgba(255, 255, 255, 0.08)',
       whiteSpace: 'nowrap',
+      cursor: 'text',
+      transition: 'background-color 0.2s',
+    },
+
+    '.cm-table-widget td:hover': {
+      backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    },
+
+    '.cm-table-widget td:focus': {
+      outline: 'none',
+      backgroundColor: 'rgba(255, 255, 255, 0.05)',
+      boxShadow: 'inset 0 0 0 1px var(--color-accent)',
     },
 
     '.cm-table-widget td:last-child': {
