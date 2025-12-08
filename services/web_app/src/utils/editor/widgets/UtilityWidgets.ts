@@ -52,7 +52,7 @@ export class BulletWidget extends WidgetType {
     const span = document.createElement('span')
     span.className = 'cm-bullet'
     span.textContent = '• '
-    span.style.color = 'var(--text-color-secondary, #888)'
+    span.style.color = 'var(--color-muted)'
     span.style.userSelect = 'none'
     span.style.marginRight = '0.5rem'
     return span

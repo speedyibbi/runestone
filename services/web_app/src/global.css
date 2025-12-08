@@ -3,13 +3,29 @@
 
 /* Theme */
 :root {
+  /* Primary Colors */
   --color-accent: #4f535b;
   --color-foreground: #ffffff;
   --color-background: #000000;
   --color-selection: #4f535b4d;
   --color-selection-focused: #4f535b66;
   --color-muted: #888888;
-
+  
+  /* Semantic Colors */
+  --color-error: #ff6464;
+  --color-error-bg: #ff64641a;
+  --color-error-border: #ff64644d;
+  
+  /* Opacity Variants */
+  --color-overlay-subtle: #ffffff08;
+  --color-overlay-light: #ffffff0d;
+  --color-overlay-medium: #ffffff14;
+  --color-overlay-strong: #ffffff1a;
+  --color-overlay-border: #ffffff26;
+  --color-overlay-hover: #ffffff33;
+  --color-overlay-active: #ffffff4d;
+  
+  /* Fonts */
   --font-primary: 'Inter', sans-serif;
   --font-code: 'Google Sans Code', monospace;
 

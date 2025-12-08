@@ -54,7 +54,7 @@ export const minimalTheme = EditorView.theme(
 
     '.cm-foldGutter': {
       width: '2rem',
-      color: 'var(--text-color-secondary, #888)',
+      color: 'var(--color-muted)',
       cursor: 'pointer',
       userSelect: 'none',
     },
@@ -90,7 +90,7 @@ export const minimalTheme = EditorView.theme(
     '.cm-foldPlaceholder': {
       backgroundColor: 'transparent',
       border: 'none',
-      color: 'var(--text-color-secondary, #888)',
+      color: 'var(--color-muted)',
       fontSize: '0.9rem',
       fontWeight: '300',
       padding: '0',
@@ -194,7 +194,7 @@ export const minimalTheme = EditorView.theme(
     '.cm-blockquote-line': {
       borderLeft: '4px solid var(--color-accent)',
       paddingLeft: '1rem',
-      backgroundColor: 'rgba(255, 255, 255, 0.03)',
+      backgroundColor: 'var(--color-overlay-subtle)',
       fontStyle: 'italic',
     },
 
@@ -223,11 +223,11 @@ export const minimalTheme = EditorView.theme(
     '.cm-image-error': {
       display: 'inline-block',
       padding: '0.5rem 1rem',
-      backgroundColor: 'rgba(255, 100, 100, 0.1)',
+      backgroundColor: 'var(--color-error-bg)',
       color: 'var(--color-muted)',
       borderRadius: '4px',
       fontSize: '0.875rem',
-      border: '1px dashed rgba(255, 100, 100, 0.3)',
+      border: '1px dashed var(--color-error-border)',
     },
 
     // Reference definition indicator (live preview)
@@ -258,7 +258,7 @@ export const minimalTheme = EditorView.theme(
     '.cm-table-container': {
       width: '100%',
       margin: '0.5rem 0',
-      border: '1px solid rgba(255, 255, 255, 0.15)',
+      border: '1px solid var(--color-overlay-border)',
       borderRadius: '6px',
       overflow: 'hidden',
       backgroundColor: 'transparent',
@@ -278,17 +278,17 @@ export const minimalTheme = EditorView.theme(
     },
 
     '.cm-table-wrapper::-webkit-scrollbar-track': {
-      backgroundColor: 'rgba(255, 255, 255, 0.05)',
+      backgroundColor: 'var(--color-overlay-light)',
       borderRadius: '0 0 6px 6px',
     },
 
     '.cm-table-wrapper::-webkit-scrollbar-thumb': {
-      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+      backgroundColor: 'var(--color-overlay-hover)',
       borderRadius: '4px',
     },
 
     '.cm-table-wrapper::-webkit-scrollbar-thumb:hover': {
-      backgroundColor: 'rgba(255, 255, 255, 0.3)',
+      backgroundColor: 'var(--color-overlay-active)',
     },
 
     // Add column button in header
@@ -307,14 +307,14 @@ export const minimalTheme = EditorView.theme(
     },
 
     '.cm-table-add-column-header:hover': {
-      backgroundColor: 'rgba(255, 255, 255, 0.05)',
+      backgroundColor: 'var(--color-overlay-light)',
     },
 
     // Placeholder cells under the Add Column button
     '.cm-table-add-column-placeholder': {
       padding: '0.75rem 1rem',
       backgroundColor: 'transparent',
-      borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+      borderBottom: '1px solid var(--color-overlay-medium)',
       borderRight: 'none',
       userSelect: 'none',
       pointerEvents: 'none',
@@ -328,14 +328,14 @@ export const minimalTheme = EditorView.theme(
       cursor: 'pointer',
       color: 'var(--color-accent)',
       fontSize: '0.9em',
-      borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+      borderTop: '1px solid var(--color-overlay-strong)',
       userSelect: 'none',
       backgroundColor: 'transparent',
       transition: 'background-color 0.2s',
     },
 
     '.cm-table-add-row:hover': {
-      backgroundColor: 'rgba(255, 255, 255, 0.05)',
+      backgroundColor: 'var(--color-overlay-light)',
     },
 
     // Table widget (live preview)
@@ -351,8 +351,8 @@ export const minimalTheme = EditorView.theme(
     },
 
     '.cm-table-widget thead': {
-      backgroundColor: 'rgba(255, 255, 255, 0.08)',
-      borderBottom: '2px solid rgba(255, 255, 255, 0.2)',
+      backgroundColor: 'var(--color-overlay-medium)',
+      borderBottom: '2px solid var(--color-overlay-hover)',
     },
 
     '.cm-table-widget th': {
@@ -360,19 +360,19 @@ export const minimalTheme = EditorView.theme(
       fontWeight: '600',
       color: 'var(--color-foreground)',
       textAlign: 'left',
-      borderRight: '1px solid rgba(255, 255, 255, 0.1)',
+      borderRight: '1px solid var(--color-overlay-strong)',
       whiteSpace: 'nowrap',
       cursor: 'text',
       transition: 'background-color 0.2s',
     },
 
     '.cm-table-widget th:hover': {
-      backgroundColor: 'rgba(255, 255, 255, 0.03)',
+      backgroundColor: 'var(--color-overlay-subtle)',
     },
 
     '.cm-table-widget th:focus': {
       outline: 'none',
-      backgroundColor: 'rgba(255, 255, 255, 0.05)',
+      backgroundColor: 'var(--color-overlay-light)',
       boxShadow: 'inset 0 0 0 1px var(--color-accent)',
     },
 
@@ -388,20 +388,20 @@ export const minimalTheme = EditorView.theme(
     '.cm-table-widget td': {
       padding: '0.75rem 1rem',
       color: 'var(--color-foreground)',
-      borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-      borderRight: '1px solid rgba(255, 255, 255, 0.08)',
+      borderBottom: '1px solid var(--color-overlay-medium)',
+      borderRight: '1px solid var(--color-overlay-medium)',
       whiteSpace: 'nowrap',
       cursor: 'text',
       transition: 'background-color 0.2s',
     },
 
     '.cm-table-widget td:hover': {
-      backgroundColor: 'rgba(255, 255, 255, 0.03)',
+      backgroundColor: 'var(--color-overlay-subtle)',
     },
 
     '.cm-table-widget td:focus': {
       outline: 'none',
-      backgroundColor: 'rgba(255, 255, 255, 0.05)',
+      backgroundColor: 'var(--color-overlay-light)',
       boxShadow: 'inset 0 0 0 1px var(--color-accent)',
     },
 
@@ -414,7 +414,7 @@ export const minimalTheme = EditorView.theme(
     },
 
     '.cm-table-widget tbody tr:hover': {
-      backgroundColor: 'rgba(255, 255, 255, 0.05)',
+      backgroundColor: 'var(--color-overlay-light)',
     },
 
     // Hidden math markdown lines (collapsed to zero height)
@@ -433,7 +433,7 @@ export const minimalTheme = EditorView.theme(
       padding: '0.1rem 0.3rem',
       margin: '0 0.2rem',
       borderRadius: '3px',
-      backgroundColor: 'rgba(255, 255, 255, 0.03)',
+      backgroundColor: 'var(--color-overlay-subtle)',
       fontSize: '1em',
       verticalAlign: 'middle',
     },
@@ -444,8 +444,8 @@ export const minimalTheme = EditorView.theme(
       padding: '1rem',
       margin: '1rem 0',
       borderRadius: '6px',
-      backgroundColor: 'rgba(255, 255, 255, 0.03)',
-      border: '1px solid rgba(255, 255, 255, 0.1)',
+      backgroundColor: 'var(--color-overlay-subtle)',
+      border: '1px solid var(--color-overlay-strong)',
       textAlign: 'center',
       overflowX: 'auto',
     },
@@ -461,8 +461,8 @@ export const minimalTheme = EditorView.theme(
 
     // Math error styling
     '.cm-inline-math[title], .cm-block-math[title]': {
-      borderColor: 'rgba(255, 100, 100, 0.3)',
-      backgroundColor: 'rgba(255, 100, 100, 0.05)',
+      borderColor: 'var(--color-error-border)',
+      backgroundColor: 'var(--color-error-bg)',
     },
   },
   { dark: true },

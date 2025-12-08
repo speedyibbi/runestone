@@ -30,7 +30,7 @@ export class InlineMathWidget extends WidgetType {
       })
     } catch (error) {
       span.textContent = `$${this.latex}$`
-      span.style.color = 'var(--error-color, #ff6b6b)'
+      span.style.color = 'var(--color-error)'
       span.title = error instanceof Error ? error.message : 'Math rendering error'
     }
     
@@ -66,7 +66,7 @@ export class BlockMathWidget extends WidgetType {
       })
     } catch (error) {
       div.textContent = `$$${this.latex}$$`
-      div.style.color = 'var(--error-color, #ff6b6b)'
+      div.style.color = 'var(--color-error)'
       div.title = error instanceof Error ? error.message : 'Math rendering error'
     }
     
