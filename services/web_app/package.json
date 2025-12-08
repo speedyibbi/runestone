@@ -27,6 +27,7 @@
     "@codemirror/view": "^6.38.8",
     "@lezer/highlight": "^1.2.3",
     "@noble/hashes": "^1.8.0",
+    "katex": "^0.16.27",
     "pinia": "^3.0.3",
     "vue": "^3.5.18",
     "vue-router": "^4.5.1"
