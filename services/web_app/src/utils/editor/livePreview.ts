@@ -2,12 +2,14 @@
  * - Hides markdown syntax characters when cursor is not on the line
  * - Renders images inline
  * - Makes links clickable with Ctrl/Cmd+Click
+ * - Renders math equations using KaTeX
  */
 
 import { ViewPlugin, Decoration, EditorView, WidgetType } from '@codemirror/view'
 import type { DecorationSet, ViewUpdate } from '@codemirror/view'
 import type { Range, Extension } from '@codemirror/state'
 import { syntaxTree } from '@codemirror/language'
+import katex from 'katex'
 
 /**
  * Parse table data from a Table node
@@ -430,6 +432,9 @@ function buildDecorations(view: EditorView): DecorationSet {
   const tableLines = new Set<number>()
   const processedTables = new Set<number>()
   
+  // Track processed math equations to avoid duplicates
+  const processedMath = new Set<string>()
+  
   // First pass: collect blockquote lines, image lines, and table lines
   for (const { from, to } of view.visibleRanges) {
     syntaxTree(view.state).iterate({
@@ -464,6 +469,77 @@ function buildDecorations(view: EditorView): DecorationSet {
       }).range(lineObj.from)
     )
   })
+  
+  // Scan for math equations (inline $...$ and block $$...$$)
+  for (const { from, to } of view.visibleRanges) {
+    const text = view.state.doc.sliceString(from, to)
+    
+    // Find block math ($$...$$) - multiline
+    const blockMathRegex = /\$\$([^$]+(?:\$(?!\$)[^$]*)*)\$\$/g
+    let blockMatch
+    while ((blockMatch = blockMathRegex.exec(text)) !== null) {
+      const matchStart = from + blockMatch.index
+      const matchEnd = matchStart + blockMatch[0].length
+      const latex = blockMatch[1].trim()
+      
+      // Check if cursor is on any line of this math block
+      const matchStartLine = view.state.doc.lineAt(matchStart).number
+      const matchEndLine = view.state.doc.lineAt(matchEnd).number
+      const cursorOnMath = cursorLine >= matchStartLine && cursorLine <= matchEndLine
+      
+      if (!cursorOnMath && latex && !processedMath.has(`block-${matchStart}`)) {
+        processedMath.add(`block-${matchStart}`)
+        
+        // Add the widget at the start of the block
+        decorations.push(
+          Decoration.widget({
+            widget: new BlockMathWidget(latex),
+            side: -1,
+          }).range(matchStart)
+        )
+        
+        // Hide each line of the math block separately (similar to table handling)
+        for (let lineNum = matchStartLine; lineNum <= matchEndLine; lineNum++) {
+          const lineObj = view.state.doc.line(lineNum)
+          
+          // Replace the line content (but not the line break)
+          decorations.push(
+            Decoration.replace({}).range(lineObj.from, lineObj.to)
+          )
+          
+          // Collapse all lines EXCEPT the first one (where the widget is displayed)
+          if (lineNum > matchStartLine) {
+            decorations.push(
+              Decoration.line({
+                attributes: { class: 'cm-math-hidden-line' },
+              }).range(lineObj.from)
+            )
+          }
+        }
+      }
+    }
+    
+    // Find inline math ($...$) - single line, not $$
+    const inlineMathRegex = /(?<!\$)\$(?!\$)([^$\n]+)\$(?!\$)/g
+    let inlineMatch
+    while ((inlineMatch = inlineMathRegex.exec(text)) !== null) {
+      const matchStart = from + inlineMatch.index
+      const matchEnd = matchStart + inlineMatch[0].length
+      const latex = inlineMatch[1].trim()
+      
+      const matchLine = view.state.doc.lineAt(matchStart).number
+      const cursorOnMath = matchLine === cursorLine
+      
+      if (!cursorOnMath && latex && !processedMath.has(`inline-${matchStart}`)) {
+        processedMath.add(`inline-${matchStart}`)
+        decorations.push(
+          Decoration.replace({
+            widget: new InlineMathWidget(latex),
+          }).range(matchStart, matchEnd)
+        )
+      }
+    }
+  }
   
   // Second pass: add all other decorations
   for (const { from, to } of view.visibleRanges) {
@@ -965,6 +1041,78 @@ class HorizontalRuleWidget extends WidgetType {
     const hr = document.createElement('div')
     hr.className = 'cm-hr-widget'
     return hr
+  }
+  
+  ignoreEvent(): boolean {
+    return false
+  }
+}
+
+/**
+ * Widget for inline math equations
+ * Renders LaTeX math using KaTeX
+ */
+class InlineMathWidget extends WidgetType {
+  constructor(readonly latex: string) {
+    super()
+  }
+  
+  eq(other: InlineMathWidget): boolean {
+    return other.latex === this.latex
+  }
+  
+  toDOM(): HTMLElement {
+    const span = document.createElement('span')
+    span.className = 'cm-inline-math'
+    
+    try {
+      katex.render(this.latex, span, {
+        throwOnError: false,
+        displayMode: false,
+      })
+    } catch (error) {
+      span.textContent = `$${this.latex}$`
+      span.style.color = 'var(--error-color, #ff6b6b)'
+      span.title = error instanceof Error ? error.message : 'Math rendering error'
+    }
+    
+    return span
+  }
+  
+  ignoreEvent(): boolean {
+    return false
+  }
+}
+
+/**
+ * Widget for block/display math equations
+ * Renders LaTeX math using KaTeX in display mode
+ */
+class BlockMathWidget extends WidgetType {
+  constructor(readonly latex: string) {
+    super()
+  }
+  
+  eq(other: BlockMathWidget): boolean {
+    return other.latex === this.latex
+  }
+  
+  toDOM(): HTMLElement {
+    const div = document.createElement('div')
+    div.className = 'cm-block-math'
+    
+    try {
+      katex.render(this.latex, div, {
+        throwOnError: false,
+        displayMode: true,
+      })
+    } catch (error) {
+      div.textContent = `$$${this.latex}$$`
+      div.style.color = 'var(--error-color, #ff6b6b)'
+      div.title = error instanceof Error ? error.message : 'Math rendering error'
+    }
+    
+    return div
   }
   
   ignoreEvent(): boolean {

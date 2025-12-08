@@ -416,6 +416,54 @@ export const minimalTheme = EditorView.theme(
     '.cm-table-widget tbody tr:hover': {
       backgroundColor: 'rgba(255, 255, 255, 0.05)',
     },
+
+    // Hidden math markdown lines (collapsed to zero height)
+    '.cm-math-hidden-line': {
+      height: '0 !important',
+      padding: '0 !important',
+      margin: '0 !important',
+      lineHeight: '0 !important',
+      overflow: 'hidden',
+    },
+
+    // Math equation styling (KaTeX)
+    // Inline math
+    '.cm-inline-math': {
+      display: 'inline-block',
+      padding: '0.1rem 0.3rem',
+      margin: '0 0.2rem',
+      borderRadius: '3px',
+      backgroundColor: 'rgba(255, 255, 255, 0.03)',
+      fontSize: '1em',
+      verticalAlign: 'middle',
+    },
+
+    // Block/display math
+    '.cm-block-math': {
+      display: 'block',
+      padding: '1rem',
+      margin: '1rem 0',
+      borderRadius: '6px',
+      backgroundColor: 'rgba(255, 255, 255, 0.03)',
+      border: '1px solid rgba(255, 255, 255, 0.1)',
+      textAlign: 'center',
+      overflowX: 'auto',
+    },
+
+    // KaTeX elements styling
+    '.cm-inline-math .katex, .cm-block-math .katex': {
+      color: 'var(--color-foreground)',
+    },
+
+    '.cm-inline-math .katex-display, .cm-block-math .katex-display': {
+      margin: '0',
+    },
+
+    // Math error styling
+    '.cm-inline-math[title], .cm-block-math[title]': {
+      borderColor: 'rgba(255, 100, 100, 0.3)',
+      backgroundColor: 'rgba(255, 100, 100, 0.05)',
+    },
   },
   { dark: true },
 )
