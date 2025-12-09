@@ -1,7 +1,7 @@
 /**
  * Markdown Best Practices Validation
  * Based on https://www.markdownguide.org/basic-syntax/
- * 
+ *
  * These validators help ensure markdown documents follow recommended best practices
  * for maximum compatibility across different markdown processors.
  */
@@ -48,7 +48,11 @@ export function validateMarkdownBestPractices(content: string): ValidationIssue[
         })
       }
       // Check if next line exists and is not blank
-      if (index < lines.length - 1 && lines[index + 1].trim() !== '' && !lines[index + 1].match(/^#{1,6}\s/)) {
+      if (
+        index < lines.length - 1 &&
+        lines[index + 1].trim() !== '' &&
+        !lines[index + 1].match(/^#{1,6}\s/)
+      ) {
         issues.push({
           line: lineNumber,
           column: 1,
@@ -159,22 +163,22 @@ export function checkDocumentStructure(content: string): {
 } {
   const lines = content.split('\n')
   const issues: string[] = []
-  
+
   let hasH1 = false
   let hasParagraphs = false
   let previousHeadingLevel = 0
-  
+
   for (const line of lines) {
     // Check for H1
     if (line.match(/^#\s/)) {
       hasH1 = true
     }
-    
+
     // Check for paragraphs
     if (line.trim().length > 0 && !line.match(/^[#>\-\*\+\d\s\[\]`]/)) {
       hasParagraphs = true
     }
-    
+
     // Check heading hierarchy
     const headingMatch = line.match(/^(#{1,6})\s/)
     if (headingMatch) {
@@ -185,7 +189,7 @@ export function checkDocumentStructure(content: string): {
       previousHeadingLevel = level
     }
   }
-  
+
   return {
     hasTitle: hasH1,
     hasParagraphs,
@@ -200,22 +204,22 @@ export function checkDocumentStructure(content: string): {
 export function autoFormatMarkdown(content: string): string {
   const lines = content.split('\n')
   const formatted: string[] = []
-  
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
     const prevLine = i > 0 ? lines[i - 1] : ''
     const nextLine = i < lines.length - 1 ? lines[i + 1] : ''
-    
+
     // Fix headings without space
     let fixedLine = line.replace(/^(#{1,6})([^\s#])/, '$1 $2')
-    
+
     // Add blank line before heading if needed
     if (fixedLine.match(/^#{1,6}\s/) && prevLine.trim() !== '' && formatted.length > 0) {
       formatted.push('')
     }
-    
+
     formatted.push(fixedLine)
-    
+
     // Add blank line after heading if needed
     if (fixedLine.match(/^#{1,6}\s/) && nextLine.trim() !== '' && !nextLine.match(/^#{1,6}\s/)) {
       if (i < lines.length - 1) {
@@ -225,6 +229,6 @@ export function autoFormatMarkdown(content: string): string {
       }
     }
   }
-  
+
   return formatted.join('\n')
 }

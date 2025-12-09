@@ -482,10 +482,10 @@ const minimalHighlightStyle = HighlightStyle.define([
 
   // Emphasis (italic with * or _)
   { tag: t.emphasis, fontStyle: 'italic', color: 'var(--color-foreground)' },
-  
+
   // Strong emphasis (bold with ** or __)
   { tag: t.strong, fontWeight: '700', color: 'var(--color-foreground)' },
-  
+
   // Strikethrough (GFM extension with ~~)
   { tag: t.strikethrough, textDecoration: 'line-through', color: 'var(--color-foreground)' },
 
@@ -497,26 +497,31 @@ const minimalHighlightStyle = HighlightStyle.define([
     padding: '0.1rem 0.3rem',
     borderRadius: '3px',
   },
-  
+
   // Code blocks (triple backticks)
   { tag: t.special(t.string), fontFamily: 'var(--font-code)', color: 'var(--color-foreground)' },
   { tag: t.atom, fontFamily: 'var(--font-code)' },
-  
+
   // Code block language identifier (e.g., ```javascript)
-  { tag: t.labelName, fontFamily: 'var(--font-code)', color: 'var(--color-accent)', fontSize: '0.85rem' },
+  {
+    tag: t.labelName,
+    fontFamily: 'var(--font-code)',
+    color: 'var(--color-accent)',
+    fontSize: '0.85rem',
+  },
 
   // Links (inline and reference style) - clickable with Ctrl/Cmd+Click
   { tag: t.link, color: 'var(--color-foreground)', textDecoration: 'underline', cursor: 'pointer' },
-  
+
   // URLs in links and autolinks - also clickable
   { tag: t.url, color: 'var(--color-foreground)', textDecoration: 'underline', cursor: 'pointer' },
 
   // Ordered and unordered lists
   { tag: t.list, color: 'var(--color-foreground)' },
-  
+
   // List markers (-, *, +, 1., 2., etc.)
   { tag: t.processingInstruction, color: 'var(--color-accent)', fontWeight: '600' },
-  
+
   // Task list markers ([ ] and [x])
   { tag: t.bool, color: 'var(--color-accent)', fontWeight: '600' },
 
@@ -525,13 +530,13 @@ const minimalHighlightStyle = HighlightStyle.define([
 
   // Meta elements (markdown syntax characters like *, **, ~~, [], (), etc.)
   { tag: t.meta, color: 'var(--color-muted)', opacity: 0.7 },
-  
+
   // Escape characters (\)
   { tag: t.escape, color: 'var(--color-muted)' },
-  
+
   // HTML comments in markdown
   { tag: t.comment, color: 'var(--color-muted)', fontStyle: 'italic' },
-  
+
   // HTML tags in markdown
   { tag: t.tagName, color: 'var(--color-accent)' },
   { tag: t.angleBracket, color: 'var(--color-muted)' },

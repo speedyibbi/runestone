@@ -14,15 +14,15 @@ export class InlineMathWidget extends WidgetType {
   constructor(readonly latex: string) {
     super()
   }
-  
+
   eq(other: InlineMathWidget): boolean {
     return other.latex === this.latex
   }
-  
+
   toDOM(): HTMLElement {
     const span = document.createElement('span')
     span.className = 'cm-inline-math'
-    
+
     try {
       katex.render(this.latex, span, {
         throwOnError: false,
@@ -33,10 +33,10 @@ export class InlineMathWidget extends WidgetType {
       span.style.color = 'var(--color-error)'
       span.title = error instanceof Error ? error.message : 'Math rendering error'
     }
-    
+
     return span
   }
-  
+
   ignoreEvent(): boolean {
     return false
   }
@@ -50,15 +50,15 @@ export class BlockMathWidget extends WidgetType {
   constructor(readonly latex: string) {
     super()
   }
-  
+
   eq(other: BlockMathWidget): boolean {
     return other.latex === this.latex
   }
-  
+
   toDOM(): HTMLElement {
     const div = document.createElement('div')
     div.className = 'cm-block-math'
-    
+
     try {
       katex.render(this.latex, div, {
         throwOnError: false,
@@ -69,10 +69,10 @@ export class BlockMathWidget extends WidgetType {
       div.style.color = 'var(--color-error)'
       div.title = error instanceof Error ? error.message : 'Math rendering error'
     }
-    
+
     return div
   }
-  
+
   ignoreEvent(): boolean {
     return false
   }

@@ -1,6 +1,6 @@
 /**
  * Live Preview Plugin - Main plugin for live preview functionality
- * 
+ *
  * Provides live preview with:
  * - Syntax character hiding/fading
  * - Inline image rendering
@@ -8,7 +8,7 @@
  * - Clickable links
  * - Table rendering
  * - Math equation rendering
- * 
+ *
  * Architecture:
  * - Uses ViewPlugin with decorations
  * - Separates widgets into individual files
@@ -41,17 +41,17 @@ import { getChildText, getLinkAtPos, parseTable } from './utils'
 function buildDecorations(view: EditorView): DecorationSet {
   const decorations: Range<Decoration>[] = []
   const checkboxDecorations: Range<Decoration>[] = []
-  
+
   // Get the line number where the cursor is
   const cursorLine = view.state.doc.lineAt(view.state.selection.main.head).number
-  
+
   // Track which lines have special elements
   const blockquoteLines = new Set<number>()
   const imageLines = new Set<number>()
   const tableLines = new Set<number>()
   const processedTables = new Set<number>()
   const processedMath = new Set<string>()
-  
+
   // First pass: collect line metadata
   for (const { from, to } of view.visibleRanges) {
     syntaxTree(view.state).iterate({
@@ -59,15 +59,15 @@ function buildDecorations(view: EditorView): DecorationSet {
       to,
       enter: (node) => {
         const line = view.state.doc.lineAt(node.from).number
-        
+
         if (line !== cursorLine && node.type.name === 'QuoteMark') {
           blockquoteLines.add(line)
         }
-        
+
         if (node.type.name === 'Image') {
           imageLines.add(line)
         }
-        
+
         if (node.type.name === 'Table') {
           const tableStartLine = view.state.doc.lineAt(node.from).number
           const tableEndLine = view.state.doc.lineAt(node.to).number
@@ -78,21 +78,21 @@ function buildDecorations(view: EditorView): DecorationSet {
       },
     })
   }
-  
+
   // Add line decorations for blockquotes
   blockquoteLines.forEach((lineNum) => {
     const lineObj = view.state.doc.line(lineNum)
     decorations.push(
       Decoration.line({
         class: 'cm-blockquote-line',
-      }).range(lineObj.from)
+      }).range(lineObj.from),
     )
   })
-  
+
   // Scan for math equations (inline $...$ and block $$...$$)
   for (const { from, to } of view.visibleRanges) {
     const text = view.state.doc.sliceString(from, to)
-    
+
     // Find block math ($$...$$) - multiline
     const blockMathRegex = /\$\$([^$]+(?:\$(?!\$)[^$]*)*)\$\$/g
     let blockMatch
@@ -100,42 +100,40 @@ function buildDecorations(view: EditorView): DecorationSet {
       const matchStart = from + blockMatch.index
       const matchEnd = matchStart + blockMatch[0].length
       const latex = blockMatch[1].trim()
-      
+
       // Check if cursor is on any line of this math block
       const matchStartLine = view.state.doc.lineAt(matchStart).number
       const matchEndLine = view.state.doc.lineAt(matchEnd).number
       const cursorOnMath = cursorLine >= matchStartLine && cursorLine <= matchEndLine
-      
+
       if (!cursorOnMath && latex && !processedMath.has(`block-${matchStart}`)) {
         processedMath.add(`block-${matchStart}`)
-        
+
         // Add the widget at the start of the block
         decorations.push(
           Decoration.widget({
             widget: new BlockMathWidget(latex),
             side: -1,
-          }).range(matchStart)
+          }).range(matchStart),
         )
-        
+
         // Hide each line of the math block separately
         for (let lineNum = matchStartLine; lineNum <= matchEndLine; lineNum++) {
           const lineObj = view.state.doc.line(lineNum)
-          
-          decorations.push(
-            Decoration.replace({}).range(lineObj.from, lineObj.to)
-          )
-          
+
+          decorations.push(Decoration.replace({}).range(lineObj.from, lineObj.to))
+
           if (lineNum > matchStartLine) {
             decorations.push(
               Decoration.line({
                 attributes: { class: 'cm-math-hidden-line' },
-              }).range(lineObj.from)
+              }).range(lineObj.from),
             )
           }
         }
       }
     }
-    
+
     // Find inline math ($...$) - single line, not $$
     const inlineMathRegex = /(?<!\$)\$(?!\$)([^$\n]+)\$(?!\$)/g
     let inlineMatch
@@ -143,21 +141,21 @@ function buildDecorations(view: EditorView): DecorationSet {
       const matchStart = from + inlineMatch.index
       const matchEnd = matchStart + inlineMatch[0].length
       const latex = inlineMatch[1].trim()
-      
+
       const matchLine = view.state.doc.lineAt(matchStart).number
       const cursorOnMath = matchLine === cursorLine
-      
+
       if (!cursorOnMath && latex && !processedMath.has(`inline-${matchStart}`)) {
         processedMath.add(`inline-${matchStart}`)
         decorations.push(
           Decoration.replace({
             widget: new InlineMathWidget(latex),
-          }).range(matchStart, matchEnd)
+          }).range(matchStart, matchEnd),
         )
       }
     }
   }
-  
+
   // Second pass: process syntax nodes for decorations
   for (const { from, to } of view.visibleRanges) {
     syntaxTree(view.state).iterate({
@@ -168,15 +166,15 @@ function buildDecorations(view: EditorView): DecorationSet {
         const nodeType = node.type.name
         const onCursorLine = line === cursorLine
         const onImageLine = imageLines.has(line)
-        
+
         // Handle table rendering
         if (nodeType === 'Table' && !processedTables.has(node.from)) {
           processedTables.add(node.from)
-          
+
           const tableStartLine = view.state.doc.lineAt(node.from).number
           const tableEndLine = view.state.doc.lineAt(node.to).number
           const cursorOnTable = cursorLine >= tableStartLine && cursorLine <= tableEndLine
-          
+
           if (!cursorOnTable) {
             const tableData = parseTable(view, node.node)
             if (tableData) {
@@ -184,36 +182,34 @@ function buildDecorations(view: EditorView): DecorationSet {
                 Decoration.widget({
                   widget: new TableWidget(tableData, view, node.from, node.to),
                   side: -1,
-                }).range(node.from)
+                }).range(node.from),
               )
-              
+
               for (let lineNum = tableStartLine; lineNum <= tableEndLine; lineNum++) {
                 const lineObj = view.state.doc.line(lineNum)
-                
-                decorations.push(
-                  Decoration.replace({}).range(lineObj.from, lineObj.to)
-                )
-                
+
+                decorations.push(Decoration.replace({}).range(lineObj.from, lineObj.to))
+
                 if (lineNum > tableStartLine) {
                   decorations.push(
                     Decoration.line({
                       attributes: { class: 'cm-table-hidden-line' },
-                    }).range(lineObj.from)
+                    }).range(lineObj.from),
                   )
                 }
               }
             }
           }
-          
+
           return false
         }
-        
+
         // Handle images
         if (nodeType === 'Image') {
           const imageNode = node.node
           const alt = getChildText(imageNode, 'LinkLabel', view).replace(/^\[|\]$/g, '')
           const url = getChildText(imageNode, 'URL', view).replace(/^\(|\)$/g, '')
-          
+
           if (url) {
             if (onCursorLine && onImageLine) {
               // On cursor line: show markdown AND image below it
@@ -221,103 +217,94 @@ function buildDecorations(view: EditorView): DecorationSet {
                 Decoration.widget({
                   widget: new ImageWidget(url, alt),
                   side: 1,
-                }).range(node.to)
+                }).range(node.to),
               )
             } else if (!onCursorLine) {
               // Off cursor line: replace markdown with image
               decorations.push(
                 Decoration.replace({
                   widget: new ImageWidget(url, alt),
-                }).range(node.from, node.to)
+                }).range(node.from, node.to),
               )
             }
           }
           return
         }
-        
+
         // Don't hide syntax on cursor line (except for special cases)
         if (onCursorLine && nodeType !== 'ListItem') return
-        
+
         // Hide heading marks (#)
         if (nodeType === 'HeaderMark') {
-          decorations.push(
-            Decoration.replace({}).range(node.from, node.to)
-          )
+          decorations.push(Decoration.replace({}).range(node.from, node.to))
         }
-        
+
         // Hide emphasis marks (**, __, *, _)
         else if (nodeType === 'EmphasisMark') {
           const text = view.state.doc.sliceString(node.from, node.to)
           if (text.match(/^(\*+|_+)$/)) {
-            decorations.push(
-              Decoration.replace({}).range(node.from, node.to)
-            )
+            decorations.push(Decoration.replace({}).range(node.from, node.to))
           }
         }
-        
+
         // Hide strikethrough marks (~~)
         else if (nodeType === 'StrikethroughMark') {
-          decorations.push(
-            Decoration.replace({}).range(node.from, node.to)
-          )
+          decorations.push(Decoration.replace({}).range(node.from, node.to))
         }
-        
+
         // Hide horizontal rules
         else if (nodeType === 'HorizontalRule') {
           const hrLine = view.state.doc.lineAt(node.from)
           const hrText = hrLine.text.trim()
-          
+
           if (hrText.match(/^(\-{3,}|\*{3,}|_{3,})$/)) {
             decorations.push(
               Decoration.replace({
                 widget: new HorizontalRuleWidget(),
-              }).range(hrLine.from, hrLine.to)
+              }).range(hrLine.from, hrLine.to),
             )
           }
         }
-        
+
         // Hide inline code backticks
         else if (nodeType === 'CodeMark') {
-          decorations.push(
-            Decoration.replace({}).range(node.from, node.to)
-          )
+          decorations.push(Decoration.replace({}).range(node.from, node.to))
         }
-        
+
         // Hide blockquote markers (>)
         else if (nodeType === 'QuoteMark') {
-          decorations.push(
-            Decoration.replace({}).range(node.from, node.to)
-          )
+          decorations.push(Decoration.replace({}).range(node.from, node.to))
         }
-        
+
         // Handle list items (task lists and bullets)
         else if (nodeType === 'ListItem') {
           const lineStart = view.state.doc.lineAt(node.from)
           const lineText = lineStart.text
-          
+
           // Check for task list item
           const taskMatch = lineText.match(/^(\s*)([-*+])\s+(\[[ xX]\])/)
           if (taskMatch) {
             const indentLength = taskMatch[1].length
             const markerLength = taskMatch[2].length
             const spaceAfterMarker = 1
-            
+
             const listMarkerStart = lineStart.from + indentLength
             const checkboxStart = listMarkerStart + markerLength + spaceAfterMarker
             const checkboxEnd = checkboxStart + 3
             const spaceAfterCheckbox = 1
             const replaceEnd = checkboxEnd + spaceAfterCheckbox
-            
+
             const cursorPos = view.state.selection.main.head
-            const cursorInTaskMarker = onCursorLine && cursorPos >= listMarkerStart && cursorPos <= replaceEnd
-            
+            const cursorInTaskMarker =
+              onCursorLine && cursorPos >= listMarkerStart && cursorPos <= replaceEnd
+
             if (!cursorInTaskMarker) {
               const isChecked = taskMatch[3].includes('x') || taskMatch[3].includes('X')
-              
+
               checkboxDecorations.push(
                 Decoration.replace({
                   widget: new CheckboxWidget(isChecked, checkboxStart),
-                }).range(listMarkerStart, replaceEnd)
+                }).range(listMarkerStart, replaceEnd),
               )
             }
           } else {
@@ -327,78 +314,67 @@ function buildDecorations(view: EditorView): DecorationSet {
               const indentLength = bulletMatch[1].length
               const markerLength = bulletMatch[2].length
               const spaceLength = 1
-              
+
               const markerStart = lineStart.from + indentLength
               const markerEnd = markerStart + markerLength + spaceLength
-              
+
               decorations.push(
                 Decoration.replace({
                   widget: new BulletWidget(),
-                }).range(markerStart, markerEnd)
+                }).range(markerStart, markerEnd),
               )
             }
           }
         }
-        
+
         // Hide link marks
         else if (nodeType === 'LinkMark') {
-          decorations.push(
-            Decoration.replace({}).range(node.from, node.to)
-          )
+          decorations.push(Decoration.replace({}).range(node.from, node.to))
         }
-        
+
         // Hide URL in links (but not autolinks)
         else if (nodeType === 'URL') {
           const parent = node.node.parent
           if (parent && parent.type.name === 'Link') {
-            decorations.push(
-              Decoration.replace({}).range(node.from, node.to)
-            )
+            decorations.push(Decoration.replace({}).range(node.from, node.to))
           }
         }
-        
+
         // Hide link titles
         else if (nodeType === 'LinkTitle') {
-          decorations.push(
-            Decoration.replace({}).range(node.from, node.to)
-          )
+          decorations.push(Decoration.replace({}).range(node.from, node.to))
         }
-        
+
         // Hide link labels in reference-style links
         else if (nodeType === 'LinkLabel') {
           const lineStart = view.state.doc.lineAt(node.from)
           const lineText = lineStart.text.trim()
-          
+
           // Reference definition line [ref]: url
           if (lineText.match(/^\[.+\]:\s*.+/)) {
             decorations.push(
               Decoration.replace({
                 widget: new ReferenceDefinitionWidget(),
-              }).range(lineStart.from, lineStart.to)
+              }).range(lineStart.from, lineStart.to),
             )
           } else {
             // Reference-style link [text][ref]
             const textBefore = view.state.doc.sliceString(Math.max(0, node.from - 50), node.from)
             if (textBefore.match(/\]\s*$/)) {
-              decorations.push(
-                Decoration.replace({}).range(node.from, node.to)
-              )
+              decorations.push(Decoration.replace({}).range(node.from, node.to))
             }
           }
         }
       },
     })
   }
-  
+
   // Combine all decorations: checkboxes first, then others
-  const allDecorations = [
-    ...checkboxDecorations,
-    ...decorations,
-  ]
-  
+  const allDecorations = [...checkboxDecorations, ...decorations]
+
   // Sort all decorations by position
   allDecorations.sort((a, b) => a.from - b.from || a.value.startSide - b.value.startSide)
-  
+
   return Decoration.set(allDecorations)
 }
 
@@ -408,11 +384,11 @@ function buildDecorations(view: EditorView): DecorationSet {
 export const livePreviewPlugin = ViewPlugin.fromClass(
   class {
     decorations: DecorationSet
-    
+
     constructor(view: EditorView) {
       this.decorations = buildDecorations(view)
     }
-    
+
     update(update: ViewUpdate) {
       // Rebuild decorations when document changes, selection changes, or viewport changes
       if (update.docChanged || update.selectionSet || update.viewportChanged) {
@@ -422,7 +398,7 @@ export const livePreviewPlugin = ViewPlugin.fromClass(
   },
   {
     decorations: (v) => v.decorations,
-  }
+  },
 )
 
 /**
@@ -432,19 +408,19 @@ function handleClick(event: MouseEvent, view: EditorView): boolean {
   // Only handle left mouse button with Ctrl or Cmd key
   if (event.button !== 0) return false
   if (!event.ctrlKey && !event.metaKey) return false
-  
+
   // Get the position where the click occurred
   const pos = view.posAtCoords({ x: event.clientX, y: event.clientY })
   if (pos === null) return false
-  
+
   // Check if there's a link at this position
   const url = getLinkAtPos(view, pos)
   if (!url) return false
-  
+
   // Prevent default behavior and open the link
   event.preventDefault()
   event.stopPropagation()
-  
+
   // Open the link in a new tab
   try {
     if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('//')) {
@@ -457,7 +433,7 @@ function handleClick(event: MouseEvent, view: EditorView): boolean {
   } catch (error) {
     console.error('Failed to open link:', error)
   }
-  
+
   return true
 }
 

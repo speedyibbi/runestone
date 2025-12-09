@@ -19,7 +19,7 @@ function handleEnterInMarkdown(view: EditorView): boolean {
   const numberedListMatch = lineText.match(/^(\s*)(\d+)\.\s+(.*)$/)
   if (numberedListMatch) {
     const [, indent, num, content] = numberedListMatch
-    
+
     // If cursor is at the end and content is empty, remove the list marker
     if (cursorPosInLine === lineText.length && content === '') {
       view.dispatch({
@@ -34,11 +34,11 @@ function handleEnterInMarkdown(view: EditorView): boolean {
       })
       return true
     }
-    
+
     // Continue the numbered list with incremented number
     const nextNumber = parseInt(num, 10) + 1
     const newLine = `\n${indent}${nextNumber}. `
-    
+
     view.dispatch({
       changes: {
         from: from,
@@ -55,7 +55,7 @@ function handleEnterInMarkdown(view: EditorView): boolean {
   const unorderedListMatch = lineText.match(/^(\s*)([-*+])\s+(.*)$/)
   if (unorderedListMatch) {
     const [, indent, marker, content] = unorderedListMatch
-    
+
     // If cursor is at the end and content is empty, remove the list marker
     if (cursorPosInLine === lineText.length && content === '') {
       view.dispatch({
@@ -70,10 +70,10 @@ function handleEnterInMarkdown(view: EditorView): boolean {
       })
       return true
     }
-    
+
     // Continue the unordered list
     const newLine = `\n${indent}${marker} `
-    
+
     view.dispatch({
       changes: {
         from: from,
@@ -90,7 +90,7 @@ function handleEnterInMarkdown(view: EditorView): boolean {
   const taskListMatch = lineText.match(/^(\s*)-\s+\[([ x])\]\s+(.*)$/)
   if (taskListMatch) {
     const [, indent, , content] = taskListMatch
-    
+
     // If cursor is at the end and content is empty, remove the list marker
     if (cursorPosInLine === lineText.length && content === '') {
       view.dispatch({
@@ -105,10 +105,10 @@ function handleEnterInMarkdown(view: EditorView): boolean {
       })
       return true
     }
-    
+
     // Continue the task list with unchecked box
     const newLine = `\n${indent}- [ ] `
-    
+
     view.dispatch({
       changes: {
         from: from,
@@ -125,7 +125,7 @@ function handleEnterInMarkdown(view: EditorView): boolean {
   const blockquoteMatch = lineText.match(/^(\s*)(>+)\s*(.*)$/)
   if (blockquoteMatch) {
     const [, indent, markers, content] = blockquoteMatch
-    
+
     // If cursor is at the end and content is empty, exit blockquote
     if (cursorPosInLine === lineText.length && content === '') {
       view.dispatch({
@@ -139,10 +139,10 @@ function handleEnterInMarkdown(view: EditorView): boolean {
       })
       return true
     }
-    
+
     // Continue the blockquote
     const newLine = `\n${indent}${markers} `
-    
+
     view.dispatch({
       changes: {
         from: from,
