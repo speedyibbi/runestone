@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { ref } from 'vue'
 import { useEditor } from '@/composables/useEditor'
+import KeyboardShortcuts from '@/components/KeyboardShortcuts.vue'
 
 const editorElement = ref<HTMLElement>()
 const { getContent, setContent } = useEditor(editorElement)
@@ -9,6 +10,7 @@ const { getContent, setContent } = useEditor(editorElement)
 <template>
   <main>
     <div ref="editorElement" class="editor"></div>
+    <KeyboardShortcuts />
   </main>
 </template>
 

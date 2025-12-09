@@ -25,6 +25,10 @@
   --color-overlay-hover: #ffffff33;
   --color-overlay-active: #ffffff4d;
 
+  /* Modal/Dialog */
+  --color-modal-backdrop: #000000cc;
+  --color-modal-shadow: #00000080;
+
   /* Fonts */
   --font-primary: 'Inter', sans-serif;
   --font-code: 'Google Sans Code', monospace;
