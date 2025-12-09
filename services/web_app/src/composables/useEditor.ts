@@ -14,6 +14,7 @@ import {
   markdownFoldGutter,
   activeLineFoldGutter,
 } from '@/utils/editor/folding'
+import { createKeyboardShortcuts } from '@/utils/editor/keyboardShortcuts'
 
 export function useEditor(editorElement: Ref<HTMLElement | undefined>) {
   let editorView: EditorView | null = null
@@ -62,6 +63,9 @@ export function useEditor(editorElement: Ref<HTMLElement | undefined>) {
 
         // Autocompletion
         autocompletion(),
+
+        // Keyboard shortcuts for formatting and markdown features
+        createKeyboardShortcuts(),
 
         // Keymaps (order matters - more specific keymaps should come first)
         keymap.of([
