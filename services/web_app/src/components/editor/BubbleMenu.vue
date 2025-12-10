@@ -10,7 +10,68 @@
       }"
     >
       <div class="bubble-menu-content">
-        <div class="bubble-menu-placeholder">Menu</div>
+        <!-- Text Formatting -->
+        <div class="menu-section">
+          <button @click="applyFormat('bold')" title="Bold (Cmd+B)" class="menu-btn">
+            <strong>B</strong>
+          </button>
+          <button @click="applyFormat('italic')" title="Italic (Cmd+I)" class="menu-btn">
+            <em>I</em>
+          </button>
+          <button @click="applyFormat('strikethrough')" title="Strikethrough" class="menu-btn">
+            <s>S</s>
+          </button>
+          <button @click="applyFormat('code')" title="Inline Code (Cmd+E)" class="menu-btn">
+            <code>&lt;/&gt;</code>
+          </button>
+        </div>
+
+        <div class="menu-divider"></div>
+
+        <!-- Headings -->
+        <div class="menu-section">
+          <button @click="applyHeading(1)" title="Heading 1" class="menu-btn">H1</button>
+          <button @click="applyHeading(2)" title="Heading 2" class="menu-btn">H2</button>
+          <button @click="applyHeading(3)" title="Heading 3" class="menu-btn">H3</button>
+          <button @click="applyHeading(4)" title="Heading 4" class="menu-btn">H4</button>
+          <button @click="applyHeading(5)" title="Heading 5" class="menu-btn">H5</button>
+          <button @click="applyHeading(6)" title="Heading 6" class="menu-btn">H6</button>
+        </div>
+
+        <div class="menu-divider"></div>
+
+        <!-- Lists -->
+        <div class="menu-section">
+          <button @click="applyList('numbered')" title="Numbered List" class="menu-btn">1.</button>
+          <button @click="applyList('bullet')" title="Bullet List" class="menu-btn">•</button>
+          <button @click="applyList('task')" title="Task List" class="menu-btn">☑</button>
+        </div>
+
+        <div class="menu-divider"></div>
+
+        <!-- Links & Media -->
+        <div class="menu-section">
+          <button @click="insertLink" title="Link (Cmd+K)" class="menu-btn">🔗</button>
+          <button @click="insertImage" title="Image" class="menu-btn">🖼</button>
+        </div>
+
+        <div class="menu-divider"></div>
+
+        <!-- Code & Math -->
+        <div class="menu-section">
+          <button @click="insertCodeBlock" title="Code Block" class="menu-btn">{ }</button>
+          <button @click="insertInlineMath" title="Inline Math" class="menu-btn">$x$</button>
+          <button @click="insertBlockMath" title="Block Math" class="menu-btn">$$</button>
+        </div>
+
+        <div class="menu-divider"></div>
+
+        <!-- Other -->
+        <div class="menu-section">
+          <button @click="insertBlockquote" title="Blockquote" class="menu-btn">"</button>
+          <button @click="insertTable" title="Table" class="menu-btn">⊞</button>
+          <button @click="insertHR" title="Horizontal Rule" class="menu-btn">―</button>
+        </div>
       </div>
     </div>
   </Teleport>
@@ -19,6 +80,16 @@
 <script setup lang="ts">
 import { ref, watch, onUnmounted, onMounted } from 'vue'
 import type { EditorView } from '@codemirror/view'
+import { EditorSelection } from '@codemirror/state'
+import {
+  toggleWrap,
+  setHeading,
+  toggleListType,
+  toggleLinePrefix,
+  insertBlock,
+  insertInline,
+  insertAtCursor,
+} from '@/utils/editor/keyboardShortcuts'
 
 const props = defineProps<{
   editorView: EditorView | null
@@ -45,6 +116,135 @@ onMounted(() => {
     setupBubbleMenu()
   }
 })
+
+// ============================================================================
+// EDITOR ACTIONS
+// ============================================================================
+
+// Apply text formatting
+function applyFormat(type: 'bold' | 'italic' | 'strikethrough' | 'code'): void {
+  const view = editorViewRef.value
+  if (!view) return
+
+  const markers = {
+    bold: '**',
+    italic: '*',
+    strikethrough: '~~',
+    code: '`',
+  }
+  toggleWrap(view as EditorView, markers[type])
+  view.focus()
+}
+
+// Apply heading
+function applyHeading(level: number): void {
+  const view = editorViewRef.value
+  if (!view) return
+
+  setHeading(view as EditorView, level)
+  view.focus()
+}
+
+// Apply list
+function applyList(targetType: 'numbered' | 'bullet' | 'task'): void {
+  const view = editorViewRef.value
+  if (!view) return
+
+  toggleListType(view as EditorView, targetType)
+  view.focus()
+}
+
+// Insert link
+function insertLink(): void {
+  const view = editorViewRef.value
+  if (!view) return
+
+  insertInline(view as EditorView, '[', '](url)', 'link text')
+  view.focus()
+}
+
+// Insert image
+function insertImage(): void {
+  const view = editorViewRef.value
+  if (!view) return
+
+  insertInline(view as EditorView, '![', '](url)', 'alt text')
+  view.focus()
+}
+
+// Insert code block
+function insertCodeBlock(): void {
+  const view = editorViewRef.value
+  if (!view) return
+
+  insertBlock(view as EditorView, '```', '```', 'code')
+  view.focus()
+}
+
+// Insert inline math
+function insertInlineMath(): void {
+  const view = editorViewRef.value
+  if (!view) return
+
+  insertInline(view as EditorView, '$', '$', 'equation')
+  view.focus()
+}
+
+// Insert block math
+function insertBlockMath(): void {
+  const view = editorViewRef.value
+  if (!view) return
+
+  insertBlock(view as EditorView, '$$', '$$', 'equation')
+  view.focus()
+}
+
+// Insert blockquote
+function insertBlockquote(): void {
+  const view = editorViewRef.value
+  if (!view) return
+
+  toggleLinePrefix(view as EditorView, '>')
+  view.focus()
+}
+
+// Insert table
+function insertTable(): void {
+  const view = editorViewRef.value
+  if (!view) return
+
+  const { state } = view
+  const { selection } = state
+  const range = selection.main
+  const line = state.doc.lineAt(range.from)
+  const isAtLineStart = range.from === line.from
+
+  const beforeNewline = isAtLineStart ? '' : '\n'
+  const table = `${beforeNewline}| Header 1 | Header 2 | Header 3 |
+|----------|----------|----------|
+| Cell 1   | Cell 2   | Cell 3   |
+| Cell 4   | Cell 5   | Cell 6   |
+`
+
+  view.dispatch({
+    changes: { from: range.from, to: range.to, insert: table },
+    selection: EditorSelection.cursor(range.from + beforeNewline.length + 2),
+  })
+  view.focus()
+}
+
+// Insert horizontal rule
+function insertHR(): void {
+  const view = editorViewRef.value
+  if (!view) return
+
+  insertAtCursor(view as EditorView, '\n---\n')
+  view.focus()
+}
+
+// ============================================================================
+// MENU VISIBILITY & POSITIONING
+// ============================================================================
 
 const menuRef = ref<HTMLElement | null>(null)
 const isVisible = ref(false)
@@ -221,22 +421,80 @@ onUnmounted(() => {
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--color-overlay-border);
   border-radius: var(--size-radius-medium);
-  padding: var(--size-spacing-small) var(--size-spacing-medium);
+  padding: var(--size-spacing-small);
   box-shadow: 0 4px 20px var(--color-modal-shadow);
   display: flex;
-  gap: var(--size-spacing-tiny);
+  gap: 2px;
   align-items: center;
   min-height: 2rem;
+  max-width: 90vw;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
-.bubble-menu-placeholder {
+.menu-section {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+
+.menu-divider {
+  width: 1px;
+  height: 1.5rem;
+  background: var(--color-overlay-border);
+  margin: 0 4px;
+}
+
+.menu-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--size-radius-small);
   color: var(--color-foreground);
+  cursor: pointer;
+  padding: 4px 8px;
   font-size: 0.875rem;
-  padding: 0 var(--size-spacing-small);
-  user-select: none;
-  opacity: 0.7;
   font-weight: 500;
-  letter-spacing: 0.01em;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+}
+
+.menu-btn:hover {
+  background: var(--color-overlay-hover);
+  border-color: var(--color-overlay-border);
+}
+
+.menu-btn:active {
+  background: var(--color-overlay-active);
+  transform: scale(0.95);
+}
+
+.menu-btn strong,
+.menu-btn em,
+.menu-btn s,
+.menu-btn code {
+  font-style: normal;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.menu-btn em {
+  font-style: italic;
+  font-weight: 500;
+}
+
+.menu-btn s {
+  text-decoration: line-through;
+}
+
+.menu-btn code {
+  font-family: var(--font-code);
+  font-size: 0.8rem;
 }
 
 /* Arrow pointing down to selection */

@@ -7,7 +7,7 @@ import { keymap } from '@codemirror/view'
  */
 
 // Helper to check if text is surrounded by markers (in selection or around it)
-function isSurrounded(
+export function isSurrounded(
   text: string,
   marker: string,
   beforeText: string,
@@ -25,7 +25,7 @@ function isSurrounded(
 }
 
 // Helper to toggle wrapping markers around selection
-function toggleWrap(view: EditorView, marker: string): boolean {
+export function toggleWrap(view: EditorView, marker: string): boolean {
   const { state } = view
   const { selection } = state
   const changes: ChangeSpec[] = []
@@ -104,7 +104,7 @@ function toggleWrap(view: EditorView, marker: string): boolean {
 }
 
 // Helper to toggle line prefix (for headings, blockquotes)
-function toggleLinePrefix(view: EditorView, prefix: string, removeOnly = false): boolean {
+export function toggleLinePrefix(view: EditorView, prefix: string, removeOnly = false): boolean {
   const { state } = view
   const { selection } = state
   const changes: ChangeSpec[] = []
@@ -142,7 +142,7 @@ function toggleLinePrefix(view: EditorView, prefix: string, removeOnly = false):
 }
 
 // Helper to detect current list type
-function getListType(text: string): 'numbered' | 'bullet' | 'task' | null {
+export function getListType(text: string): 'numbered' | 'bullet' | 'task' | null {
   const trimmed = text.trimStart()
   if (/^\d+\.\s/.test(trimmed)) return 'numbered'
   if (/^[-*+]\s\[[ xX]\]\s/.test(trimmed)) return 'task'
@@ -151,13 +151,13 @@ function getListType(text: string): 'numbered' | 'bullet' | 'task' | null {
 }
 
 // Helper to get leading whitespace (preserves tabs and spaces)
-function getLeadingWhitespace(text: string): string {
+export function getLeadingWhitespace(text: string): string {
   const match = text.match(/^[\t ]*/)
   return match ? match[0] : ''
 }
 
 // Helper to remove any list prefix
-function removeListPrefix(text: string): string {
+export function removeListPrefix(text: string): string {
   const leadingWhitespace = getLeadingWhitespace(text)
   const trimmed = text.trimStart()
   
@@ -172,7 +172,7 @@ function removeListPrefix(text: string): string {
 }
 
 // Helper to toggle list type (smart conversion between list types)
-function toggleListType(view: EditorView, targetType: 'numbered' | 'bullet' | 'task'): boolean {
+export function toggleListType(view: EditorView, targetType: 'numbered' | 'bullet' | 'task'): boolean {
   const { state } = view
   const { selection } = state
   const changes: ChangeSpec[] = []
@@ -231,7 +231,7 @@ function toggleListType(view: EditorView, targetType: 'numbered' | 'bullet' | 't
 }
 
 // Helper to set heading level
-function setHeading(view: EditorView, level: number): boolean {
+export function setHeading(view: EditorView, level: number): boolean {
   const { state } = view
   const { selection } = state
   const changes: ChangeSpec[] = []
@@ -263,7 +263,7 @@ function setHeading(view: EditorView, level: number): boolean {
 }
 
 // Helper to insert block (code block, math block, etc.)
-function insertBlock(view: EditorView, startMarker: string, endMarker: string, placeholder = ''): boolean {
+export function insertBlock(view: EditorView, startMarker: string, endMarker: string, placeholder = ''): boolean {
   const { state } = view
   const { selection } = state
   const changes: ChangeSpec[] = []
@@ -301,7 +301,7 @@ function insertBlock(view: EditorView, startMarker: string, endMarker: string, p
 }
 
 // Helper to insert inline element
-function insertInline(view: EditorView, before: string, after: string, placeholder = ''): boolean {
+export function insertInline(view: EditorView, before: string, after: string, placeholder = ''): boolean {
   const { state } = view
   const { selection } = state
   const changes: ChangeSpec[] = []
@@ -334,7 +334,7 @@ function insertInline(view: EditorView, before: string, after: string, placehold
 }
 
 // Helper to toggle link (smart detection and removal)
-function toggleLink(view: EditorView): boolean {
+export function toggleLink(view: EditorView): boolean {
   const { state } = view
   const { selection } = state
   const changes: ChangeSpec[] = []
@@ -418,7 +418,7 @@ function toggleLink(view: EditorView): boolean {
 }
 
 // Helper to toggle code block (smart detection and removal)
-function toggleCodeBlock(view: EditorView): boolean {
+export function toggleCodeBlock(view: EditorView): boolean {
   const { state } = view
   const { selection } = state
   const range = selection.main
@@ -494,7 +494,7 @@ function toggleCodeBlock(view: EditorView): boolean {
 }
 
 // Helper to insert at cursor
-function insertAtCursor(view: EditorView, text: string): boolean {
+export function insertAtCursor(view: EditorView, text: string): boolean {
   const { state } = view
   const { selection } = state
 
