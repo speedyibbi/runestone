@@ -1,4 +1,4 @@
-import { onMounted, onUnmounted, type Ref } from 'vue'
+import { onMounted, onUnmounted, ref, type Ref } from 'vue'
 import { EditorView, keymap } from '@codemirror/view'
 import { EditorState } from '@codemirror/state'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
@@ -17,7 +17,7 @@ import {
 import { createKeyboardShortcuts } from '@/utils/editor/keyboardShortcuts'
 
 export function useEditor(editorElement: Ref<HTMLElement | undefined>) {
-  let editorView: EditorView | null = null
+  const editorView = ref<EditorView | null>(null)
 
   const initializeEditor = () => {
     if (!editorElement.value) {
@@ -81,32 +81,32 @@ export function useEditor(editorElement: Ref<HTMLElement | undefined>) {
       ],
     })
 
-    editorView = new EditorView({
+    editorView.value = new EditorView({
       state: startState,
       parent: editorElement.value,
     })
   }
 
   const getContent = (): string => {
-    return editorView?.state.doc.toString() || ''
+    return editorView.value?.state.doc.toString() || ''
   }
 
   const setContent = (content: string) => {
-    if (!editorView) return
+    if (!editorView.value) return
 
-    editorView.dispatch({
+    editorView.value.dispatch({
       changes: {
         from: 0,
-        to: editorView.state.doc.length,
+        to: editorView.value.state.doc.length,
         insert: content,
       },
     })
   }
 
   const destroy = () => {
-    if (editorView) {
-      editorView.destroy()
-      editorView = null
+    if (editorView.value) {
+      editorView.value.destroy()
+      editorView.value = null
     }
   }
 
@@ -119,6 +119,7 @@ export function useEditor(editorElement: Ref<HTMLElement | undefined>) {
   })
 
   return {
+    editorView: editorView as Ref<EditorView | null>,
     getContent,
     setContent,
     destroy,

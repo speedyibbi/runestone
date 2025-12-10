@@ -1,16 +1,18 @@
 <script lang="ts" setup>
 import { ref } from 'vue'
 import { useEditor } from '@/composables/useEditor'
-import KeyboardShortcuts from '@/components/KeyboardShortcuts.vue'
+import KeyboardShortcuts from '@/components/editor/KeyboardShortcuts.vue'
+import BubbleMenu from '@/components/editor/BubbleMenu.vue'
 
 const editorElement = ref<HTMLElement>()
-const { getContent, setContent } = useEditor(editorElement)
+const { getContent, setContent, editorView } = useEditor(editorElement)
 </script>
 
 <template>
   <main>
     <div ref="editorElement" class="editor"></div>
     <KeyboardShortcuts />
+    <BubbleMenu :editor-view="editorView" />
   </main>
 </template>
 
