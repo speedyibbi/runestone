@@ -1,5 +1,10 @@
 <template>
-  <dialog ref="dialogRef" class="shortcuts-dialog" :class="{ closing: isClosing }" @click="handleBackdropClick">
+  <dialog
+    ref="dialogRef"
+    class="shortcuts-dialog"
+    :class="{ closing: isClosing }"
+    @click="handleBackdropClick"
+  >
     <div class="shortcuts-modal" :class="{ closing: isClosing }" tabindex="-1">
       <div class="shortcuts-header">
         <h2>⌨️ Keyboard Shortcuts</h2>
@@ -14,11 +19,7 @@
         >
           <h3>{{ category }}</h3>
           <div class="shortcuts-list">
-            <div
-              v-for="shortcut in shortcuts"
-              :key="shortcut.keys"
-              class="shortcut-item"
-            >
+            <div v-for="shortcut in shortcuts" :key="shortcut.keys" class="shortcut-item">
               <kbd class="shortcut-keys">{{ shortcut.keys }}</kbd>
               <span class="shortcut-description">{{ shortcut.description }}</span>
             </div>
@@ -85,11 +86,7 @@ const handleKeydown = (event: KeyboardEvent) => {
   if (event.key === '?' && !event.metaKey && !event.ctrlKey && !event.altKey) {
     // Only if not in an input/textarea
     const target = event.target as HTMLElement
-    if (
-      target.tagName !== 'INPUT' &&
-      target.tagName !== 'TEXTAREA' &&
-      !target.isContentEditable
-    ) {
+    if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA' && !target.isContentEditable) {
       event.preventDefault()
       toggle()
     }

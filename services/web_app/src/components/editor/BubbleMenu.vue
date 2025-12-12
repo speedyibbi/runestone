@@ -106,7 +106,7 @@ watch(
     if (newView && !cleanupFn) {
       setupBubbleMenu()
     }
-  }
+  },
 )
 
 // Initialize on mount
@@ -384,7 +384,7 @@ function setupBubbleMenu() {
   view.dom.addEventListener('blur', hideBubbleMenu)
   document.addEventListener('mousedown', handleClickOutside)
   window.addEventListener('scroll', handleScroll, true)
-  
+
   // Clean up function
   cleanupFn = () => {
     view.dom.removeEventListener('mouseup', checkSelection)

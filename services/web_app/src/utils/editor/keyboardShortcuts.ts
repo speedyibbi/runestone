@@ -11,7 +11,7 @@ export function isSurrounded(
   text: string,
   marker: string,
   beforeText: string,
-  afterText: string
+  afterText: string,
 ): boolean {
   // Check if selected text includes markers
   if (text.startsWith(marker) && text.endsWith(marker) && text.length > marker.length * 2) {
@@ -33,11 +33,14 @@ export function toggleWrap(view: EditorView, marker: string): boolean {
 
   for (const range of selection.ranges) {
     const selectedText = state.doc.sliceString(range.from, range.to)
-    
+
     // Get text before and after selection to check for markers
     const beforeText = state.doc.sliceString(Math.max(0, range.from - markerLen), range.from)
-    const afterText = state.doc.sliceString(range.to, Math.min(state.doc.length, range.to + markerLen))
-    
+    const afterText = state.doc.sliceString(
+      range.to,
+      Math.min(state.doc.length, range.to + markerLen),
+    )
+
     const hasSurroundingMarkers = isSurrounded(selectedText, marker, beforeText, afterText)
 
     if (hasSurroundingMarkers) {
@@ -77,7 +80,10 @@ export function toggleWrap(view: EditorView, marker: string): boolean {
         const change = changes[i]
         const selectedText = state.doc.sliceString(range.from, range.to)
         const beforeText = state.doc.sliceString(Math.max(0, range.from - markerLen), range.from)
-        const afterText = state.doc.sliceString(range.to, Math.min(state.doc.length, range.to + markerLen))
+        const afterText = state.doc.sliceString(
+          range.to,
+          Math.min(state.doc.length, range.to + markerLen),
+        )
         const isRemoving = isSurrounded(selectedText, marker, beforeText, afterText)
 
         if (isRemoving) {
@@ -91,12 +97,9 @@ export function toggleWrap(view: EditorView, marker: string): boolean {
           }
         } else {
           // When adding, adjust selection to be inside new markers
-          return EditorSelection.range(
-            range.from + markerLen,
-            range.to + markerLen
-          )
+          return EditorSelection.range(range.from + markerLen, range.to + markerLen)
         }
-      })
+      }),
     ),
   })
 
@@ -160,19 +163,22 @@ export function getLeadingWhitespace(text: string): string {
 export function removeListPrefix(text: string): string {
   const leadingWhitespace = getLeadingWhitespace(text)
   const trimmed = text.trimStart()
-  
+
   // Remove numbered list (1. 2. etc)
   let content = trimmed.replace(/^\d+\.\s+/, '')
   // Remove task list (- [ ] or - [x])
   content = content.replace(/^[-*+]\s\[[ xX]\]\s+/, '')
   // Remove bullet list (- * +)
   content = content.replace(/^[-*+]\s+/, '')
-  
+
   return leadingWhitespace + content
 }
 
 // Helper to toggle list type (smart conversion between list types)
-export function toggleListType(view: EditorView, targetType: 'numbered' | 'bullet' | 'task'): boolean {
+export function toggleListType(
+  view: EditorView,
+  targetType: 'numbered' | 'bullet' | 'task',
+): boolean {
   const { state } = view
   const { selection } = state
   const changes: ChangeSpec[] = []
@@ -182,7 +188,7 @@ export function toggleListType(view: EditorView, targetType: 'numbered' | 'bulle
   for (const range of selection.ranges) {
     const startLine = state.doc.lineAt(range.from)
     const endLine = state.doc.lineAt(range.to)
-    
+
     for (let pos = startLine.from; pos <= endLine.from; ) {
       const line = state.doc.lineAt(pos)
       lines.push({ line, from: line.from, to: line.to })
@@ -196,7 +202,7 @@ export function toggleListType(view: EditorView, targetType: 'numbered' | 'bulle
   for (const { line, from, to } of lines) {
     const lineText = line.text
     const currentType = getListType(lineText)
-    
+
     if (allTargetType) {
       // If all lines are already target type, remove list formatting
       const newText = removeListPrefix(lineText)
@@ -209,18 +215,19 @@ export function toggleListType(view: EditorView, targetType: 'numbered' | 'bulle
       const leadingWhitespace = getLeadingWhitespace(lineText)
       const content = removeListPrefix(lineText)
       const trimmed = content.trimStart()
-      
+
       let newPrefix: string
       if (targetType === 'numbered') {
         // For numbered lists, use sequential numbers
-        const lineIndex = lines.findIndex(l => l.from === from)
+        const lineIndex = lines.findIndex((l) => l.from === from)
         newPrefix = `${lineIndex + 1}.`
       } else if (targetType === 'bullet') {
         newPrefix = '-'
-      } else { // task
+      } else {
+        // task
         newPrefix = '- [ ]'
       }
-      
+
       const newText = leadingWhitespace + newPrefix + ' ' + trimmed
       changes.push({ from, to, insert: newText })
     }
@@ -263,7 +270,12 @@ export function setHeading(view: EditorView, level: number): boolean {
 }
 
 // Helper to insert block (code block, math block, etc.)
-export function insertBlock(view: EditorView, startMarker: string, endMarker: string, placeholder = ''): boolean {
+export function insertBlock(
+  view: EditorView,
+  startMarker: string,
+  endMarker: string,
+  placeholder = '',
+): boolean {
   const { state } = view
   const { selection } = state
   const changes: ChangeSpec[] = []
@@ -287,9 +299,7 @@ export function insertBlock(view: EditorView, startMarker: string, endMarker: st
 
     // Place cursor inside the block
     const newPos = range.from + beforeNewline.length + startMarker.length + 1
-    newSelections.push(
-      EditorSelection.range(newPos, newPos + content.length)
-    )
+    newSelections.push(EditorSelection.range(newPos, newPos + content.length))
   }
 
   view.dispatch({
@@ -301,7 +311,12 @@ export function insertBlock(view: EditorView, startMarker: string, endMarker: st
 }
 
 // Helper to insert inline element
-export function insertInline(view: EditorView, before: string, after: string, placeholder = ''): boolean {
+export function insertInline(
+  view: EditorView,
+  before: string,
+  after: string,
+  placeholder = '',
+): boolean {
   const { state } = view
   const { selection } = state
   const changes: ChangeSpec[] = []
@@ -320,9 +335,7 @@ export function insertInline(view: EditorView, before: string, after: string, pl
 
     // Select the placeholder or keep selection
     const newStart = range.from + before.length
-    newSelections.push(
-      EditorSelection.range(newStart, newStart + content.length)
-    )
+    newSelections.push(EditorSelection.range(newStart, newStart + content.length))
   }
 
   view.dispatch({
@@ -342,10 +355,10 @@ export function toggleLink(view: EditorView): boolean {
 
   for (const range of selection.ranges) {
     const selectedText = state.doc.sliceString(range.from, range.to)
-    
+
     // Check if selection is already a link: [text](url)
     const linkMatch = selectedText.match(/^\[(.+?)\]\((.+?)\)$/)
-    
+
     if (linkMatch) {
       // Remove link, keep just the text
       const linkText = linkMatch[1]
@@ -354,28 +367,29 @@ export function toggleLink(view: EditorView): boolean {
         to: range.to,
         insert: linkText,
       })
-      newSelections.push(
-        EditorSelection.range(range.from, range.from + linkText.length)
-      )
+      newSelections.push(EditorSelection.range(range.from, range.from + linkText.length))
     } else {
       // Check if there's a link around the selection
       const beforeText = state.doc.sliceString(Math.max(0, range.from - 1), range.from)
       const afterText = state.doc.sliceString(range.to, Math.min(state.doc.length, range.to + 6))
-      
+
       if (beforeText === '[' && afterText.startsWith('](')) {
         // Selection is inside a link, find the full link and remove it
         const textBeforeSelection = state.doc.sliceString(Math.max(0, range.from - 100), range.from)
-        const textAfterSelection = state.doc.sliceString(range.to, Math.min(state.doc.length, range.to + 100))
-        
+        const textAfterSelection = state.doc.sliceString(
+          range.to,
+          Math.min(state.doc.length, range.to + 100),
+        )
+
         const linkStart = textBeforeSelection.lastIndexOf('[')
         const linkEnd = textAfterSelection.indexOf(')')
-        
+
         if (linkStart !== -1 && linkEnd !== -1) {
           const fullFrom = range.from - (textBeforeSelection.length - linkStart)
           const fullTo = range.to + linkEnd + 1
           const fullLink = state.doc.sliceString(fullFrom, fullTo)
           const linkTextMatch = fullLink.match(/^\[(.+?)\]\(.+?\)$/)
-          
+
           if (linkTextMatch) {
             const linkText = linkTextMatch[1]
             changes.push({
@@ -383,14 +397,12 @@ export function toggleLink(view: EditorView): boolean {
               to: fullTo,
               insert: linkText,
             })
-            newSelections.push(
-              EditorSelection.range(fullFrom, fullFrom + linkText.length)
-            )
+            newSelections.push(EditorSelection.range(fullFrom, fullFrom + linkText.length))
             continue
           }
         }
       }
-      
+
       // Add link
       const content = selectedText || 'link text'
       const insert = `[${content}](url)`
@@ -401,9 +413,7 @@ export function toggleLink(view: EditorView): boolean {
       })
       // Select 'url' for easy replacement
       const urlStart = range.from + content.length + 3 // [text](
-      newSelections.push(
-        EditorSelection.range(urlStart, urlStart + 3)
-      )
+      newSelections.push(EditorSelection.range(urlStart, urlStart + 3))
     }
   }
 
@@ -422,16 +432,16 @@ export function toggleCodeBlock(view: EditorView): boolean {
   const { state } = view
   const { selection } = state
   const range = selection.main
-  
+
   // Get surrounding lines to check for code block
   const line = state.doc.lineAt(range.from)
   const startLine = state.doc.lineAt(Math.max(0, line.from - 1))
   const endLine = state.doc.lineAt(Math.min(state.doc.length, range.to + 1))
-  
+
   // Check if cursor is inside a code block
   let codeBlockStart = -1
   let codeBlockEnd = -1
-  
+
   // Search backwards for opening ```
   for (let pos = range.from; pos >= 0; ) {
     const checkLine = state.doc.lineAt(pos)
@@ -442,7 +452,7 @@ export function toggleCodeBlock(view: EditorView): boolean {
     pos = checkLine.from - 1
     if (pos < 0) break
   }
-  
+
   // If found opening, search forwards for closing ```
   if (codeBlockStart !== -1) {
     for (let pos = range.from; pos < state.doc.length; ) {
@@ -454,13 +464,13 @@ export function toggleCodeBlock(view: EditorView): boolean {
       pos = checkLine.to + 1
     }
   }
-  
+
   if (codeBlockStart !== -1 && codeBlockEnd !== -1) {
     // Remove code block
     const openLine = state.doc.lineAt(codeBlockStart)
     const closeLine = state.doc.lineAt(codeBlockEnd)
     const content = state.doc.sliceString(openLine.to + 1, closeLine.from)
-    
+
     view.dispatch({
       changes: {
         from: codeBlockStart,
@@ -476,7 +486,7 @@ export function toggleCodeBlock(view: EditorView): boolean {
     const beforeNewline = isAtLineStart ? '' : '\n'
     const content = selectedText || 'code'
     const insert = `${beforeNewline}\`\`\`\n${content}\n\`\`\`\n`
-    
+
     view.dispatch({
       changes: {
         from: range.from,
@@ -485,11 +495,11 @@ export function toggleCodeBlock(view: EditorView): boolean {
       },
       selection: EditorSelection.range(
         range.from + beforeNewline.length + 4,
-        range.from + beforeNewline.length + 4 + content.length
+        range.from + beforeNewline.length + 4 + content.length,
       ),
     })
   }
-  
+
   return true
 }
 
@@ -499,16 +509,16 @@ export function insertAtCursor(view: EditorView, text: string): boolean {
   const { selection } = state
 
   view.dispatch({
-    changes: selection.ranges.map(range => ({
+    changes: selection.ranges.map((range) => ({
       from: range.from,
       to: range.to,
       insert: text,
     })),
     selection: EditorSelection.create(
-      selection.ranges.map(range => {
+      selection.ranges.map((range) => {
         const newPos = range.from + text.length
         return EditorSelection.cursor(newPos)
-      })
+      }),
     ),
   })
 
@@ -563,7 +573,7 @@ export function createKeyboardShortcuts() {
       key,
       run: handler,
       preventDefault: true,
-    }))
+    })),
   )
 }
 
@@ -584,7 +594,7 @@ export function getShortcutDescriptions() {
       { keys: `${mod}+E`, description: 'Toggle inline code' },
       { keys: `${mod}+${shift}+E`, description: 'Insert code block' },
     ],
-    'Headings': [
+    Headings: [
       { keys: `${mod}+${alt}+1`, description: 'Heading 1' },
       { keys: `${mod}+${alt}+2`, description: 'Heading 2' },
       { keys: `${mod}+${alt}+3`, description: 'Heading 3' },
@@ -592,12 +602,12 @@ export function getShortcutDescriptions() {
       { keys: `${mod}+${alt}+5`, description: 'Heading 5' },
       { keys: `${mod}+${alt}+6`, description: 'Heading 6' },
     ],
-    'Lists': [
+    Lists: [
       { keys: `${mod}+${shift}+7`, description: 'Toggle numbered list' },
       { keys: `${mod}+${shift}+8`, description: 'Toggle bullet list' },
       { keys: `${mod}+${shift}+9`, description: 'Toggle task list' },
     ],
-    'Blocks': [
+    Blocks: [
       { keys: `${mod}+${shift}+Q`, description: 'Toggle blockquote' },
       { keys: `${mod}+${shift}+H`, description: 'Insert horizontal rule' },
     ],
@@ -605,7 +615,7 @@ export function getShortcutDescriptions() {
       { keys: `${mod}+K`, description: 'Insert link' },
       { keys: `${mod}+${shift}+K`, description: 'Insert image' },
     ],
-    'Math': [
+    Math: [
       { keys: `${mod}+M`, description: 'Toggle inline math' },
       { keys: `${mod}+${shift}+M`, description: 'Insert block math' },
     ],
