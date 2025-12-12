@@ -4,6 +4,7 @@
       v-if="isVisible"
       ref="menuRef"
       class="bubble-menu"
+      :class="{ 'is-positioned': isPositioned }"
       :style="{
         top: `${position.top}px`,
         left: `${position.left}px`,
@@ -248,10 +249,84 @@ function insertHR(): void {
 
 const menuRef = ref<HTMLElement | null>(null)
 const isVisible = ref(false)
+const isPositioned = ref(false) // Track if position is calculated
 const position = ref({ top: 0, left: 0 })
 let selectionTimeout: ReturnType<typeof setTimeout> | null = null
 let cleanupFn: (() => void) | null = null
 let isRightClickMenu = false
+
+// Smart positioning that keeps menu on-screen
+function calculateMenuPosition(targetX: number, targetY: number): { top: number; left: number } {
+  const menu = menuRef.value
+  if (!menu) {
+    // Return basic position if menu not yet rendered
+    return { top: targetY, left: targetX }
+  }
+
+  // Get menu dimensions
+  const menuRect = menu.getBoundingClientRect()
+  const menuWidth = menuRect.width || 400 // fallback width
+  const menuHeight = menuRect.height || 50 // fallback height
+
+  // Get viewport dimensions
+  const viewportWidth = window.innerWidth
+  const viewportHeight = window.innerHeight
+  const scrollX = window.scrollX
+  const scrollY = window.scrollY
+
+  // Padding from screen edges
+  const padding = 16
+
+  // Calculate ideal position (top-left of cursor with offset)
+  const offsetX = 12 // offset from cursor
+  const offsetY = 12 // offset from cursor
+  
+  let left = targetX + offsetX
+  let top = targetY - menuHeight - offsetY // Position above cursor
+
+  // Convert to viewport coordinates for checking
+  const viewportLeft = left - scrollX
+  const viewportTop = top - scrollY
+
+  // Check and adjust horizontal position
+  if (viewportLeft < padding) {
+    // Too far left - move right
+    left = scrollX + padding
+  } else if (viewportLeft + menuWidth > viewportWidth - padding) {
+    // Too far right - move left
+    left = targetX - menuWidth - offsetX
+    
+    // Still too far left? Align to right edge
+    if (left - scrollX < padding) {
+      left = scrollX + viewportWidth - menuWidth - padding
+    }
+  }
+
+  // Check and adjust vertical position
+  if (viewportTop < padding) {
+    // Not enough space above - try below
+    top = targetY + offsetY
+    
+    // Still off-screen? Align to top
+    if (top - scrollY < padding) {
+      top = scrollY + padding
+    }
+  }
+  
+  // Check if menu goes below viewport
+  const viewportBottom = top - scrollY + menuHeight
+  if (viewportBottom > viewportHeight - padding) {
+    // Too far down - move up
+    top = scrollY + viewportHeight - menuHeight - padding
+    
+    // Ensure it doesn't go above viewport
+    if (top - scrollY < padding) {
+      top = scrollY + padding
+    }
+  }
+
+  return { top, left }
+}
 
 // Handle selection changes
 function handleSelectionChange() {
@@ -290,16 +365,26 @@ function handleSelectionChange() {
       const endCoords = view.coordsAtPos(currentSelection.to)
 
       if (coords && endCoords) {
-        // Position the menu at the center of the selection, accounting for scroll
+        // Get selection position
         const centerX = (coords.left + endCoords.right) / 2
         const topY = coords.top + window.scrollY
 
-        position.value = {
-          top: topY,
-          left: centerX,
-        }
-        isRightClickMenu = false
+        // Set initial position at target
+        position.value = { top: topY, left: centerX }
+        
+        // Show menu (will be invisible until positioned)
         isVisible.value = true
+        isPositioned.value = false
+        isRightClickMenu = false
+
+        // Wait for next frame to calculate final position with menu dimensions
+        requestAnimationFrame(() => {
+          position.value = calculateMenuPosition(centerX, topY)
+          // Show menu after positioning
+          requestAnimationFrame(() => {
+            isPositioned.value = true
+          })
+        })
       }
     }, 1000)
   }
@@ -320,15 +405,22 @@ function handleContextMenu(event: MouseEvent) {
     selectionTimeout = null
   }
 
-  // Position menu at mouse click location (accounting for page scroll)
-  position.value = {
-    top: event.pageY,
-    left: event.pageX,
-  }
-
-  // Show menu immediately
-  isRightClickMenu = true
+  // Set initial position at mouse
+  position.value = { top: event.pageY, left: event.pageX }
+  
+  // Show menu (will be invisible until positioned)
   isVisible.value = true
+  isPositioned.value = false
+  isRightClickMenu = true
+
+  // Wait for next frame to calculate final position with menu dimensions
+  requestAnimationFrame(() => {
+    position.value = calculateMenuPosition(event.pageX, event.pageY)
+    // Show menu after positioning
+    requestAnimationFrame(() => {
+      isPositioned.value = true
+    })
+  })
 }
 
 // Hide bubble menu
@@ -339,6 +431,7 @@ function hideBubbleMenu() {
   }
   isRightClickMenu = false
   isVisible.value = false
+  isPositioned.value = false
 }
 
 // Set up selection listener when editor is ready
@@ -377,22 +470,55 @@ function setupBubbleMenu() {
     hideBubbleMenu()
   }
 
+  // Hide menu on window resize
+  const handleResize = () => {
+    hideBubbleMenu()
+  }
+
+  // Hide menu on window blur (switching tabs)
+  const handleWindowBlur = () => {
+    hideBubbleMenu()
+  }
+
+  // Hide menu on escape key
+  const handleKeyDown = (event: KeyboardEvent) => {
+    if (event.key === 'Escape' && isVisible.value) {
+      event.preventDefault()
+      hideBubbleMenu()
+    }
+  }
+
+  // Hide menu when user starts typing (except for shortcuts)
+  const handleInput = () => {
+    if (isVisible.value) {
+      hideBubbleMenu()
+    }
+  }
+
   // Add event listeners
   view.dom.addEventListener('mouseup', checkSelection)
   view.dom.addEventListener('keyup', checkSelection)
+  view.dom.addEventListener('keydown', handleKeyDown)
+  view.dom.addEventListener('input', handleInput)
   view.dom.addEventListener('contextmenu', handleContextMenu)
   view.dom.addEventListener('blur', hideBubbleMenu)
   document.addEventListener('mousedown', handleClickOutside)
   window.addEventListener('scroll', handleScroll, true)
+  window.addEventListener('resize', handleResize)
+  window.addEventListener('blur', handleWindowBlur)
 
   // Clean up function
   cleanupFn = () => {
     view.dom.removeEventListener('mouseup', checkSelection)
     view.dom.removeEventListener('keyup', checkSelection)
+    view.dom.removeEventListener('keydown', handleKeyDown)
+    view.dom.removeEventListener('input', handleInput)
     view.dom.removeEventListener('contextmenu', handleContextMenu)
     view.dom.removeEventListener('blur', hideBubbleMenu)
     document.removeEventListener('mousedown', handleClickOutside)
     window.removeEventListener('scroll', handleScroll, true)
+    window.removeEventListener('resize', handleResize)
+    window.removeEventListener('blur', handleWindowBlur)
     hideBubbleMenu()
   }
 }
@@ -409,10 +535,14 @@ onUnmounted(() => {
 .bubble-menu {
   position: fixed;
   z-index: 1000;
-  transform: translate(-50%, -100%) translateY(-12px);
   pointer-events: auto;
-  animation: bubbleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  will-change: transform, opacity;
+  opacity: 0;
+  transition: opacity 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity;
+}
+
+.bubble-menu.is-positioned {
+  opacity: 1;
 }
 
 .bubble-menu-content {
@@ -513,14 +643,4 @@ onUnmounted(() => {
   clip-path: polygon(100% 0, 100% 100%, 0 100%);
 }
 
-@keyframes bubbleIn {
-  0% {
-    opacity: 0;
-    transform: translate(-50%, -100%) translateY(-8px) scale(0.92);
-  }
-  100% {
-    opacity: 1;
-    transform: translate(-50%, -100%) translateY(-12px) scale(1);
-  }
-}
 </style>
