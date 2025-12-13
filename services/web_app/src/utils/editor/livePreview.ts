@@ -18,6 +18,7 @@
 import { ViewPlugin, Decoration, EditorView } from '@codemirror/view'
 import type { DecorationSet, ViewUpdate } from '@codemirror/view'
 import type { Range, Extension } from '@codemirror/state'
+import { StateField, StateEffect } from '@codemirror/state'
 import { syntaxTree } from '@codemirror/language'
 
 // Import widgets
@@ -36,14 +37,32 @@ import {
 import { getChildText, getLinkAtPos, parseTable } from './utils'
 
 /**
+ * State field to track preview mode
+ */
+export const togglePreviewMode = StateEffect.define<boolean>()
+
+export const previewModeField = StateField.define<boolean>({
+  create: () => false,
+  update(value, tr) {
+    for (const effect of tr.effects) {
+      if (effect.is(togglePreviewMode)) {
+        return effect.value
+      }
+    }
+    return value
+  },
+})
+
+/**
  * Build decorations to hide markdown syntax and render interactive elements
  */
-function buildDecorations(view: EditorView): DecorationSet {
+function buildDecorations(view: EditorView, isPreviewMode = false): DecorationSet {
   const decorations: Range<Decoration>[] = []
   const checkboxDecorations: Range<Decoration>[] = []
 
   // Get the line number where the cursor is
-  const cursorLine = view.state.doc.lineAt(view.state.selection.main.head).number
+  // In preview mode, set cursorLine to -1 so all syntax is hidden
+  const cursorLine = isPreviewMode ? -1 : view.state.doc.lineAt(view.state.selection.main.head).number
 
   // Track which lines have special elements
   const blockquoteLines = new Set<number>()
@@ -180,7 +199,7 @@ function buildDecorations(view: EditorView): DecorationSet {
             if (tableData) {
               decorations.push(
                 Decoration.widget({
-                  widget: new TableWidget(tableData, view, node.from, node.to),
+                  widget: new TableWidget(tableData, view, node.from, node.to, isPreviewMode),
                   side: -1,
                 }).range(node.from),
               )
@@ -386,13 +405,15 @@ export const livePreviewPlugin = ViewPlugin.fromClass(
     decorations: DecorationSet
 
     constructor(view: EditorView) {
-      this.decorations = buildDecorations(view)
+      const isPreviewMode = view.state.field(previewModeField)
+      this.decorations = buildDecorations(view, isPreviewMode)
     }
 
     update(update: ViewUpdate) {
-      // Rebuild decorations when document changes, selection changes, or viewport changes
-      if (update.docChanged || update.selectionSet || update.viewportChanged) {
-        this.decorations = buildDecorations(update.view)
+      const isPreviewMode = update.state.field(previewModeField)
+      // Rebuild decorations when document changes, selection changes, viewport changes, or preview mode changes
+      if (update.docChanged || update.selectionSet || update.viewportChanged || update.transactions.some(tr => tr.effects.some(e => e.is(togglePreviewMode)))) {
+        this.decorations = buildDecorations(update.view, isPreviewMode)
       }
     }
   },
@@ -444,4 +465,36 @@ export const clickableLinks: Extension = EditorView.domEventHandlers({
   mousedown(event, view) {
     return handleClick(event, view)
   },
+})
+
+/**
+ * Preview mode theme extension - hides cursor and disables selection styling
+ */
+export const previewModeTheme = EditorView.theme({
+  '&.cm-preview-mode': {
+    cursor: 'default',
+  },
+  '&.cm-preview-mode .cm-cursor': {
+    display: 'none',
+  },
+  '&.cm-preview-mode .cm-selectionBackground': {
+    backgroundColor: 'transparent',
+  },
+  '&.cm-preview-mode .cm-content': {
+    caretColor: 'transparent',
+  },
+})
+
+/**
+ * Extension that adds the preview mode class when in preview mode
+ */
+export const previewModeExtension: Extension = EditorView.updateListener.of((update) => {
+  const isPreview = update.state.field(previewModeField)
+  const hasClass = update.view.dom.classList.contains('cm-preview-mode')
+  
+  if (isPreview && !hasClass) {
+    update.view.dom.classList.add('cm-preview-mode')
+  } else if (!isPreview && hasClass) {
+    update.view.dom.classList.remove('cm-preview-mode')
+  }
 })

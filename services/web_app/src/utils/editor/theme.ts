@@ -376,6 +376,15 @@ export const minimalTheme = EditorView.theme(
       boxShadow: 'inset 0 0 0 1px var(--color-accent)',
     },
 
+    // Preview mode: remove edit cursor and hover effects
+    '&.cm-preview-mode .cm-table-widget th': {
+      cursor: 'default',
+    },
+
+    '&.cm-preview-mode .cm-table-widget th:hover': {
+      backgroundColor: 'transparent',
+    },
+
     '.cm-table-widget th:last-child': {
       borderRight: 'none',
     },
@@ -405,6 +414,15 @@ export const minimalTheme = EditorView.theme(
       boxShadow: 'inset 0 0 0 1px var(--color-accent)',
     },
 
+    // Preview mode: remove edit cursor and hover effects
+    '&.cm-preview-mode .cm-table-widget td': {
+      cursor: 'default',
+    },
+
+    '&.cm-preview-mode .cm-table-widget td:hover': {
+      backgroundColor: 'transparent',
+    },
+
     '.cm-table-widget td:last-child': {
       borderRight: 'none',
     },
@@ -415,6 +433,11 @@ export const minimalTheme = EditorView.theme(
 
     '.cm-table-widget tbody tr:hover': {
       backgroundColor: 'var(--color-overlay-light)',
+    },
+
+    // Preview mode: remove row hover effect
+    '&.cm-preview-mode .cm-table-widget tbody tr:hover': {
+      backgroundColor: 'transparent',
     },
 
     // Hidden math markdown lines (collapsed to zero height)

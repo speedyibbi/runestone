@@ -1,6 +1,6 @@
 import { onMounted, onUnmounted, ref, type Ref } from 'vue'
 import { EditorView, keymap } from '@codemirror/view'
-import { EditorState } from '@codemirror/state'
+import { EditorState, Compartment } from '@codemirror/state'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
 import { indentUnit, foldKeymap } from '@codemirror/language'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
@@ -8,7 +8,14 @@ import { search, searchKeymap } from '@codemirror/search'
 import { autocompletion, completionKeymap } from '@codemirror/autocomplete'
 import { theme } from '@/utils/editor/theme'
 import { customMarkdownKeyBindings } from '@/utils/editor/customizations'
-import { livePreviewPlugin, clickableLinks } from '@/utils/editor/livePreview'
+import {
+  livePreviewPlugin,
+  clickableLinks,
+  previewModeField,
+  togglePreviewMode,
+  previewModeTheme,
+  previewModeExtension,
+} from '@/utils/editor/livePreview'
 import {
   markdownHeadingFolding,
   markdownFoldGutter,
@@ -18,6 +25,10 @@ import { createKeyboardShortcuts } from '@/utils/editor/keyboardShortcuts'
 
 export function useEditor(editorElement: Ref<HTMLElement | undefined>) {
   const editorView = ref<EditorView | null>(null)
+  const isPreviewMode = ref(false)
+  
+  // Compartment for dynamically reconfiguring read-only state
+  const readOnlyCompartment = new Compartment()
 
   const initializeEditor = () => {
     if (!editorElement.value) {
@@ -30,6 +41,11 @@ export function useEditor(editorElement: Ref<HTMLElement | undefined>) {
       extensions: [
         // Custom theme
         theme,
+
+        // Preview mode state field and theme
+        previewModeField,
+        previewModeTheme,
+        previewModeExtension,
 
         // Use tabs instead of spaces
         indentUnit.of('\t'),
@@ -78,6 +94,9 @@ export function useEditor(editorElement: Ref<HTMLElement | undefined>) {
           ...historyKeymap,
           ...defaultKeymap,
         ]),
+
+        // Read-only compartment for dynamic reconfiguration
+        readOnlyCompartment.of(EditorState.readOnly.of(false)),
       ],
     })
 
@@ -103,6 +122,19 @@ export function useEditor(editorElement: Ref<HTMLElement | undefined>) {
     })
   }
 
+  const togglePreview = () => {
+    if (!editorView.value) return
+
+    isPreviewMode.value = !isPreviewMode.value
+
+    editorView.value.dispatch({
+      effects: [
+        togglePreviewMode.of(isPreviewMode.value),
+        readOnlyCompartment.reconfigure(EditorState.readOnly.of(isPreviewMode.value)),
+      ],
+    })
+  }
+
   const destroy = () => {
     if (editorView.value) {
       editorView.value.destroy()
@@ -120,8 +152,10 @@ export function useEditor(editorElement: Ref<HTMLElement | undefined>) {
 
   return {
     editorView: editorView as Ref<EditorView | null>,
+    isPreviewMode,
     getContent,
     setContent,
+    togglePreview,
     destroy,
   }
 }
