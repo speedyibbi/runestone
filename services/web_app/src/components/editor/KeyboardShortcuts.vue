@@ -228,7 +228,7 @@ defineExpose({
 
 .close-button:hover {
   background-color: var(--color-overlay-light);
-  color: var(--color-foreground);
+  color: var(--color-accent);
 }
 
 .shortcuts-content {
@@ -272,9 +272,9 @@ defineExpose({
   font-size: 0.85rem;
   padding: 0.35rem 0.6rem;
   background-color: var(--color-overlay-light);
-  border: 1px solid var(--color-overlay-strong);
+  border: 1px solid var(--color-accent);
   border-radius: 4px;
-  color: var(--color-foreground);
+  color: var(--color-accent);
   white-space: nowrap;
   min-width: 10rem;
   text-align: center;
@@ -306,9 +306,9 @@ defineExpose({
   font-size: 0.85rem;
   padding: 0.25rem 0.5rem;
   background-color: var(--color-overlay-light);
-  border: 1px solid var(--color-overlay-strong);
+  border: 1px solid var(--color-accent);
   border-radius: 4px;
-  color: var(--color-foreground);
+  color: var(--color-accent);
   margin: 0 0.25rem;
 }
 

@@ -73,7 +73,7 @@ main::-webkit-scrollbar {
   border: 1px solid var(--color-overlay-border);
   border-radius: 8px;
   padding: 0.5rem;
-  color: var(--color-muted);
+  color: var(--color-accent);
   cursor: pointer;
   display: flex;
   align-items: center;

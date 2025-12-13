@@ -124,13 +124,13 @@ export const minimalTheme = EditorView.theme(
     '.cm-panel': {
       backgroundColor: 'var(--color-background)',
       color: 'var(--color-foreground)',
-      border: '1px solid var(--color-accent)',
+      border: '1px solid var(--color-overlay-border)',
     },
 
     '.cm-panel input': {
       backgroundColor: 'var(--color-background)',
       color: 'var(--color-foreground)',
-      border: '1px solid var(--color-accent)',
+      border: '1px solid var(--color-overlay-border)',
       padding: '0.25rem 0.5rem',
       fontFamily: 'var(--font-code)',
     },
@@ -138,20 +138,20 @@ export const minimalTheme = EditorView.theme(
     '.cm-panel button': {
       backgroundColor: 'transparent',
       color: 'var(--color-foreground)',
-      border: '1px solid var(--color-accent)',
+      border: '1px solid var(--color-overlay-border)',
       padding: '0.25rem 0.5rem',
       cursor: 'pointer',
       fontFamily: 'var(--font-code)',
     },
 
     '.cm-panel button:hover': {
-      backgroundColor: 'var(--color-accent)',
+      backgroundColor: 'var(--color-overlay-light)',
     },
 
     // Search match highlighting
     '.cm-searchMatch': {
-      backgroundColor: 'var(--color-accent)',
-      outline: '1px solid var(--color-accent)',
+      backgroundColor: 'var(--color-overlay-medium)',
+      outline: '1px solid var(--color-overlay-border)',
     },
 
     '.cm-searchMatch-selected': {
@@ -161,7 +161,7 @@ export const minimalTheme = EditorView.theme(
     // Autocomplete styling
     '.cm-tooltip-autocomplete': {
       backgroundColor: 'var(--color-background)',
-      border: '1px solid var(--color-accent)',
+      border: '1px solid var(--color-overlay-border)',
       fontFamily: 'var(--font-code)',
     },
 
@@ -171,13 +171,13 @@ export const minimalTheme = EditorView.theme(
     },
 
     '.cm-tooltip-autocomplete > ul > li[aria-selected]': {
-      backgroundColor: 'var(--color-accent)',
+      backgroundColor: 'var(--color-overlay-medium)',
       color: 'var(--color-foreground)',
     },
 
     // Horizontal rules (---, ***, ___) - visual styling
     '.cm-line:has(.tok-contentSeparator)': {
-      borderTop: '1px solid var(--color-accent)',
+      borderTop: '1px solid var(--color-overlay-border)',
       marginTop: '1rem',
       marginBottom: '1rem',
       paddingTop: '0.5rem',
@@ -186,7 +186,7 @@ export const minimalTheme = EditorView.theme(
     // Horizontal rule widget (live preview)
     '.cm-hr-widget': {
       height: '1px',
-      backgroundColor: 'var(--color-accent)',
+      backgroundColor: 'var(--color-overlay-border)',
       width: '100%',
     },
 
@@ -297,7 +297,7 @@ export const minimalTheme = EditorView.theme(
       fontWeight: 'normal',
       textAlign: 'center',
       cursor: 'pointer',
-      color: 'var(--color-accent)',
+      color: 'var(--color-muted)',
       fontSize: '0.9em',
       borderRight: 'none',
       userSelect: 'none',
@@ -326,7 +326,7 @@ export const minimalTheme = EditorView.theme(
       textAlign: 'center',
       padding: '0.5rem',
       cursor: 'pointer',
-      color: 'var(--color-accent)',
+      color: 'var(--color-muted)',
       fontSize: '0.9em',
       borderTop: '1px solid var(--color-overlay-strong)',
       userSelect: 'none',
@@ -373,7 +373,7 @@ export const minimalTheme = EditorView.theme(
     '.cm-table-widget th:focus': {
       outline: 'none',
       backgroundColor: 'var(--color-overlay-light)',
-      boxShadow: 'inset 0 0 0 1px var(--color-accent)',
+      boxShadow: 'inset 0 0 0 1px var(--color-overlay-border)',
     },
 
     // Preview mode: remove edit cursor and hover effects
@@ -411,7 +411,7 @@ export const minimalTheme = EditorView.theme(
     '.cm-table-widget td:focus': {
       outline: 'none',
       backgroundColor: 'var(--color-overlay-light)',
-      boxShadow: 'inset 0 0 0 1px var(--color-accent)',
+      boxShadow: 'inset 0 0 0 1px var(--color-overlay-border)',
     },
 
     // Preview mode: remove edit cursor and hover effects
@@ -534,10 +534,10 @@ const minimalHighlightStyle = HighlightStyle.define([
   },
 
   // Links (inline and reference style) - clickable with Ctrl/Cmd+Click
-  { tag: t.link, color: 'var(--color-foreground)', textDecoration: 'underline', cursor: 'pointer' },
+  { tag: t.link, color: 'var(--color-accent)', textDecoration: 'underline', cursor: 'pointer' },
 
   // URLs in links and autolinks - also clickable
-  { tag: t.url, color: 'var(--color-foreground)', textDecoration: 'underline', cursor: 'pointer' },
+  { tag: t.url, color: 'var(--color-accent)', textDecoration: 'underline', cursor: 'pointer' },
 
   // Ordered and unordered lists
   { tag: t.list, color: 'var(--color-foreground)' },
@@ -549,20 +549,20 @@ const minimalHighlightStyle = HighlightStyle.define([
   { tag: t.bool, color: 'var(--color-accent)', fontWeight: '600' },
 
   // Blockquotes (>)
-  { tag: t.quote, fontStyle: 'italic', color: 'var(--color-muted)' },
+  { tag: t.quote, fontStyle: 'italic', color: 'var(--color-accent)' },
 
   // Meta elements (markdown syntax characters like *, **, ~~, [], (), etc.)
-  { tag: t.meta, color: 'var(--color-muted)', opacity: 0.7 },
+  { tag: t.meta, color: 'var(--color-accent)', opacity: 0.7 },
 
   // Escape characters (\)
-  { tag: t.escape, color: 'var(--color-muted)' },
+  { tag: t.escape, color: 'var(--color-accent)' },
 
   // HTML comments in markdown
-  { tag: t.comment, color: 'var(--color-muted)', fontStyle: 'italic' },
+  { tag: t.comment, color: 'var(--color-accent)', fontStyle: 'italic' },
 
   // HTML tags in markdown
   { tag: t.tagName, color: 'var(--color-accent)' },
-  { tag: t.angleBracket, color: 'var(--color-muted)' },
+  { tag: t.angleBracket, color: 'var(--color-accent)' },
   { tag: t.attributeName, color: 'var(--color-foreground)' },
   { tag: t.attributeValue, color: 'var(--color-foreground)' },
 

@@ -687,16 +687,19 @@ onUnmounted(() => {
 
 .menu-btn:hover {
   background: var(--color-overlay-light);
+  color: var(--color-accent);
 }
 
 .menu-btn:active {
   background: var(--color-overlay-medium);
+  color: var(--color-accent);
   transform: scale(0.96);
 }
 
 .menu-btn:focus-visible {
   background: var(--color-overlay-light);
-  box-shadow: 0 0 0 2px var(--color-overlay-border);
+  color: var(--color-accent);
+  box-shadow: 0 0 0 2px var(--color-accent);
 }
 
 /* Button content styling */
