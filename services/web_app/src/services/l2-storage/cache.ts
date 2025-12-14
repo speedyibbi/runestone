@@ -1,4 +1,5 @@
 import OPFSService from '@/services/l1-storage/opfs'
+import MetaService from '@/services/file-io/meta'
 import type { PathParams } from '@/interfaces/storage'
 import type { RootMeta, NotebookMeta } from '@/interfaces/meta'
 
@@ -46,7 +47,8 @@ export default class CacheService {
     }
 
     const metaText = new TextDecoder().decode(data)
-    return JSON.parse(metaText)
+    const parsed = JSON.parse(metaText)
+    return MetaService.deserializeRootMeta(parsed)
   }
 
   /**
@@ -54,7 +56,8 @@ export default class CacheService {
    */
   static async upsertRootMeta(meta: RootMeta): Promise<void> {
     const path = this.buildPath({ type: 'rootMeta' })
-    const metaText = JSON.stringify(meta, null, 2)
+    const serialized = MetaService.serializeRootMeta(meta)
+    const metaText = JSON.stringify(serialized, null, 2)
     const metaBytes = new TextEncoder().encode(metaText)
     await OPFSService.upsertFile(path, metaBytes)
   }
@@ -103,7 +106,8 @@ export default class CacheService {
     }
 
     const metaText = new TextDecoder().decode(data)
-    return JSON.parse(metaText)
+    const parsed = JSON.parse(metaText)
+    return MetaService.deserializeNotebookMeta(parsed)
   }
 
   /**
@@ -111,7 +115,8 @@ export default class CacheService {
    */
   static async upsertNotebookMeta(notebookId: string, meta: NotebookMeta): Promise<void> {
     const path = this.buildPath({ type: 'notebookMeta', notebookId })
-    const metaText = JSON.stringify(meta, null, 2)
+    const serialized = MetaService.serializeNotebookMeta(meta)
+    const metaText = JSON.stringify(serialized, null, 2)
     const metaBytes = new TextEncoder().encode(metaText)
     await OPFSService.upsertFile(path, metaBytes)
   }

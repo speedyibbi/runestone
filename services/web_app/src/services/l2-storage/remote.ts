@@ -1,4 +1,5 @@
 import FileService from '@/services/l1-storage/file'
+import MetaService from '@/services/file-io/meta'
 import { toArrayBuffer } from '@/utils/helpers'
 import type { PathParams } from '@/interfaces/storage'
 import type { RootMeta, NotebookMeta } from '@/interfaces/meta'
@@ -33,7 +34,8 @@ export default class RemoteService {
   static async getRootMeta(signal?: AbortSignal): Promise<RootMeta> {
     const path = this.buildPath({ type: 'rootMeta' })
     const response = await FileService.getFile(path, signal)
-    return await response.json()
+    const parsed = await response.json()
+    return MetaService.deserializeRootMeta(parsed)
   }
 
   /**
@@ -41,7 +43,8 @@ export default class RemoteService {
    */
   static async upsertRootMeta(meta: RootMeta, signal?: AbortSignal): Promise<void> {
     const path = this.buildPath({ type: 'rootMeta' })
-    const blob = new Blob([JSON.stringify(meta, null, 2)], {
+    const serialized = MetaService.serializeRootMeta(meta)
+    const blob = new Blob([JSON.stringify(serialized, null, 2)], {
       type: 'application/json',
     })
     await FileService.upsertFile(path, blob as File, signal)
@@ -91,7 +94,8 @@ export default class RemoteService {
   static async getNotebookMeta(notebookId: string, signal?: AbortSignal): Promise<NotebookMeta> {
     const path = this.buildPath({ type: 'notebookMeta', notebookId })
     const response = await FileService.getFile(path, signal)
-    return await response.json()
+    const parsed = await response.json()
+    return MetaService.deserializeNotebookMeta(parsed)
   }
 
   /**
@@ -103,7 +107,8 @@ export default class RemoteService {
     signal?: AbortSignal,
   ): Promise<void> {
     const path = this.buildPath({ type: 'notebookMeta', notebookId })
-    const blob = new Blob([JSON.stringify(meta, null, 2)], {
+    const serialized = MetaService.serializeNotebookMeta(meta)
+    const blob = new Blob([JSON.stringify(serialized, null, 2)], {
       type: 'application/json',
     })
     await FileService.upsertFile(path, blob as File, signal)

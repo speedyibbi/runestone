@@ -140,7 +140,7 @@ async function deriveKEK(
     'raw',
     keyBuffer,
     { name: AES_ALGORITHM, length: AES_KEY_LENGTH },
-    false, // not extractable for KEK
+    true, // extractable so it can be serialized
     ['encrypt', 'decrypt'],
   )
 
