@@ -1,6 +1,11 @@
+<script lang="ts" setup>
+import Toast from '@/components/base/Toast.vue'
+</script>
+
 <template>
   <div class="wrapper">
     <slot />
+    <Toast />
   </div>
 </template>
 

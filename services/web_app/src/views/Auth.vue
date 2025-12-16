@@ -2,43 +2,36 @@
 import { ref, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
+import { useToast } from '@/composables/useToast'
 
 const router = useRouter()
 const sessionStore = useSessionStore()
+const toast = useToast()
 
 const step = ref<'email' | 'passphrase'>('email')
 const email = ref('')
 const passphrase = ref('')
 const isLoading = ref(false)
-const errorMessage = ref('')
 
 const emailInput = ref<HTMLInputElement | null>(null)
 const passphraseInput = ref<HTMLInputElement | null>(null)
 
 const handleEmailSubmit = async () => {
   if (!email.value.trim() || !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email.value)) {
-    errorMessage.value = 'Please enter a valid email'
-    // Restore focus after error renders
-    await nextTick()
-    emailInput.value?.focus()
+    toast.error('Please enter a valid email')
     return
   }
   
-  errorMessage.value = ''
   step.value = 'passphrase'
 }
 
 const handlePassphraseSubmit = async () => {
   if (!passphrase.value.trim()) {
-    errorMessage.value = 'Please enter a passphrase'
-    // Restore focus after error renders
-    await nextTick()
-    passphraseInput.value?.focus()
+    toast.error('Please enter a passphrase')
     return
   }
 
   isLoading.value = true
-  errorMessage.value = ''
   let hasError = false
 
   try {
@@ -50,7 +43,7 @@ const handlePassphraseSubmit = async () => {
     router.push('/')
   } catch (error) {
     console.error('Authentication failed:', error)
-    errorMessage.value = categorizeError(error)
+    toast.error(categorizeError(error))
     hasError = true
   } finally {
     isLoading.value = false
@@ -118,7 +111,6 @@ const categorizeError = (error: unknown): string => {
 }
 
 const goBack = () => {
-  errorMessage.value = ''
   step.value = 'email'
 }
 
@@ -171,13 +163,6 @@ watch(step, async () => {
           <button v-if="!isLoading" @click="goBack" class="back-button">
             ← Back
           </button>
-        </div>
-      </Transition>
-      
-      <!-- Error message with transition -->
-      <Transition name="fade">
-        <div v-if="errorMessage" class="error-message">
-          {{ errorMessage }}
         </div>
       </Transition>
     </div>
@@ -272,13 +257,6 @@ input:disabled {
   100% {
     background-position: 250% 0, 250% 0;
   }
-}
-
-.error-message {
-  color: var(--color-error);
-  font-size: 0.9rem;
-  text-align: center;
-  max-width: 35rem;
 }
 
 .back-button {

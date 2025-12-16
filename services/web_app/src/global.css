@@ -12,9 +12,21 @@
   --color-muted: #888888;
 
   /* Semantic Colors */
-  --color-error: #ff6464;
-  --color-error-bg: #ff64641a;
-  --color-error-border: #ff64644d;
+  --color-error: #c97373;
+  --color-error-bg: #c9737314;
+  --color-error-border: #c973734d;
+
+  --color-success: #51c997;
+  --color-success-bg: #51c99714;
+  --color-success-border: #51c9974d;
+
+  --color-warning: #e8a862;
+  --color-warning-bg: #e8a86214;
+  --color-warning-border: #e8a8624d;
+
+  --color-info: #739dc9;
+  --color-info-bg: #739dc90d;
+  --color-info-border: #739dc94d;
 
   /* Opacity Variants */
   --color-overlay-subtle: #ffffff08;

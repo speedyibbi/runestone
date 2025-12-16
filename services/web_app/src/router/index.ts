@@ -44,9 +44,9 @@ router.beforeEach((to, from, next) => {
   } else if (to.path === '/auth' && sessionStore.isActive) {
     // Redirect to codex if already authenticated
     next('/')
+  } else {
+    next()
   }
-  
-  next()
 })
 
 export default router
