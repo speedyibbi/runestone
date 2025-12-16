@@ -250,7 +250,6 @@ defineExpose({
   color: var(--color-foreground);
   margin: 0 0 1rem 0;
   padding-bottom: 0.5rem;
-  /* border-bottom: 1px solid var(--color-overlay-medium); */
 }
 
 .shortcuts-list {

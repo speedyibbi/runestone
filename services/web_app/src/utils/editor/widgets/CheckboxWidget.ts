@@ -28,8 +28,8 @@ export class CheckboxWidget extends WidgetType {
     checkbox.className = 'cm-task-checkbox'
 
     // Add inline styling to ensure visibility
-    checkbox.style.width = '16px'
-    checkbox.style.height = '16px'
+    checkbox.style.width = '1rem'
+    checkbox.style.height = '1rem'
     checkbox.style.margin = '0 0.5rem 0 0'
     checkbox.style.cursor = 'pointer'
     checkbox.style.verticalAlign = 'middle'
