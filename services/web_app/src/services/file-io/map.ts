@@ -45,21 +45,17 @@ export default class MapService {
   /**
    * Add a new notebook entry to the map
    */
-  static addEntry(map: Map, entry: Omit<MapEntry, 'uuid'>): { map: Map; entry: MapEntry } {
-    const uuid = crypto.randomUUID()
-
-    const newEntry: MapEntry = {
-      uuid,
-      ...entry,
-    }
-
+  static addEntry(
+    map: Map,
+    entry: MapEntry,
+  ): { map: Map; entry: MapEntry } {
     const newMap: Map = {
       ...map,
       last_updated: new Date().toISOString(),
-      entries: [...map.entries, newEntry],
+      entries: [...map.entries, entry],
     }
 
-    return { map: newMap, entry: newEntry }
+    return { map: newMap, entry }
   }
 
   /**

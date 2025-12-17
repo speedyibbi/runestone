@@ -288,7 +288,7 @@ export default class OrchestrationService {
     const encryptedManifest = await CryptoService.encryptAndPack(manifestBytes, fek)
 
     // Step 7: Update map with new notebook entry
-    const { map: updatedMap } = MapService.addEntry(map, { title: notebookTitle })
+    const { map: updatedMap } = MapService.addEntry(map, { uuid: notebookId, title: notebookTitle })
 
     // Step 8: Encrypt map with MEK
     const mapText = JSON.stringify(updatedMap, null, 2)
