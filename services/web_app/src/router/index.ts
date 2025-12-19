@@ -17,7 +17,7 @@ const router = createRouter({
       name: 'auth',
       meta: {
         title: 'Unlock Vault',
-        description: 'Unlock your vault to access your data',
+        description: 'Enter the vault',
       },
       component: Auth,
     },
@@ -26,7 +26,7 @@ const router = createRouter({
       name: 'select-codex',
       meta: {
         title: 'Select Codex',
-        description: 'Choose a codex to work with',
+        description: 'Browse your collection',
         requiresAuth: true,
       },
       component: CodexSelection,
@@ -36,7 +36,18 @@ const router = createRouter({
       name: 'codex',
       meta: {
         title: 'Codex',
-        description: 'Your personal knowledge base',
+        description: 'Explore your runes',
+        requiresAuth: true,
+        requiresCodex: true,
+      },
+      component: Codex,
+    },
+    {
+      path: '/codex/:codexId/rune/:runeId',
+      name: 'rune',
+      meta: {
+        title: 'Rune',
+        description: 'Edit and inscribe',
         requiresAuth: true,
         requiresCodex: true,
       },

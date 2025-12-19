@@ -1,44 +1,184 @@
 <script lang="ts" setup>
 import { ref } from 'vue'
 import { useEditor } from '@/composables/useEditor'
+import { useSessionStore } from '@/stores/session'
+import { useToast } from '@/composables/useToast'
 import KeyboardShortcuts from '@/components/editor/KeyboardShortcuts.vue'
 import BubbleMenu from '@/components/editor/BubbleMenu.vue'
+import RuneList from '@/components/codex/RuneList.vue'
+
+const sessionStore = useSessionStore()
+const toast = useToast()
 
 const editorElement = ref<HTMLElement>()
 const { getContent, setContent, editorView, isPreviewMode, togglePreview } = useEditor(editorElement)
+
+const selectedRuneId = ref<string | null>(null)
+const isSidebarCollapsed = ref(false)
+const isLoadingRune = ref(false)
+
+async function handleRuneSelect(runeId: string) {
+  if (selectedRuneId.value === runeId) {
+    // Already selected, do nothing
+    return
+  }
+  
+  selectedRuneId.value = runeId
+  isLoadingRune.value = true
+  
+  try {
+    // Fetch rune content from session store
+    const content = await sessionStore.getRune(runeId)
+    
+    // Load content into editor
+    setContent(content)
+  } catch (error) {
+    console.error('Failed to load rune:', error)
+    toast.error('Failed to load rune: ' + (error instanceof Error ? error.message : String(error)))
+    
+    // Clear selection and editor on error
+    selectedRuneId.value = null
+    setContent('')
+  } finally {
+    isLoadingRune.value = false
+  }
+}
+
+function toggleSidebar() {
+  isSidebarCollapsed.value = !isSidebarCollapsed.value
+}
 </script>
 
 <template>
   <main>
-    <div ref="editorElement" class="editor"></div>
+    <!-- Sidebar with Rune List -->
+    <aside class="sidebar" :class="{ collapsed: isSidebarCollapsed }">
+      <RuneList 
+        :selectedRuneId="selectedRuneId"
+        :isLoadingRune="isLoadingRune"
+        @selectRune="handleRuneSelect"
+      />
+    </aside>
     
-    <!-- Preview Toggle Button -->
-    <div class="preview-toggle-container">
-      <button 
-        class="preview-toggle" 
-        @click="togglePreview"
-        :class="{ 'is-preview': isPreviewMode }"
-        :title="isPreviewMode ? 'Exit Preview (Ctrl+E)' : 'Enter Preview (Ctrl+E)'"
-      >
-        <svg v-if="isPreviewMode" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
-          <path d="m15 5 4 4"/>
-        </svg>
-        <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
-          <circle cx="12" cy="12" r="3"/>
-        </svg>
-      </button>
+    <!-- Sidebar Toggle Button -->
+    <button 
+      class="sidebar-toggle"
+      @click="toggleSidebar"
+      :title="isSidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'"
+    >
+      <svg v-if="isSidebarCollapsed" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m9 18 6-6-6-6"/>
+      </svg>
+      <svg v-else xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m15 18-6-6 6-6"/>
+      </svg>
+    </button>
+    
+    <!-- Editor Panel -->
+    <div class="editor-panel" :class="{ 'sidebar-collapsed': isSidebarCollapsed }">
+      <!-- Empty State Overlay -->
+      <Transition name="fade">
+        <div v-if="!selectedRuneId && !isLoadingRune" class="state-overlay">
+          <p class="empty-message">Select a rune to begin editing</p>
+        </div>
+      </Transition>
+      
+      <!-- Editor (always rendered) -->
+      <div class="editor-container" :class="{ 'visible': selectedRuneId && !isLoadingRune }">
+        <div ref="editorElement" class="editor"></div>
+      </div>
+      
+      <!-- Preview Toggle Button -->
+      <div v-if="selectedRuneId && !isLoadingRune" class="preview-toggle-container">
+        <button 
+          class="preview-toggle" 
+          @click="togglePreview"
+          :class="{ 'is-preview': isPreviewMode }"
+          :title="isPreviewMode ? 'Exit Preview (Ctrl+E)' : 'Enter Preview (Ctrl+E)'"
+        >
+          <svg v-if="isPreviewMode" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+            <path d="m15 5 4 4"/>
+          </svg>
+          <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+        </button>
+      </div>
+      
+      <KeyboardShortcuts />
+      <BubbleMenu :editor-view="editorView" />
     </div>
-    
-    <KeyboardShortcuts />
-    <BubbleMenu :editor-view="editorView" />
   </main>
 </template>
 
 <style scoped>
 main {
   width: 100%;
+  height: 100%;
+  display: flex;
+  overflow: hidden;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 17.5rem;
+  height: 100%;
+  flex-shrink: 0;
+  overflow: hidden;
+  transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
+}
+
+.sidebar.collapsed {
+  width: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Sidebar Toggle */
+.sidebar-toggle {
+  position: fixed;
+  left: 17.5rem;
+  top: 0.625rem;
+  z-index: 200;
+  background: var(--color-background);
+  border: 1px solid var(--color-overlay-border);
+  border-radius: 3px;
+  padding: 0.25rem;
+  color: var(--color-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  opacity: 0.5;
+  outline: none;
+  user-select: none;
+}
+
+.sidebar-toggle:hover {
+  background: var(--color-overlay-light);
+  opacity: 1;
+  color: var(--color-foreground);
+}
+
+.sidebar-toggle:active {
+  background: var(--color-overlay-medium);
+}
+
+.sidebar-toggle svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.sidebar.collapsed ~ .sidebar-toggle {
+  left: 0.625rem;
+}
+
+/* Editor Panel */
+.editor-panel {
+  flex: 1;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -50,8 +190,56 @@ main {
   -ms-overflow-style: none;
 }
 
-main::-webkit-scrollbar {
+.editor-panel::-webkit-scrollbar {
   display: none;
+}
+
+/* State Overlay (for empty state) */
+.state-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--color-background);
+  z-index: 10;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@keyframes loading-pulse {
+  0% {
+    background-position: -150% 0, -150% 0;
+  }
+  50% {
+    background-position: 250% 0, -150% 0;
+  }
+  100% {
+    background-position: 250% 0, 250% 0;
+  }
+}
+
+.empty-message {
+  color: var(--color-accent);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.editor-container {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+  pointer-events: none;
+}
+
+.editor-container.visible {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .editor {
@@ -113,5 +301,16 @@ main::-webkit-scrollbar {
   width: 0.9rem;
   height: 0.9rem;
   flex-shrink: 0;
+}
+
+/* Fade transition for editor */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease-in-out;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 </style>
