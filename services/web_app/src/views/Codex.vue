@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useEditor } from '@/composables/useEditor'
 import { useSessionStore } from '@/stores/session'
 import { useToast } from '@/composables/useToast'
@@ -16,11 +16,23 @@ const { getContent, setContent, editorView, isPreviewMode, togglePreview } = use
 const selectedRuneId = ref<string | null>(null)
 const isSidebarCollapsed = ref(false)
 const isLoadingRune = ref(false)
+const isSaving = ref(false)
+const lastSavedContent = ref<string>('')
 
 async function handleRuneSelect(runeId: string) {
   if (selectedRuneId.value === runeId) {
     // Already selected, do nothing
     return
+  }
+  
+  if (selectedRuneId.value && hasUnsavedChanges()) {
+    try {
+      await saveRune()
+    } catch (error) {
+      // Error already handled in saveRune with toast, don't switch
+      toast.error('Cannot switch runes: please save or discard changes first')
+      return
+    }
   }
   
   selectedRuneId.value = runeId
@@ -32,6 +44,9 @@ async function handleRuneSelect(runeId: string) {
     
     // Load content into editor
     setContent(content)
+    
+    // Store as last saved content
+    lastSavedContent.value = content
   } catch (error) {
     console.error('Failed to load rune:', error)
     toast.error('Failed to load rune: ' + (error instanceof Error ? error.message : String(error)))
@@ -39,14 +54,75 @@ async function handleRuneSelect(runeId: string) {
     // Clear selection and editor on error
     selectedRuneId.value = null
     setContent('')
+    lastSavedContent.value = ''
   } finally {
     isLoadingRune.value = false
+  }
+}
+
+function hasUnsavedChanges(): boolean {
+  const currentContent = getContent()
+  return currentContent !== lastSavedContent.value
+}
+
+async function saveRune() {
+  if (!selectedRuneId.value) {
+    return
+  }
+  
+  if (isSaving.value) {
+    toast.error('Save already in progress')
+    return // Already saving
+  }
+  
+  const currentContent = getContent()
+  
+  // Don't save if content hasn't changed
+  if (currentContent === lastSavedContent.value) {
+    toast.info('No changes to save')
+    return
+  }
+  
+  isSaving.value = true
+  
+  try {
+    await sessionStore.updateRune(selectedRuneId.value, {
+      content: currentContent
+    })
+    
+    lastSavedContent.value = currentContent
+    
+    // Show success toast
+    toast.success('Saved')
+  } catch (error) {
+    console.error('Failed to save rune:', error)
+    toast.error('Failed to save: ' + (error instanceof Error ? error.message : String(error)))
+    
+    throw error
+  } finally {
+    isSaving.value = false
+  }
+}
+
+function handleKeyboardShortcut(event: KeyboardEvent) {
+  // Ctrl+S or Cmd+S to save
+  if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+    event.preventDefault()
+    saveRune()
   }
 }
 
 function toggleSidebar() {
   isSidebarCollapsed.value = !isSidebarCollapsed.value
 }
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKeyboardShortcut)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeyboardShortcut)
+})
 </script>
 
 <template>
