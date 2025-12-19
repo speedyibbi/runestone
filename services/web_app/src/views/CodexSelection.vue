@@ -225,7 +225,7 @@ h1 {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
   gap: 1rem;
-  padding: 0.05rem;
+  padding: 0.5rem;
   margin-bottom: 3rem;
   flex-shrink: 1;
   min-height: 0;
