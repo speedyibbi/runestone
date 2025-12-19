@@ -1,105 +1,3 @@
-<template>
-  <Teleport to="body">
-    <div
-      v-if="isVisible"
-      ref="menuRef"
-      class="bubble-menu"
-      :class="{ 'is-positioned': isPositioned, 'is-hiding': isHiding }"
-      :style="{
-        top: `${position.top}px`,
-        left: `${position.left}px`,
-      }"
-    >
-      <div class="bubble-menu-content">
-        <!-- Text Formatting -->
-        <div class="menu-section">
-          <button @click="applyFormat('bold')" title="Bold (Cmd+B)" class="menu-btn">
-            <strong>B</strong>
-          </button>
-          <button @click="applyFormat('italic')" title="Italic (Cmd+I)" class="menu-btn">
-            <em>I</em>
-          </button>
-          <button @click="applyFormat('strikethrough')" title="Strikethrough" class="menu-btn">
-            <s>S</s>
-          </button>
-          <button @click="applyFormat('code')" title="Inline Code (Cmd+E)" class="menu-btn">
-            <code>&lt;/&gt;</code>
-          </button>
-        </div>
-
-        <div class="menu-divider"></div>
-
-        <!-- Headings -->
-        <div class="menu-section">
-          <button @click="applyHeading(1)" title="Heading 1" class="menu-btn">H1</button>
-          <button @click="applyHeading(2)" title="Heading 2" class="menu-btn">H2</button>
-          <button @click="applyHeading(3)" title="Heading 3" class="menu-btn">H3</button>
-          <button @click="applyHeading(4)" title="Heading 4" class="menu-btn">H4</button>
-          <button @click="applyHeading(5)" title="Heading 5" class="menu-btn">H5</button>
-          <button @click="applyHeading(6)" title="Heading 6" class="menu-btn">H6</button>
-        </div>
-
-        <div class="menu-divider"></div>
-
-        <!-- Lists -->
-        <div class="menu-section">
-          <button @click="applyList('numbered')" title="Numbered List" class="menu-btn">
-            <span class="icon-text">1.</span>
-          </button>
-          <button @click="applyList('bullet')" title="Bullet List" class="menu-btn">
-            <span class="icon-text">•</span>
-          </button>
-          <button @click="applyList('task')" title="Task List" class="menu-btn">
-            <span class="icon-text">✓</span>
-          </button>
-        </div>
-
-        <div class="menu-divider"></div>
-
-        <!-- Links & Media -->
-        <div class="menu-section">
-          <button @click="insertLink" title="Link (Cmd+K)" class="menu-btn">
-            <span class="icon-text">⧉</span>
-          </button>
-          <button @click="insertImage" title="Image" class="menu-btn">
-            <span class="icon-text">◫</span>
-          </button>
-        </div>
-
-        <div class="menu-divider"></div>
-
-        <!-- Code & Math -->
-        <div class="menu-section">
-          <button @click="insertCodeBlock" title="Code Block" class="menu-btn">
-            <code class="icon-code">{ }</code>
-          </button>
-          <button @click="insertInlineMath" title="Inline Math" class="menu-btn">
-            <span class="icon-math">x</span>
-          </button>
-          <button @click="insertBlockMath" title="Block Math" class="menu-btn">
-            <span class="icon-math">∑</span>
-          </button>
-        </div>
-
-        <div class="menu-divider"></div>
-
-        <!-- Other -->
-        <div class="menu-section">
-          <button @click="insertBlockquote" title="Blockquote" class="menu-btn">
-            <span class="icon-text">❝</span>
-          </button>
-          <button @click="insertTable" title="Table" class="menu-btn">
-            <span class="icon-text">⊞</span>
-          </button>
-          <button @click="insertHR" title="Horizontal Rule" class="menu-btn">
-            <span class="icon-text">―</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  </Teleport>
-</template>
-
 <script setup lang="ts">
 import { ref, watch, onUnmounted, onMounted } from 'vue'
 import type { EditorView } from '@codemirror/view'
@@ -599,6 +497,108 @@ onUnmounted(() => {
   }
 })
 </script>
+
+<template>
+  <Teleport to="body">
+    <div
+      v-if="isVisible"
+      ref="menuRef"
+      class="bubble-menu"
+      :class="{ 'is-positioned': isPositioned, 'is-hiding': isHiding }"
+      :style="{
+        top: `${position.top}px`,
+        left: `${position.left}px`,
+      }"
+    >
+      <div class="bubble-menu-content">
+        <!-- Text Formatting -->
+        <div class="menu-section">
+          <button @click="applyFormat('bold')" title="Bold (Cmd+B)" class="menu-btn">
+            <strong>B</strong>
+          </button>
+          <button @click="applyFormat('italic')" title="Italic (Cmd+I)" class="menu-btn">
+            <em>I</em>
+          </button>
+          <button @click="applyFormat('strikethrough')" title="Strikethrough" class="menu-btn">
+            <s>S</s>
+          </button>
+          <button @click="applyFormat('code')" title="Inline Code (Cmd+E)" class="menu-btn">
+            <code>&lt;/&gt;</code>
+          </button>
+        </div>
+
+        <div class="menu-divider"></div>
+
+        <!-- Headings -->
+        <div class="menu-section">
+          <button @click="applyHeading(1)" title="Heading 1" class="menu-btn">H1</button>
+          <button @click="applyHeading(2)" title="Heading 2" class="menu-btn">H2</button>
+          <button @click="applyHeading(3)" title="Heading 3" class="menu-btn">H3</button>
+          <button @click="applyHeading(4)" title="Heading 4" class="menu-btn">H4</button>
+          <button @click="applyHeading(5)" title="Heading 5" class="menu-btn">H5</button>
+          <button @click="applyHeading(6)" title="Heading 6" class="menu-btn">H6</button>
+        </div>
+
+        <div class="menu-divider"></div>
+
+        <!-- Lists -->
+        <div class="menu-section">
+          <button @click="applyList('numbered')" title="Numbered List" class="menu-btn">
+            <span class="icon-text">1.</span>
+          </button>
+          <button @click="applyList('bullet')" title="Bullet List" class="menu-btn">
+            <span class="icon-text">•</span>
+          </button>
+          <button @click="applyList('task')" title="Task List" class="menu-btn">
+            <span class="icon-text">✓</span>
+          </button>
+        </div>
+
+        <div class="menu-divider"></div>
+
+        <!-- Links & Media -->
+        <div class="menu-section">
+          <button @click="insertLink" title="Link (Cmd+K)" class="menu-btn">
+            <span class="icon-text">⧉</span>
+          </button>
+          <button @click="insertImage" title="Image" class="menu-btn">
+            <span class="icon-text">◫</span>
+          </button>
+        </div>
+
+        <div class="menu-divider"></div>
+
+        <!-- Code & Math -->
+        <div class="menu-section">
+          <button @click="insertCodeBlock" title="Code Block" class="menu-btn">
+            <code class="icon-code">{ }</code>
+          </button>
+          <button @click="insertInlineMath" title="Inline Math" class="menu-btn">
+            <span class="icon-math">x</span>
+          </button>
+          <button @click="insertBlockMath" title="Block Math" class="menu-btn">
+            <span class="icon-math">∑</span>
+          </button>
+        </div>
+
+        <div class="menu-divider"></div>
+
+        <!-- Other -->
+        <div class="menu-section">
+          <button @click="insertBlockquote" title="Blockquote" class="menu-btn">
+            <span class="icon-text">❝</span>
+          </button>
+          <button @click="insertTable" title="Table" class="menu-btn">
+            <span class="icon-text">⊞</span>
+          </button>
+          <button @click="insertHR" title="Horizontal Rule" class="menu-btn">
+            <span class="icon-text">―</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
+</template>
 
 <style scoped>
 .bubble-menu {

@@ -1,39 +1,3 @@
-<template>
-  <dialog
-    ref="dialogRef"
-    class="shortcuts-dialog"
-    :class="{ closing: isClosing }"
-    @click="handleBackdropClick"
-  >
-    <div class="shortcuts-modal" :class="{ closing: isClosing }" tabindex="-1">
-      <div class="shortcuts-header">
-        <h2>⌨️ Keyboard Shortcuts</h2>
-        <button class="close-button" @click="close" tabindex="0">×</button>
-      </div>
-
-      <div class="shortcuts-content">
-        <div
-          v-for="(shortcuts, category) in shortcutDescriptions"
-          :key="category"
-          class="shortcuts-category"
-        >
-          <h3>{{ category }}</h3>
-          <div class="shortcuts-list">
-            <div v-for="shortcut in shortcuts" :key="shortcut.keys" class="shortcut-item">
-              <kbd class="shortcut-keys">{{ shortcut.keys }}</kbd>
-              <span class="shortcut-description">{{ shortcut.description }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="shortcuts-footer">
-        <p>Press <kbd>?</kbd> to toggle this panel</p>
-      </div>
-    </div>
-  </dialog>
-</template>
-
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { getShortcutDescriptions } from '@/utils/editor/keyboardShortcuts'
@@ -113,6 +77,42 @@ defineExpose({
   toggle,
 })
 </script>
+
+<template>
+  <dialog
+    ref="dialogRef"
+    class="shortcuts-dialog"
+    :class="{ closing: isClosing }"
+    @click="handleBackdropClick"
+  >
+    <div class="shortcuts-modal" :class="{ closing: isClosing }" tabindex="-1">
+      <div class="shortcuts-header">
+        <h2>⌨️ Keyboard Shortcuts</h2>
+        <button class="close-button" @click="close" tabindex="0">×</button>
+      </div>
+
+      <div class="shortcuts-content">
+        <div
+          v-for="(shortcuts, category) in shortcutDescriptions"
+          :key="category"
+          class="shortcuts-category"
+        >
+          <h3>{{ category }}</h3>
+          <div class="shortcuts-list">
+            <div v-for="shortcut in shortcuts" :key="shortcut.keys" class="shortcut-item">
+              <kbd class="shortcut-keys">{{ shortcut.keys }}</kbd>
+              <span class="shortcut-description">{{ shortcut.description }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="shortcuts-footer">
+        <p>Press <kbd>?</kbd> to toggle this panel</p>
+      </div>
+    </div>
+  </dialog>
+</template>
 
 <style scoped>
 .shortcuts-dialog {
