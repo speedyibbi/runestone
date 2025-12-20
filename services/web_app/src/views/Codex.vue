@@ -36,11 +36,7 @@ async function handleRuneSelect(runeId: string) {
     try {
       await saveRune()
     } catch (error) {
-      // Error already handled in saveRune, but ask user if they want to continue
-      const shouldContinue = confirm('Failed to save current rune. Switch anyway?')
-      if (!shouldContinue) {
-        return
-      }
+      return
     }
   }
   
@@ -77,6 +73,22 @@ function hasUnsavedChanges(): boolean {
   return currentContent !== lastSavedContent.value
 }
 
+function extractTitleFromContent(content: string): string | null {
+  // Extract first # heading from markdown
+  const lines = content.split('\n')
+  for (const line of lines) {
+    const trimmed = line.trim()
+    // Match # heading (but not ## or more)
+    if (trimmed.startsWith('# ') && !trimmed.startsWith('## ')) {
+      const title = trimmed.substring(2).trim()
+      if (title) {
+        return title
+      }
+    }
+  }
+  return null
+}
+
 async function saveRune() {
   if (!selectedRuneId.value) {
     return
@@ -97,9 +109,16 @@ async function saveRune() {
   saveStatus.value = 'saving'
   
   try {
-    await sessionStore.updateRune(selectedRuneId.value, {
-      content: currentContent
-    })
+    // Extract title from first heading
+    const extractedTitle = extractTitleFromContent(currentContent)
+    
+    // Update rune with content and optionally title
+    const updates: { content: string; title?: string } = { content: currentContent }
+    if (extractedTitle) {
+      updates.title = extractedTitle
+    }
+    
+    await sessionStore.updateRune(selectedRuneId.value, updates)
     
     lastSavedContent.value = currentContent
     saveStatus.value = 'saved'
