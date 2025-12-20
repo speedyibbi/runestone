@@ -1,5 +1,4 @@
-<script lang="ts" setup>
-</script>
+<script lang="ts" setup></script>
 
 <template>
   <main>
@@ -9,7 +8,7 @@
           <span key="select">Select a Codex</span>
         </Transition>
       </h1>
-      
+
       <!-- Main Content Area -->
       <div class="content-area">
         <Transition name="fade-list" mode="out-in">
@@ -29,19 +28,19 @@
                 </button>
               </div>
             </div>
-            
+
             <!-- Empty State -->
             <!-- <div class="empty-state">
               <p>No codexes yet. Create your first one!</p>
             </div> -->
           </div>
-          
+
           <!-- Form View -->
           <!-- <div key="form-view" class="form-view">
           </div> -->
         </Transition>
       </div>
-      
+
       <!-- Create Section with Fixed Height -->
       <div class="create-section">
         <Transition name="fade" mode="out-in">
@@ -58,14 +57,9 @@
               ← Back
             </button>
           </div> -->
-          
+
           <!-- Create Button -->
-          <button 
-            key="button" 
-            class="create-button"
-          >
-            + Create New Codex
-          </button>
+          <button key="button" class="create-button">+ Create New Codex</button>
         </Transition>
       </div>
     </div>
@@ -131,7 +125,6 @@ h1 {
   flex-shrink: 1;
   min-height: 0;
   align-content: start;
-  
 }
 
 @media (max-width: 40rem) {
@@ -206,11 +199,15 @@ h1 {
   left: 0;
   width: 100%;
   height: 0.0625rem;
-  background: 
+  background:
     linear-gradient(90deg, transparent 0%, var(--color-foreground) 50%, transparent 100%),
     linear-gradient(90deg, transparent 0%, var(--color-foreground) 50%, transparent 100%);
-  background-size: 40% 100%, 40% 100%;
-  background-position: -150% 0, -150% 0;
+  background-size:
+    40% 100%,
+    40% 100%;
+  background-position:
+    -150% 0,
+    -150% 0;
   background-repeat: no-repeat;
   animation: loading-pulse 2s ease-in-out infinite;
   pointer-events: none;
@@ -306,11 +303,15 @@ h1 {
   transform: translateX(-50%);
   width: 35rem;
   height: 0.1rem;
-  background: 
+  background:
     linear-gradient(90deg, transparent 0%, var(--color-foreground) 50%, transparent 100%),
     linear-gradient(90deg, transparent 0%, var(--color-foreground) 50%, transparent 100%);
-  background-size: 40% 100%, 40% 100%;
-  background-position: -150% 0, -150% 0;
+  background-size:
+    40% 100%,
+    40% 100%;
+  background-position:
+    -150% 0,
+    -150% 0;
   background-repeat: no-repeat;
   animation: loading-pulse 2s ease-in-out infinite;
   pointer-events: none;
@@ -318,13 +319,19 @@ h1 {
 
 @keyframes loading-pulse {
   0% {
-    background-position: -150% 0, -150% 0;
+    background-position:
+      -150% 0,
+      -150% 0;
   }
   50% {
-    background-position: 250% 0, -150% 0;
+    background-position:
+      250% 0,
+      -150% 0;
   }
   100% {
-    background-position: 250% 0, 250% 0;
+    background-position:
+      250% 0,
+      250% 0;
   }
 }
 

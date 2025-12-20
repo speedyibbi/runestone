@@ -19,7 +19,7 @@ export function useToast() {
       id,
       message,
       type,
-      duration
+      duration,
     }
 
     toasts.value.push(toast)
@@ -52,6 +52,6 @@ export function useToast() {
     error,
     success,
     warning,
-    info
+    info,
   }
 }

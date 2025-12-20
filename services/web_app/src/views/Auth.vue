@@ -1,5 +1,4 @@
-<script lang="ts" setup>
-</script>
+<script lang="ts" setup></script>
 
 <template>
   <main>
@@ -8,13 +7,9 @@
       <Transition name="fade" mode="out-in">
         <!-- Email input (step 1) -->
         <div key="email" class="input-wrapper">
-          <input
-            type="email"
-            placeholder="Email"
-            autofocus
-          />
+          <input type="email" placeholder="Email" autofocus />
         </div>
-        
+
         <!-- Passphrase input (step 2) -->
         <!-- <div key="passphrase" class="input-wrapper">
           <div class="input-container-relative">
@@ -101,11 +96,15 @@ input:disabled {
   transform: translateX(-50%);
   width: 35rem;
   height: 0.1rem;
-  background: 
+  background:
     linear-gradient(90deg, transparent 0%, var(--color-foreground) 50%, transparent 100%),
     linear-gradient(90deg, transparent 0%, var(--color-foreground) 50%, transparent 100%);
-  background-size: 40% 100%, 40% 100%;
-  background-position: -150% 0, -150% 0;
+  background-size:
+    40% 100%,
+    40% 100%;
+  background-position:
+    -150% 0,
+    -150% 0;
   background-repeat: no-repeat;
   animation: loading-pulse 2s ease-in-out infinite;
   pointer-events: none;
@@ -113,13 +112,19 @@ input:disabled {
 
 @keyframes loading-pulse {
   0% {
-    background-position: -150% 0, -150% 0;
+    background-position:
+      -150% 0,
+      -150% 0;
   }
   50% {
-    background-position: 250% 0, -150% 0;
+    background-position:
+      250% 0,
+      -150% 0;
   }
   100% {
-    background-position: 250% 0, 250% 0;
+    background-position:
+      250% 0,
+      250% 0;
   }
 }
 

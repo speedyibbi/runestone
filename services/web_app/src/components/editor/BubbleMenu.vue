@@ -203,7 +203,7 @@ function calculateMenuPosition(targetX: number, targetY: number): { top: number;
   // Calculate ideal position (top-left of cursor with offset)
   const offsetX = 12 // offset from cursor
   const offsetY = 12 // offset from cursor
-  
+
   let left = targetX + offsetX
   let top = targetY - menuHeight - offsetY // Position above cursor
 
@@ -218,7 +218,7 @@ function calculateMenuPosition(targetX: number, targetY: number): { top: number;
   } else if (viewportLeft + menuWidth > viewportWidth - padding) {
     // Too far right - move left
     left = targetX - menuWidth - offsetX
-    
+
     // Still too far left? Align to right edge
     if (left - scrollX < padding) {
       left = scrollX + viewportWidth - menuWidth - padding
@@ -229,19 +229,19 @@ function calculateMenuPosition(targetX: number, targetY: number): { top: number;
   if (viewportTop < padding) {
     // Not enough space above - try below
     top = targetY + offsetY
-    
+
     // Still off-screen? Align to top
     if (top - scrollY < padding) {
       top = scrollY + padding
     }
   }
-  
+
   // Check if menu goes below viewport
   const viewportBottom = top - scrollY + menuHeight
   if (viewportBottom > viewportHeight - padding) {
     // Too far down - move up
     top = scrollY + viewportHeight - menuHeight - padding
-    
+
     // Ensure it doesn't go above viewport
     if (top - scrollY < padding) {
       top = scrollY + padding
@@ -294,7 +294,7 @@ function handleSelectionChange() {
 
         // Set initial position at target
         position.value = { top: topY, left: centerX }
-        
+
         // Show menu (will be invisible until positioned)
         isVisible.value = true
         isPositioned.value = false
@@ -333,7 +333,7 @@ function handleContextMenu(event: MouseEvent) {
 
   // Set initial position at mouse
   position.value = { top: event.pageY, left: event.pageX }
-  
+
   // Show menu (will be invisible until positioned)
   isVisible.value = true
   isPositioned.value = false
@@ -355,17 +355,17 @@ function hideBubbleMenu() {
     clearTimeout(selectionTimeout)
     selectionTimeout = null
   }
-  
+
   // Clear any pending hide timeout
   if (hideTimeout) {
     clearTimeout(hideTimeout)
     hideTimeout = null
   }
-  
+
   // Start fade-out animation
   isHiding.value = true
   isPositioned.value = false
-  
+
   // Wait for fade-out to complete before removing from DOM
   hideTimeout = setTimeout(() => {
     isRightClickMenu = false
@@ -607,8 +607,9 @@ onUnmounted(() => {
   pointer-events: auto;
   opacity: 0;
   transform: scale(0.96);
-  transition: opacity 0.15s cubic-bezier(0.16, 1, 0.3, 1),
-              transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  transition:
+    opacity 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
   will-change: opacity, transform;
   font-family: var(--font-primary);
 }
@@ -671,8 +672,9 @@ onUnmounted(() => {
   font-size: 0.8125rem;
   font-weight: 500;
   line-height: 1;
-  transition: background-color 0.15s ease,
-              transform 0.1s ease;
+  transition:
+    background-color 0.15s ease,
+    transform 0.1s ease;
   white-space: nowrap;
   user-select: none;
   display: flex;
@@ -742,37 +744,36 @@ onUnmounted(() => {
 }
 
 /* Special styling for specific buttons */
-.menu-btn[title*="Heading"] {
+.menu-btn[title*='Heading'] {
   font-family: var(--font-primary);
   font-weight: 600;
   letter-spacing: -0.01em;
 }
 
 /* Task list checkmark */
-.menu-btn[title*="Task"] .icon-text {
+.menu-btn[title*='Task'] .icon-text {
   font-weight: 600;
   font-size: 0.95rem;
 }
 
 /* Link icon */
-.menu-btn[title*="Link"] .icon-text {
+.menu-btn[title*='Link'] .icon-text {
   font-size: 0.9rem;
 }
 
 /* Image icon */
-.menu-btn[title*="Image"] .icon-text {
+.menu-btn[title*='Image'] .icon-text {
   font-size: 0.95rem;
 }
 
 /* Table icon */
-.menu-btn[title*="Table"] .icon-text {
+.menu-btn[title*='Table'] .icon-text {
   font-size: 1.05rem;
 }
 
 /* Quote icon */
-.menu-btn[title*="Blockquote"] .icon-text {
+.menu-btn[title*='Blockquote'] .icon-text {
   font-size: 1.1rem;
   line-height: 0.8;
 }
-
 </style>

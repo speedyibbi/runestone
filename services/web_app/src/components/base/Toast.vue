@@ -14,9 +14,7 @@ const { toasts, dismiss } = useToast()
         @click="dismiss(toast.id)"
       >
         <span class="toast__message">{{ toast.message }}</span>
-        <button class="toast__close" @click.stop="dismiss(toast.id)" aria-label="Close">
-          ✕
-        </button>
+        <button class="toast__close" @click.stop="dismiss(toast.id)" aria-label="Close">✕</button>
       </div>
     </TransitionGroup>
   </div>

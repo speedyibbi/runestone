@@ -45,10 +45,7 @@ export default class MapService {
   /**
    * Add a new notebook entry to the map
    */
-  static addEntry(
-    map: Map,
-    entry: MapEntry,
-  ): { map: Map; entry: MapEntry } {
+  static addEntry(map: Map, entry: MapEntry): { map: Map; entry: MapEntry } {
     const newMap: Map = {
       ...map,
       last_updated: new Date().toISOString(),

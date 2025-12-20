@@ -62,7 +62,9 @@ function buildDecorations(view: EditorView, isPreviewMode = false): DecorationSe
 
   // Get the line number where the cursor is
   // In preview mode, set cursorLine to -1 so all syntax is hidden
-  const cursorLine = isPreviewMode ? -1 : view.state.doc.lineAt(view.state.selection.main.head).number
+  const cursorLine = isPreviewMode
+    ? -1
+    : view.state.doc.lineAt(view.state.selection.main.head).number
 
   // Track which lines have special elements
   const blockquoteLines = new Set<number>()
@@ -412,7 +414,12 @@ export const livePreviewPlugin = ViewPlugin.fromClass(
     update(update: ViewUpdate) {
       const isPreviewMode = update.state.field(previewModeField)
       // Rebuild decorations when document changes, selection changes, viewport changes, or preview mode changes
-      if (update.docChanged || update.selectionSet || update.viewportChanged || update.transactions.some(tr => tr.effects.some(e => e.is(togglePreviewMode)))) {
+      if (
+        update.docChanged ||
+        update.selectionSet ||
+        update.viewportChanged ||
+        update.transactions.some((tr) => tr.effects.some((e) => e.is(togglePreviewMode)))
+      ) {
         this.decorations = buildDecorations(update.view, isPreviewMode)
       }
     }
@@ -491,7 +498,7 @@ export const previewModeTheme = EditorView.theme({
 export const previewModeExtension: Extension = EditorView.updateListener.of((update) => {
   const isPreview = update.state.field(previewModeField)
   const hasClass = update.view.dom.classList.contains('cm-preview-mode')
-  
+
   if (isPreview && !hasClass) {
     update.view.dom.classList.add('cm-preview-mode')
   } else if (!isPreview && hasClass) {

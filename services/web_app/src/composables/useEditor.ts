@@ -26,7 +26,7 @@ import { createKeyboardShortcuts } from '@/utils/editor/keyboardShortcuts'
 export function useEditor(editorElement: Ref<HTMLElement | undefined>) {
   const editorView = ref<EditorView | null>(null)
   const isPreviewMode = ref(false)
-  
+
   // Compartment for dynamically reconfiguring read-only state
   const readOnlyCompartment = new Compartment()
 

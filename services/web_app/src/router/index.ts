@@ -59,13 +59,13 @@ const router = createRouter({
 // Navigation guard to protect routes
 router.beforeEach((to, from, next) => {
   const sessionStore = useSessionStore()
- 
+
   // if page does not exist, redirect to home
   if (!to.matched.length) {
     next('/')
     return
   }
-   
+
   if (to.meta.requiresAuth && !sessionStore.isActive) {
     // Redirect to auth if trying to access protected route without session
     next('/auth')
