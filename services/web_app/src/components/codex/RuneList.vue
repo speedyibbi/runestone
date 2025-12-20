@@ -119,6 +119,30 @@ async function deleteRune(runeId: string, event: Event) {
   }
 }
 
+async function duplicateRune(runeId: string, event: Event) {
+  event.stopPropagation()
+  
+  const rune = runes.value.find(r => r.uuid === runeId)
+  if (!rune) return
+  
+  try {
+    // Get the original rune content
+    const content = await sessionStore.getRune(runeId)
+    
+    // Create new rune with " (Copy)" suffix
+    const newTitle = `${rune.title} (Copy)`
+    const newRuneId = await sessionStore.createRune(newTitle, content)
+    
+    toast.success(`Duplicated "${rune.title}"`)
+    
+    // Auto-select the duplicated rune
+    emit('selectRune', newRuneId)
+  } catch (error) {
+    console.error('Failed to duplicate rune:', error)
+    toast.error(error instanceof Error ? error.message : 'Failed to duplicate rune')
+  }
+}
+
 function startCodexRename() {
   if (!currentCodex.value) return
   isRenamingCodex.value = true
@@ -294,6 +318,16 @@ function cancelCodexRename() {
             <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
               <path d="m15 5 4 4"/>
+            </svg>
+          </button>
+          <button 
+            class="action-btn" 
+            @click="duplicateRune(rune.uuid, $event)"
+            title="Duplicate"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>
+              <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
             </svg>
           </button>
           <button 
