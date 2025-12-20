@@ -18,6 +18,10 @@ const isSidebarCollapsed = ref(false)
 const isLoadingRune = ref(false)
 const isSaving = ref(false)
 const lastSavedContent = ref<string>('')
+const saveStatus = ref<'idle' | 'saving' | 'saved' | 'error'>('idle')
+const saveStatusTimeout = ref<number | null>(null)
+const autoSaveTimeout = ref<number | null>(null)
+const lastCheckContent = ref<string>('')
 
 async function handleRuneSelect(runeId: string) {
   if (selectedRuneId.value === runeId) {
@@ -25,13 +29,18 @@ async function handleRuneSelect(runeId: string) {
     return
   }
   
+  // Cancel pending auto-save
+  cancelAutoSave()
+  
   if (selectedRuneId.value && hasUnsavedChanges()) {
     try {
       await saveRune()
     } catch (error) {
-      // Error already handled in saveRune with toast, don't switch
-      toast.error('Cannot switch runes: please save or discard changes first')
-      return
+      // Error already handled in saveRune, but ask user if they want to continue
+      const shouldContinue = confirm('Failed to save current rune. Switch anyway?')
+      if (!shouldContinue) {
+        return
+      }
     }
   }
   
@@ -47,6 +56,8 @@ async function handleRuneSelect(runeId: string) {
     
     // Store as last saved content
     lastSavedContent.value = content
+    lastCheckContent.value = content
+    saveStatus.value = 'idle'
   } catch (error) {
     console.error('Failed to load rune:', error)
     toast.error('Failed to load rune: ' + (error instanceof Error ? error.message : String(error)))
@@ -55,6 +66,7 @@ async function handleRuneSelect(runeId: string) {
     selectedRuneId.value = null
     setContent('')
     lastSavedContent.value = ''
+    lastCheckContent.value = ''
   } finally {
     isLoadingRune.value = false
   }
@@ -71,7 +83,6 @@ async function saveRune() {
   }
   
   if (isSaving.value) {
-    toast.error('Save already in progress')
     return // Already saving
   }
   
@@ -79,11 +90,11 @@ async function saveRune() {
   
   // Don't save if content hasn't changed
   if (currentContent === lastSavedContent.value) {
-    toast.info('No changes to save')
     return
   }
   
   isSaving.value = true
+  saveStatus.value = 'saving'
   
   try {
     await sessionStore.updateRune(selectedRuneId.value, {
@@ -91,12 +102,29 @@ async function saveRune() {
     })
     
     lastSavedContent.value = currentContent
+    saveStatus.value = 'saved'
     
-    // Show success toast
-    toast.success('Saved')
+    // Clear "Saved" status after 2 seconds
+    if (saveStatusTimeout.value) {
+      clearTimeout(saveStatusTimeout.value)
+    }
+    saveStatusTimeout.value = window.setTimeout(() => {
+      saveStatus.value = 'idle'
+      saveStatusTimeout.value = null
+    }, 2000)
   } catch (error) {
     console.error('Failed to save rune:', error)
     toast.error('Failed to save: ' + (error instanceof Error ? error.message : String(error)))
+    saveStatus.value = 'error'
+    
+    // Clear error status after 3 seconds
+    if (saveStatusTimeout.value) {
+      clearTimeout(saveStatusTimeout.value)
+    }
+    saveStatusTimeout.value = window.setTimeout(() => {
+      saveStatus.value = 'idle'
+      saveStatusTimeout.value = null
+    }, 3000)
     
     throw error
   } finally {
@@ -104,10 +132,45 @@ async function saveRune() {
   }
 }
 
+function scheduleAutoSave() {
+  // Cancel existing auto-save timer
+  cancelAutoSave()
+  
+  // Schedule auto-save after 2 seconds of inactivity
+  autoSaveTimeout.value = window.setTimeout(() => {
+    if (selectedRuneId.value && hasUnsavedChanges()) {
+      saveRune()
+    }
+    autoSaveTimeout.value = null
+  }, 2000)
+}
+
+function cancelAutoSave() {
+  if (autoSaveTimeout.value) {
+    clearTimeout(autoSaveTimeout.value)
+    autoSaveTimeout.value = null
+  }
+}
+
+function checkForChanges() {
+  if (!selectedRuneId.value || isSaving.value) {
+    return
+  }
+  
+  const currentContent = getContent()
+  
+  // If content changed since last check, schedule auto-save
+  if (currentContent !== lastCheckContent.value) {
+    lastCheckContent.value = currentContent
+    scheduleAutoSave()
+  }
+}
+
 function handleKeyboardShortcut(event: KeyboardEvent) {
   // Ctrl+S or Cmd+S to save
   if ((event.ctrlKey || event.metaKey) && event.key === 's') {
     event.preventDefault()
+    cancelAutoSave()
     saveRune()
   }
 }
@@ -116,12 +179,27 @@ function toggleSidebar() {
   isSidebarCollapsed.value = !isSidebarCollapsed.value
 }
 
+let contentCheckInterval: number | null = null
+
 onMounted(() => {
   window.addEventListener('keydown', handleKeyboardShortcut)
+  
+  // Check for content changes every 500ms
+  contentCheckInterval = window.setInterval(checkForChanges, 500)
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyboardShortcut)
+  
+  if (contentCheckInterval) {
+    clearInterval(contentCheckInterval)
+  }
+  
+  cancelAutoSave()
+  
+  if (saveStatusTimeout.value) {
+    clearTimeout(saveStatusTimeout.value)
+  }
 })
 </script>
 
@@ -163,6 +241,15 @@ onUnmounted(() => {
       <div class="editor-container" :class="{ 'visible': selectedRuneId && !isLoadingRune }">
         <div ref="editorElement" class="editor"></div>
       </div>
+      
+      <!-- Save Status Indicator -->
+      <Transition name="fade">
+        <div v-if="selectedRuneId && saveStatus !== 'idle'" class="save-status">
+          <span v-if="saveStatus === 'saving'">Saving...</span>
+          <span v-else-if="saveStatus === 'saved'">Saved</span>
+          <span v-else-if="saveStatus === 'error'" class="error">Save failed</span>
+        </div>
+      </Transition>
       
       <!-- Preview Toggle Button -->
       <div v-if="selectedRuneId && !isLoadingRune" class="preview-toggle-container">
@@ -322,6 +409,30 @@ main {
   flex: 1;
   width: 100%;
   max-width: 75rem;
+}
+
+/* Save Status Indicator */
+.save-status {
+  position: fixed;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.375rem 0.875rem;
+  background: var(--color-overlay-light);
+  border: 1px solid var(--color-overlay-border);
+  border-radius: 3px;
+  color: var(--color-muted);
+  font-size: 0.8125rem;
+  z-index: 100;
+  font-family: var(--font-primary);
+  pointer-events: none;
+  opacity: 0.8;
+  transition: opacity 0.3s ease-in-out;
+}
+
+.save-status .error {
+  color: var(--color-error);
+  opacity: 1;
 }
 
 .preview-toggle-container {
