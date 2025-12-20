@@ -1,224 +1,39 @@
 <script lang="ts" setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useEditor } from '@/composables/useEditor'
-import { useSessionStore } from '@/stores/session'
-import { useToast } from '@/composables/useToast'
+import { useCodex } from '@/composables/useCodex'
 import KeyboardShortcuts from '@/components/editor/KeyboardShortcuts.vue'
 import BubbleMenu from '@/components/editor/BubbleMenu.vue'
 import RuneList from '@/components/codex/RuneList.vue'
 
-const sessionStore = useSessionStore()
-const toast = useToast()
-
 const editorElement = ref<HTMLElement>()
 const { getContent, setContent, editorView, isPreviewMode, togglePreview } = useEditor(editorElement)
 
-const selectedRuneId = ref<string | null>(null)
+const {
+  selectedRuneId,
+  isLoadingRune,
+  isSaving,
+  saveStatus,
+  selectRune,
+  setEditorHandlers,
+  setupSaveHandlers,
+  cleanupSaveHandlers,
+} = useCodex()
+
 const isSidebarCollapsed = ref(false)
-const isLoadingRune = ref(false)
-const isSaving = ref(false)
-const lastSavedContent = ref<string>('')
-const saveStatus = ref<'idle' | 'saving' | 'saved' | 'error'>('idle')
-const saveStatusTimeout = ref<number | null>(null)
-const autoSaveTimeout = ref<number | null>(null)
-const lastCheckContent = ref<string>('')
-
-async function handleRuneSelect(runeId: string) {
-  if (selectedRuneId.value === runeId) {
-    // Already selected, do nothing
-    return
-  }
-  
-  // Cancel pending auto-save
-  cancelAutoSave()
-  
-  if (selectedRuneId.value && hasUnsavedChanges()) {
-    try {
-      await saveRune()
-    } catch (error) {
-      return
-    }
-  }
-  
-  selectedRuneId.value = runeId
-  isLoadingRune.value = true
-  
-  try {
-    // Fetch rune content from session store
-    const content = await sessionStore.getRune(runeId)
-    
-    // Load content into editor
-    setContent(content)
-    
-    // Store as last saved content
-    lastSavedContent.value = content
-    lastCheckContent.value = content
-    saveStatus.value = 'idle'
-  } catch (error) {
-    console.error('Failed to load rune:', error)
-    toast.error('Failed to load rune: ' + (error instanceof Error ? error.message : String(error)))
-    
-    // Clear selection and editor on error
-    selectedRuneId.value = null
-    setContent('')
-    lastSavedContent.value = ''
-    lastCheckContent.value = ''
-  } finally {
-    isLoadingRune.value = false
-  }
-}
-
-function hasUnsavedChanges(): boolean {
-  const currentContent = getContent()
-  return currentContent !== lastSavedContent.value
-}
-
-function extractTitleFromContent(content: string): string | null {
-  // Extract first # heading from markdown
-  const lines = content.split('\n')
-  for (const line of lines) {
-    const trimmed = line.trim()
-    // Match # heading (but not ## or more)
-    if (trimmed.startsWith('# ') && !trimmed.startsWith('## ')) {
-      const title = trimmed.substring(2).trim()
-      if (title) {
-        return title
-      }
-    }
-  }
-  return null
-}
-
-async function saveRune() {
-  if (!selectedRuneId.value) {
-    return
-  }
-  
-  if (isSaving.value) {
-    return // Already saving
-  }
-  
-  const currentContent = getContent()
-  
-  // Don't save if content hasn't changed
-  if (currentContent === lastSavedContent.value) {
-    return
-  }
-  
-  isSaving.value = true
-  saveStatus.value = 'saving'
-  
-  try {
-    // Extract title from first heading
-    const extractedTitle = extractTitleFromContent(currentContent)
-    
-    // Update rune with content and optionally title
-    const updates: { content: string; title?: string } = { content: currentContent }
-    if (extractedTitle) {
-      updates.title = extractedTitle
-    }
-    
-    await sessionStore.updateRune(selectedRuneId.value, updates)
-    
-    lastSavedContent.value = currentContent
-    saveStatus.value = 'saved'
-    
-    // Clear "Saved" status after 2 seconds
-    if (saveStatusTimeout.value) {
-      clearTimeout(saveStatusTimeout.value)
-    }
-    saveStatusTimeout.value = window.setTimeout(() => {
-      saveStatus.value = 'idle'
-      saveStatusTimeout.value = null
-    }, 2000)
-  } catch (error) {
-    console.error('Failed to save rune:', error)
-    toast.error('Failed to save: ' + (error instanceof Error ? error.message : String(error)))
-    saveStatus.value = 'error'
-    
-    // Clear error status after 3 seconds
-    if (saveStatusTimeout.value) {
-      clearTimeout(saveStatusTimeout.value)
-    }
-    saveStatusTimeout.value = window.setTimeout(() => {
-      saveStatus.value = 'idle'
-      saveStatusTimeout.value = null
-    }, 3000)
-    
-    throw error
-  } finally {
-    isSaving.value = false
-  }
-}
-
-function scheduleAutoSave() {
-  // Cancel existing auto-save timer
-  cancelAutoSave()
-  
-  // Schedule auto-save after 2 seconds of inactivity
-  autoSaveTimeout.value = window.setTimeout(() => {
-    if (selectedRuneId.value && hasUnsavedChanges()) {
-      saveRune()
-    }
-    autoSaveTimeout.value = null
-  }, 2000)
-}
-
-function cancelAutoSave() {
-  if (autoSaveTimeout.value) {
-    clearTimeout(autoSaveTimeout.value)
-    autoSaveTimeout.value = null
-  }
-}
-
-function checkForChanges() {
-  if (!selectedRuneId.value || isSaving.value) {
-    return
-  }
-  
-  const currentContent = getContent()
-  
-  // If content changed since last check, schedule auto-save
-  if (currentContent !== lastCheckContent.value) {
-    lastCheckContent.value = currentContent
-    scheduleAutoSave()
-  }
-}
-
-function handleKeyboardShortcut(event: KeyboardEvent) {
-  // Ctrl+S or Cmd+S to save
-  if ((event.ctrlKey || event.metaKey) && event.key === 's') {
-    event.preventDefault()
-    cancelAutoSave()
-    saveRune()
-  }
-}
 
 function toggleSidebar() {
   isSidebarCollapsed.value = !isSidebarCollapsed.value
 }
 
-let contentCheckInterval: number | null = null
-
 onMounted(() => {
-  window.addEventListener('keydown', handleKeyboardShortcut)
-  
-  // Check for content changes every 500ms
-  contentCheckInterval = window.setInterval(checkForChanges, 500)
+  // Connect editor to codex composable
+  setEditorHandlers(getContent, setContent)
+  setupSaveHandlers()
 })
 
 onUnmounted(() => {
-  window.removeEventListener('keydown', handleKeyboardShortcut)
-  
-  if (contentCheckInterval) {
-    clearInterval(contentCheckInterval)
-  }
-  
-  cancelAutoSave()
-  
-  if (saveStatusTimeout.value) {
-    clearTimeout(saveStatusTimeout.value)
-  }
+  cleanupSaveHandlers()
 })
 </script>
 
@@ -229,7 +44,7 @@ onUnmounted(() => {
       <RuneList 
         :selectedRuneId="selectedRuneId"
         :isLoadingRune="isLoadingRune"
-        @selectRune="handleRuneSelect"
+        @selectRune="selectRune"
       />
     </aside>
     

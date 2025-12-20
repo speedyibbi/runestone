@@ -1,17 +1,17 @@
 <script lang="ts" setup>
 import { ref, onMounted, computed, watch, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
-import { useSessionStore } from '@/stores/session'
-import { useToast } from '@/composables/useToast'
+import { useCodex } from '@/composables/useCodex'
 
-const router = useRouter()
-const sessionStore = useSessionStore()
-const toast = useToast()
+const {
+  codexes,
+  isLoadingCodex,
+  loadingCodexId,
+  loadCodexes,
+  selectCodex,
+  createCodex: createCodexFn,
+} = useCodex()
 
-const codexes = ref<Array<{ uuid: string; title: string }>>([])
 const isCreating = ref(false)
-const isLoading = ref(false)
-const loadingCodexId = ref<string | null>(null)
 const newCodexTitle = ref('')
 const titleInput = ref<HTMLInputElement | null>(null)
 
@@ -33,25 +33,6 @@ watch(isCreating, async (newValue) => {
   }
 })
 
-function loadCodexes() {
-  codexes.value = sessionStore.listCodexes()
-}
-
-async function selectCodex(codexId: string) {
-  if (loadingCodexId.value) return // Prevent multiple selections
-  
-  loadingCodexId.value = codexId
-  
-  try {
-    await sessionStore.openCodex(codexId)
-    router.push(`/codex/${codexId}`)
-  } catch (error) {
-    console.error('Failed to open codex:', error)
-    toast.error('Failed to open codex: ' + (error instanceof Error ? error.message : String(error)))
-    loadingCodexId.value = null
-  }
-}
-
 function showCreateForm() {
   isCreating.value = true
   newCodexTitle.value = ''
@@ -60,27 +41,15 @@ function showCreateForm() {
 async function createCodex() {
   const title = newCodexTitle.value.trim()
   
-  if (!title) {
-    toast.error('Please enter a codex title')
-    return
-  }
-
-  isLoading.value = true
-
-  try {
-    await sessionStore.createCodex(title)
-    loadCodexes()
+  const result = await createCodexFn(title)
+  if (result) {
     isCreating.value = false
-  } catch (error) {
-    console.error('Failed to create codex:', error)
-    toast.error('Failed to create codex: ' + (error instanceof Error ? error.message : String(error)))
-  } finally {
-    isLoading.value = false
+    newCodexTitle.value = ''
   }
 }
 
 function goBack() {
-  if (!isLoading.value) {
+  if (!isLoadingCodex.value) {
     isCreating.value = false
     newCodexTitle.value = ''
   }
@@ -146,11 +115,11 @@ function goBack() {
                 placeholder="Codex title"
                 @keyup.enter="createCodex"
                 @keyup.esc="goBack"
-                :disabled="isLoading"
+                :disabled="isLoadingCodex"
               />
-              <div v-if="isLoading" class="loading-pulse"></div>
+              <div v-if="isLoadingCodex" class="loading-pulse"></div>
             </div>
-            <button v-if="!isLoading" @click="goBack" class="back-button">
+            <button v-if="!isLoadingCodex" @click="goBack" class="back-button">
               ← Back
             </button>
           </div>

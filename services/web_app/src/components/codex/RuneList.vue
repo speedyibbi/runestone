@@ -1,7 +1,6 @@
 <script lang="ts" setup>
-import { ref, computed } from 'vue'
-import { useSessionStore } from '@/stores/session'
-import { useToast } from '@/composables/useToast'
+import { ref } from 'vue'
+import { useCodex } from '@/composables/useCodex'
 
 const emit = defineEmits<{
   selectRune: [runeId: string]
@@ -12,11 +11,16 @@ const props = defineProps<{
   isLoadingRune: boolean
 }>()
 
-const sessionStore = useSessionStore()
-const toast = useToast()
+const {
+  runes,
+  currentCodex,
+  createRune: createRuneFn,
+  deleteRune: deleteRuneFn,
+  duplicateRune: duplicateRuneFn,
+  renameRune: renameRuneFn,
+  renameCodex: renameCodexFn,
+} = useCodex()
 
-const runes = computed(() => sessionStore.listRunes())
-const currentCodex = computed(() => sessionStore.getCurrentCodex())
 const isCreating = ref(false)
 const newRuneTitle = ref('')
 const createInput = ref<HTMLInputElement>()
@@ -41,19 +45,15 @@ function showCreateForm() {
 
 async function createRune() {
   const title = newRuneTitle.value.trim() || 'Untitled Rune'
+  const content = `# ${title}\n\n`
   
-  try {
-    const content = `# ${title}\n\n`
-    const runeId = await sessionStore.createRune(title, content)
-    
+  const runeId = await createRuneFn(title, content)
+  if (runeId) {
     isCreating.value = false
     newRuneTitle.value = ''
     
     // Auto-select the newly created rune
     emit('selectRune', runeId)
-  } catch (error) {
-    console.error('Failed to create rune:', error)
-    toast.error(error instanceof Error ? error.message : 'Failed to create rune')
   }
 }
 
@@ -78,18 +78,11 @@ function startRename(runeId: string, currentTitle: string, event: Event) {
 
 async function confirmRename(runeId: string) {
   const newTitle = renameTitle.value.trim()
-  if (!newTitle || newTitle === runes.value.find(r => r.uuid === runeId)?.title) {
-    cancelRename()
-    return
-  }
   
-  try {
-    await sessionStore.updateRune(runeId, { title: newTitle })
+  const result = await renameRuneFn(runeId, newTitle)
+  if (result || !newTitle || newTitle === runes.value.find(r => r.uuid === runeId)?.title) {
     renamingRuneId.value = null
     renameTitle.value = ''
-  } catch (error) {
-    console.error('Failed to rename rune:', error)
-    toast.error(error instanceof Error ? error.message : 'Failed to rename rune')
   }
 }
 
@@ -100,46 +93,16 @@ function cancelRename() {
 
 async function deleteRune(runeId: string, event: Event) {
   event.stopPropagation()
-  
-  const rune = runes.value.find(r => r.uuid === runeId)
-  if (!rune) return
-  
-  try {
-    await sessionStore.deleteRune(runeId)
-    toast.success(`Deleted "${rune.title}"`)
-    
-    // If we deleted the selected rune, clear selection or select another
-    if (props.selectedRuneId === runeId) {
-      const remainingRunes = runes.value.filter(r => r.uuid !== runeId)
-      emit('selectRune', remainingRunes[0]?.uuid || '')
-    }
-  } catch (error) {
-    console.error('Failed to delete rune:', error)
-    toast.error(error instanceof Error ? error.message : 'Failed to delete rune')
-  }
+  await deleteRuneFn(runeId)
 }
 
 async function duplicateRune(runeId: string, event: Event) {
   event.stopPropagation()
   
-  const rune = runes.value.find(r => r.uuid === runeId)
-  if (!rune) return
-  
-  try {
-    // Get the original rune content
-    const content = await sessionStore.getRune(runeId)
-    
-    // Create new rune with " (Copy)" suffix
-    const newTitle = `${rune.title} (Copy)`
-    const newRuneId = await sessionStore.createRune(newTitle, content)
-    
-    toast.success(`Duplicated "${rune.title}"`)
-    
+  const newRuneId = await duplicateRuneFn(runeId)
+  if (newRuneId) {
     // Auto-select the duplicated rune
     emit('selectRune', newRuneId)
-  } catch (error) {
-    console.error('Failed to duplicate rune:', error)
-    toast.error(error instanceof Error ? error.message : 'Failed to duplicate rune')
   }
 }
 
@@ -156,18 +119,11 @@ function startCodexRename() {
 
 async function confirmCodexRename() {
   const newTitle = codexRenameTitle.value.trim()
-  if (!newTitle || newTitle === currentCodex.value?.title) {
-    cancelCodexRename()
-    return
-  }
   
-  try {
-    await sessionStore.renameCodex(newTitle)
+  const result = await renameCodexFn(newTitle)
+  if (result || !newTitle || newTitle === currentCodex.value?.title) {
     isRenamingCodex.value = false
     codexRenameTitle.value = ''
-  } catch (error) {
-    console.error('Failed to rename codex:', error)
-    toast.error(error instanceof Error ? error.message : 'Failed to rename codex')
   }
 }
 
