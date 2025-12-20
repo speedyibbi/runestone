@@ -329,15 +329,4 @@ main {
   height: 0.9rem;
   flex-shrink: 0;
 }
-
-/* Fade transition for editor */
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.3s ease-in-out;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
 </style>

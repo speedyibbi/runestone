@@ -1,26 +1,14 @@
 <script lang="ts" setup>
 import Wrapper from '@/components/layout/Wrapper.vue'
+import FadeTransition from '@/components/base/FadeTransition.vue'
 </script>
 
 <template>
   <Wrapper>
     <RouterView v-slot="{ Component }">
-      <Transition name="page-fade" mode="out-in">
+      <FadeTransition mode="out-in">
         <component :is="Component" />
-      </Transition>
+      </FadeTransition>
     </RouterView>
   </Wrapper>
 </template>
-
-<style>
-/* Page transition styles */
-.page-fade-enter-active,
-.page-fade-leave-active {
-  transition: opacity 0.3s ease-in-out;
-}
-
-.page-fade-enter-from,
-.page-fade-leave-to {
-  opacity: 0;
-}
-</style>

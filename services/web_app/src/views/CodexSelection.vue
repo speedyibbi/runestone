@@ -1,17 +1,19 @@
-<script lang="ts" setup></script>
+<script lang="ts" setup>
+import FadeTransition from '@/components/base/FadeTransition.vue'
+</script>
 
 <template>
   <main>
     <div class="container">
       <h1>
-        <Transition name="fade" mode="out-in">
+        <FadeTransition mode="out-in">
           <span key="select">Select a Codex</span>
-        </Transition>
+        </FadeTransition>
       </h1>
 
       <!-- Main Content Area -->
       <div class="content-area">
-        <Transition name="fade-list" mode="out-in">
+        <FadeTransition mode="out-in">
           <div key="list-view" class="list-view">
             <!-- Codex List -->
             <div class="codex-list">
@@ -38,12 +40,12 @@
           <!-- Form View -->
           <!-- <div key="form-view" class="form-view">
           </div> -->
-        </Transition>
+        </FadeTransition>
       </div>
 
       <!-- Create Section with Fixed Height -->
       <div class="create-section">
-        <Transition name="fade" mode="out-in">
+        <FadeTransition mode="out-in">
           <!-- Create Codex Form -->
           <!-- <div key="form" class="create-form">
             <div class="input-container-relative">
@@ -60,7 +62,7 @@
 
           <!-- Create Button -->
           <button key="button" class="create-button">+ Create New Codex</button>
-        </Transition>
+        </FadeTransition>
       </div>
     </div>
   </main>
@@ -374,27 +376,5 @@ h1 {
 .create-button:disabled {
   cursor: not-allowed;
   opacity: 0.5;
-}
-
-/* Fade transitions for list/form content */
-.fade-list-enter-active,
-.fade-list-leave-active {
-  transition: opacity 0.3s ease-in-out;
-}
-
-.fade-list-enter-from,
-.fade-list-leave-to {
-  opacity: 0;
-}
-
-/* Fade transitions for create section */
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.3s ease-in-out;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
 }
 </style>

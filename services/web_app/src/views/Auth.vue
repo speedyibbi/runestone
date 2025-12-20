@@ -1,10 +1,12 @@
-<script lang="ts" setup></script>
+<script lang="ts" setup>
+import FadeTransition from '@/components/base/FadeTransition.vue'
+</script>
 
 <template>
   <main>
     <div class="input-container">
       <!-- Transition wrapper for step changes -->
-      <Transition name="fade" mode="out-in">
+      <FadeTransition mode="out-in">
         <!-- Email input (step 1) -->
         <div key="email" class="input-wrapper">
           <input type="email" placeholder="Email" autofocus />
@@ -23,7 +25,7 @@
             ← Back
           </button>
         </div> -->
-      </Transition>
+      </FadeTransition>
     </div>
   </main>
 </template>
@@ -144,16 +146,5 @@ input:disabled {
 
 .back-button:hover {
   color: var(--color-foreground);
-}
-
-/* Fade transition for smooth step changes and status messages */
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.3s ease-in-out;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
 }
 </style>
