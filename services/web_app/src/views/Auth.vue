@@ -1,133 +1,4 @@
 <script lang="ts" setup>
-import { ref, watch, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
-import { useSessionStore } from '@/stores/session'
-import { useToast } from '@/composables/useToast'
-
-const router = useRouter()
-const sessionStore = useSessionStore()
-const toast = useToast()
-
-const step = ref<'email' | 'passphrase'>('email')
-const email = ref('')
-const passphrase = ref('')
-const isLoading = ref(false)
-
-const emailInput = ref<HTMLInputElement | null>(null)
-const passphraseInput = ref<HTMLInputElement | null>(null)
-
-const handleEmailSubmit = async () => {
-  if (!email.value.trim() || !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email.value)) {
-    toast.error('Please enter a valid email')
-    return
-  }
-  
-  step.value = 'passphrase'
-}
-
-const handlePassphraseSubmit = async () => {
-  if (!passphrase.value.trim()) {
-    toast.error('Please enter a passphrase')
-    return
-  }
-
-  isLoading.value = true
-  let hasError = false
-
-  try {
-    // Concatenate email and passphrase to create the actual passphrase
-    const fullPassphrase = email.value + passphrase.value
-    await sessionStore.setup(fullPassphrase)
-    
-    // Navigate to codex view on success
-    router.push('/')
-  } catch (error) {
-    console.error('Authentication failed:', error)
-    toast.error(categorizeError(error))
-    hasError = true
-  } finally {
-    isLoading.value = false
-    
-    // Restore focus after error (only if there was an error)
-    if (hasError) {
-      await nextTick()
-      passphraseInput.value?.focus()
-    }
-  }
-}
-
-const categorizeError = (error: unknown): string => {
-  if (!(error instanceof Error)) {
-    return 'Authentication failed. Please try again.'
-  }
-
-  const message = error.message.toLowerCase()
-
-  // Wrong passphrase - decryption failures
-  if (
-    message.includes('failed to decrypt mek') ||
-    message.includes('failed to decrypt fek') ||
-    message.includes('invalid lookup key') ||
-    message.includes('decryption failed') ||
-    message.includes('decrypt')
-  ) {
-    return 'Invalid email or passphrase. Please check your credentials and try again.'
-  }
-
-  // Network failures
-  if (
-    message.includes('network') ||
-    message.includes('fetch') ||
-    message.includes('connection') ||
-    message.includes('timeout') ||
-    error.name === 'NetworkError' ||
-    error.name === 'TypeError'
-  ) {
-    return 'Network error. Please check your internet connection and try again.'
-  }
-
-  // Crypto failures (other than wrong passphrase)
-  if (
-    message.includes('crypto') ||
-    message.includes('encryption') ||
-    message.includes('key derivation') ||
-    message.includes('argon2') ||
-    message.includes('pbkdf2')
-  ) {
-    return 'Cryptographic operation failed. Please try again or refresh the page.'
-  }
-
-  // Storage failures
-  if (
-    message.includes('storage') ||
-    message.includes('quota') ||
-    message.includes('opfs')
-  ) {
-    return 'Storage error. Please ensure you have sufficient storage space.'
-  }
-
-  // Default fallback
-  return 'Authentication failed. Please try again.'
-}
-
-const goBack = () => {
-  step.value = 'email'
-}
-
-// Auto-focus input when step changes
-watch(step, async () => {
-  // Wait for DOM update
-  await nextTick()
-  
-  // Wait for fade transition to complete (300ms)
-  setTimeout(() => {
-    if (step.value === 'email') {
-      emailInput.value?.focus()
-    } else {
-      passphraseInput.value?.focus()
-    }
-  }, 350)
-})
 </script>
 
 <template>
@@ -136,34 +7,27 @@ watch(step, async () => {
       <!-- Transition wrapper for step changes -->
       <Transition name="fade" mode="out-in">
         <!-- Email input (step 1) -->
-        <div v-if="step === 'email'" key="email" class="input-wrapper">
+        <div key="email" class="input-wrapper">
           <input
-            ref="emailInput"
-            v-model="email"
             type="email"
             placeholder="Email"
-            @keyup.enter="handleEmailSubmit"
             autofocus
           />
         </div>
         
         <!-- Passphrase input (step 2) -->
-        <div v-else key="passphrase" class="input-wrapper">
+        <!-- <div key="passphrase" class="input-wrapper">
           <div class="input-container-relative">
             <input
-              ref="passphraseInput"
-              v-model="passphrase"
               type="password"
               placeholder="Passphrase"
-              @keyup.enter="handlePassphraseSubmit"
-              :disabled="isLoading"
             />
-            <div v-if="isLoading" class="loading-pulse"></div>
+            <div class="loading-pulse"></div>
           </div>
-          <button v-if="!isLoading" @click="goBack" class="back-button">
+          <button class="back-button">
             ← Back
           </button>
-        </div>
+        </div> -->
       </Transition>
     </div>
   </main>

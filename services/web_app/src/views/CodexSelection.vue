@@ -1,59 +1,4 @@
 <script lang="ts" setup>
-import { ref, onMounted, computed, watch, nextTick } from 'vue'
-import { useCodex } from '@/composables/useCodex'
-
-const {
-  codexes,
-  isLoadingCodex,
-  loadingCodexId,
-  loadCodexes,
-  selectCodex,
-  createCodex: createCodexFn,
-} = useCodex()
-
-const isCreating = ref(false)
-const newCodexTitle = ref('')
-const titleInput = ref<HTMLInputElement | null>(null)
-
-const hasFewCodexes = computed(() => codexes.value.length <= 3)
-const isAnyCodexLoading = computed(() => loadingCodexId.value !== null)
-
-onMounted(() => {
-  loadCodexes()
-})
-
-// Auto-focus input when form opens
-watch(isCreating, async (newValue) => {
-  if (newValue) {
-    await nextTick()
-    // Wait for transition to complete (300ms)
-    setTimeout(() => {
-      titleInput.value?.focus()
-    }, 350)
-  }
-})
-
-function showCreateForm() {
-  isCreating.value = true
-  newCodexTitle.value = ''
-}
-
-async function createCodex() {
-  const title = newCodexTitle.value.trim()
-  
-  const result = await createCodexFn(title)
-  if (result) {
-    isCreating.value = false
-    newCodexTitle.value = ''
-  }
-}
-
-function goBack() {
-  if (!isLoadingCodex.value) {
-    isCreating.value = false
-    newCodexTitle.value = ''
-  }
-}
 </script>
 
 <template>
@@ -61,44 +6,39 @@ function goBack() {
     <div class="container">
       <h1>
         <Transition name="fade" mode="out-in">
-          <span v-if="!isCreating" key="select">Select a Codex</span>
-          <span v-else key="create">Create a Codex</span>
+          <span key="select">Select a Codex</span>
         </Transition>
       </h1>
       
       <!-- Main Content Area -->
       <div class="content-area">
         <Transition name="fade-list" mode="out-in">
-          <div v-if="!isCreating" key="list-view" class="list-view">
+          <div key="list-view" class="list-view">
             <!-- Codex List -->
-            <div v-if="codexes.length > 0" class="codex-list" :class="{ 'few-items': hasFewCodexes }">
-              <div
-                v-for="codex in codexes"
-                :key="codex.uuid"
-                class="codex-item-wrapper"
-              >
-                <button
-                  class="codex-item"
-                  :class="{ 'loading': loadingCodexId === codex.uuid }"
-                  :disabled="isAnyCodexLoading"
-                  @click="selectCodex(codex.uuid)"
-                >
-                  <div class="codex-title">{{ codex.title }}</div>
-                  <div class="codex-uuid">{{ codex.uuid }}</div>
+            <div class="codex-list">
+              <div class="codex-item-wrapper">
+                <button class="codex-item">
+                  <div class="codex-title">Sample Codex</div>
+                  <div class="codex-uuid">123e4567-e89b-12d3-a456-426614174000</div>
                 </button>
-                <div v-if="loadingCodexId === codex.uuid" class="loading-pulse-codex"></div>
+              </div>
+              <div class="codex-item-wrapper">
+                <button class="codex-item">
+                  <div class="codex-title">Another Codex</div>
+                  <div class="codex-uuid">987fcdeb-51a2-43f1-b789-123456789abc</div>
+                </button>
               </div>
             </div>
             
             <!-- Empty State -->
-            <div v-else class="empty-state">
+            <!-- <div class="empty-state">
               <p>No codexes yet. Create your first one!</p>
-            </div>
+            </div> -->
           </div>
           
           <!-- Form View -->
-          <div v-else key="form-view" class="form-view">
-          </div>
+          <!-- <div key="form-view" class="form-view">
+          </div> -->
         </Transition>
       </div>
       
@@ -106,31 +46,23 @@ function goBack() {
       <div class="create-section">
         <Transition name="fade" mode="out-in">
           <!-- Create Codex Form -->
-          <div v-if="isCreating" key="form" class="create-form">
+          <!-- <div key="form" class="create-form">
             <div class="input-container-relative">
               <input
-                ref="titleInput"
-                v-model="newCodexTitle"
                 type="text"
                 placeholder="Codex title"
-                @keyup.enter="createCodex"
-                @keyup.esc="goBack"
-                :disabled="isLoadingCodex"
               />
-              <div v-if="isLoadingCodex" class="loading-pulse"></div>
+              <div class="loading-pulse"></div>
             </div>
-            <button v-if="!isLoadingCodex" @click="goBack" class="back-button">
+            <button class="back-button">
               ← Back
             </button>
-          </div>
+          </div> -->
           
           <!-- Create Button -->
           <button 
-            v-else 
             key="button" 
-            class="create-button" 
-            :disabled="isAnyCodexLoading"
-            @click="showCreateForm"
+            class="create-button"
           >
             + Create New Codex
           </button>
