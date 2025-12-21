@@ -2,10 +2,18 @@
 defineProps<{
   mode?: 'in-out' | 'out-in' | 'default'
 }>()
+
+const emit = defineEmits<{
+  afterEnter: []
+}>()
+
+function handleAfterEnter() {
+  emit('afterEnter')
+}
 </script>
 
 <template>
-  <Transition name="fade" :mode="mode">
+  <Transition name="fade" :mode="mode" @after-enter="handleAfterEnter">
     <slot />
   </Transition>
 </template>

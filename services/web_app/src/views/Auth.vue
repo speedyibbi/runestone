@@ -1,30 +1,155 @@
 <script lang="ts" setup>
+import { ref, nextTick, watch, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { useSessionStore } from '@/stores/session'
+import { useToast } from '@/composables/useToast'
 import FadeTransition from '@/components/base/FadeTransition.vue'
+
+const router = useRouter()
+const sessionStore = useSessionStore()
+const toast = useToast()
+
+const email = ref('')
+const passphrase = ref('')
+const currentStep = ref<'email' | 'passphrase'>('email')
+const isLoading = ref(false)
+const emailInput = ref<HTMLInputElement | null>(null)
+const passphraseInput = ref<HTMLInputElement | null>(null)
+const hasError = ref(false)
+
+onMounted(async () => {
+  await nextTick()
+  emailInput.value?.focus()
+})
+
+function handleTransitionComplete() {
+  if (currentStep.value === 'passphrase') {
+    passphraseInput.value?.focus()
+  } else if (currentStep.value === 'email') {
+    emailInput.value?.focus()
+  }
+}
+
+// Watch for loading to complete and refocus if there was an error
+watch(isLoading, async (loading) => {
+  if (!loading && hasError.value) {
+    hasError.value = false
+    await nextTick()
+    passphraseInput.value?.focus()
+  }
+})
+
+function handleEmailSubmit() {
+  if (!email.value.trim()) {
+    toast.error('Email cannot be empty')
+    return
+  }
+  
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (!emailRegex.test(email.value.trim())) {
+    toast.error('Please enter a valid email address')
+    return
+  }
+  
+  currentStep.value = 'passphrase'
+}
+
+async function handlePassphraseSubmit() {
+  if (!passphrase.value.trim()) {
+    toast.error('Passphrase cannot be empty')
+    await nextTick()
+    passphraseInput.value?.focus()
+    return
+  }
+  
+  isLoading.value = true
+  
+  try {
+    const combinedAuth = `${email.value}|${passphrase.value}`
+    await sessionStore.setup(combinedAuth)
+    
+    toast.success('Session initialized successfully')
+    router.push('/select-codex')
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Failed to initialize session'
+    
+    if (errorMessage.includes('decrypt') || errorMessage.includes('passphrase')) {
+      toast.error('Incorrect passphrase. Please try again.')
+    } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
+      toast.error('Network error. Please check your connection.')
+    } else if (errorMessage.includes('crypto')) {
+      toast.error('Cryptography error. Please try again.')
+    } else {
+      toast.error(errorMessage)
+    }
+    
+    console.error('Authentication error:', err)
+    hasError.value = true
+  } finally {
+    isLoading.value = false
+  }
+}
+
+function handleKeydown(event: KeyboardEvent) {
+  if (event.key === 'Enter' && !isLoading.value) {
+    if (currentStep.value === 'email') {
+      handleEmailSubmit()
+    } else {
+      handlePassphraseSubmit()
+    }
+  }
+}
+
+// Handle back button
+function handleBack() {
+  currentStep.value = 'email'
+  passphrase.value = ''
+}
 </script>
 
 <template>
   <main>
     <div class="input-container">
-      <!-- Transition wrapper for step changes -->
-      <FadeTransition mode="out-in">
-        <!-- Email input (step 1) -->
-        <div key="email" class="input-wrapper">
-          <input type="email" placeholder="Email" autofocus />
-        </div>
-
-        <!-- Passphrase input (step 2) -->
-        <!-- <div key="passphrase" class="input-wrapper">
+      <FadeTransition mode="out-in" @after-enter="handleTransitionComplete">
+        <!-- Email input step -->
+        <div v-if="currentStep === 'email'" key="email" class="input-wrapper">
           <div class="input-container-relative">
             <input
+              ref="emailInput"
+              v-model="email"
+              type="email"
+              placeholder="Email"
+              @keydown="handleKeydown"
+            />
+          </div>
+        </div>
+        
+        <!-- Passphrase input step -->
+        <div v-else key="passphrase" class="input-wrapper">
+          <div class="input-container-relative">
+            <input
+              ref="passphraseInput"
+              v-model="passphrase"
               type="password"
               placeholder="Passphrase"
+              :disabled="isLoading"
+              @keydown="handleKeydown"
             />
-            <div class="loading-pulse"></div>
+            <div v-if="isLoading" class="loading-pulse"></div>
           </div>
-          <button class="back-button">
-            ← Back
+          
+          <!-- Back button -->
+          <button 
+            v-if="!isLoading"
+            class="back-button" 
+            @click="handleBack"
+          >
+            <svg class="arrow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+            Back
           </button>
-        </div> -->
+        </div>
       </FadeTransition>
     </div>
   </main>
@@ -142,9 +267,17 @@ input:disabled {
   bottom: 0;
   left: 50%;
   transform: translate(-50%, 150%);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .back-button:hover {
   color: var(--color-foreground);
+}
+
+.arrow-icon {
+  width: 1rem;
+  height: 1rem;
 }
 </style>
