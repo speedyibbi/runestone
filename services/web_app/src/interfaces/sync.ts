@@ -31,6 +31,7 @@ export interface SyncResult {
  */
 export interface SyncOptions {
   notebookId: string
+  lookupHash: string
   fek: CryptoKey
   onProgress?: (progress: SyncProgress) => void
   signal?: AbortSignal
@@ -40,6 +41,7 @@ export interface SyncOptions {
  * Root sync options
  */
 export interface RootSyncOptions {
+  lookupHash: string
   mek: CryptoKey
   onProgress?: (progress: SyncProgress) => void
   signal?: AbortSignal

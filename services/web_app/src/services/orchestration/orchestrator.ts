@@ -93,7 +93,7 @@ export default class OrchestrationService {
     const encryptedMap = await CryptoService.encryptAndPack(mapBytes, mek)
 
     // Step 7: Cache both locally in parallel
-    await Promise.all([CacheService.upsertRootMeta(rootMeta), CacheService.upsertMap(encryptedMap)])
+    await Promise.all([CacheService.upsertRootMeta(lookupHash, rootMeta), CacheService.upsertMap(lookupHash, encryptedMap)])
 
     return {
       rootMeta,
@@ -108,8 +108,8 @@ export default class OrchestrationService {
    */
   static async bootstrapFromCache(lookupHash: string): Promise<BootstrapResult> {
     // Step 1: Fetch root meta and map from cache (fail if this fails)
-    const rootMeta = await CacheService.getRootMeta()
-    const encryptedMap = await CacheService.getMap()
+    const rootMeta = await CacheService.getRootMeta(lookupHash)
+    const encryptedMap = await CacheService.getMap(lookupHash)
 
     if (!rootMeta) {
       throw new Error('Root meta not found in cache')
@@ -199,7 +199,7 @@ export default class OrchestrationService {
     }
 
     // Step 5: Cache both locally for future use
-    await Promise.all([CacheService.upsertRootMeta(rootMeta), CacheService.upsertMap(encryptedMap)])
+    await Promise.all([CacheService.upsertRootMeta(lookupHash, rootMeta), CacheService.upsertMap(lookupHash, encryptedMap)])
 
     return {
       rootMeta,
@@ -212,10 +212,10 @@ export default class OrchestrationService {
    * Check if user data exists in cache
    * Attempts to fetch root meta from cache to verify it exists
    */
-  static async existsInCache(): Promise<boolean> {
+  static async existsInCache(lookupHash: string): Promise<boolean> {
     const [rootMeta, rootMap] = await Promise.all([
-      CacheService.getRootMeta(),
-      CacheService.getMap(),
+      CacheService.getRootMeta(lookupHash),
+      CacheService.getMap(lookupHash),
     ])
     return rootMeta !== null && rootMap !== null
   }
@@ -297,9 +297,9 @@ export default class OrchestrationService {
 
     // Step 9: Cache all files locally in parallel
     await Promise.all([
-      CacheService.upsertNotebookMeta(notebookId, notebookMeta),
-      CacheService.upsertManifest(notebookId, encryptedManifest),
-      CacheService.upsertMap(encryptedMap),
+      CacheService.upsertNotebookMeta(lookupHash, notebookId, notebookMeta),
+      CacheService.upsertManifest(lookupHash, notebookId, encryptedManifest),
+      CacheService.upsertMap(lookupHash, encryptedMap),
     ])
 
     return {
@@ -320,7 +320,7 @@ export default class OrchestrationService {
     lookupHash: string,
   ): Promise<LoadNotebookResult> {
     // Step 1: Fetch notebook meta from cache (fail if this fails)
-    const notebookMeta = await CacheService.getNotebookMeta(notebookId)
+    const notebookMeta = await CacheService.getNotebookMeta(lookupHash, notebookId)
     if (!notebookMeta) {
       throw new Error('Notebook meta not found in cache')
     }
@@ -339,7 +339,7 @@ export default class OrchestrationService {
     }
 
     // Step 4: Get manifest from cache
-    const encryptedManifest = await CacheService.getManifest(notebookId)
+    const encryptedManifest = await CacheService.getManifest(lookupHash, notebookId)
     if (!encryptedManifest) {
       throw new Error('Manifest not found in cache')
     }
@@ -409,8 +409,8 @@ export default class OrchestrationService {
 
     // Step 6: Cache both locally for future use
     await Promise.all([
-      CacheService.upsertNotebookMeta(notebookId, notebookMeta),
-      CacheService.upsertManifest(notebookId, encryptedManifest),
+      CacheService.upsertNotebookMeta(lookupHash, notebookId, notebookMeta),
+      CacheService.upsertManifest(lookupHash, notebookId, encryptedManifest),
     ])
 
     return {
@@ -453,6 +453,7 @@ export default class OrchestrationService {
   static async updateNotebook(
     notebookId: string,
     newTitle: string,
+    lookupHash: string,
     fek: CryptoKey,
     mek: CryptoKey,
     manifest: Manifest,
@@ -475,8 +476,8 @@ export default class OrchestrationService {
 
     // Step 3: Cache both locally in parallel
     await Promise.all([
-      CacheService.upsertManifest(notebookId, encryptedManifest),
-      CacheService.upsertMap(encryptedMap),
+      CacheService.upsertManifest(lookupHash, notebookId, encryptedManifest),
+      CacheService.upsertMap(lookupHash, encryptedMap),
     ])
 
     return {
@@ -491,6 +492,7 @@ export default class OrchestrationService {
    */
   static async deleteNotebook(
     notebookId: string,
+    lookupHash: string,
     mek: CryptoKey,
     manifest: Manifest,
     map: Map,
@@ -509,11 +511,11 @@ export default class OrchestrationService {
     // Step 4: Delete all files from cache and update map in parallel
     await Promise.all([
       // Delete from cache
-      CacheService.deleteNotebookMeta(notebookId),
-      CacheService.deleteManifest(notebookId),
-      ...blobUuids.map((uuid) => CacheService.deleteBlob(notebookId, uuid)),
+      CacheService.deleteNotebookMeta(lookupHash, notebookId),
+      CacheService.deleteManifest(lookupHash, notebookId),
+      ...blobUuids.map((uuid) => CacheService.deleteBlob(lookupHash, notebookId, uuid)),
       // Update map in cache
-      CacheService.upsertMap(encryptedMap),
+      CacheService.upsertMap(lookupHash, encryptedMap),
     ])
 
     return {
@@ -526,9 +528,9 @@ export default class OrchestrationService {
    * Get a blob from a notebook
    * Retrieves and decrypts the blob from cache
    */
-  static async getBlob(notebookId: string, uuid: string, fek: CryptoKey): Promise<GetBlobResult> {
+  static async getBlob(notebookId: string, uuid: string, lookupHash: string, fek: CryptoKey): Promise<GetBlobResult> {
     // Step 1: Get encrypted blob from cache
-    const encryptedBlob = await CacheService.getBlob(notebookId, uuid)
+    const encryptedBlob = await CacheService.getBlob(lookupHash, notebookId, uuid)
 
     if (!encryptedBlob) {
       throw new Error(`Blob with UUID ${uuid} not found in cache`)
@@ -558,6 +560,7 @@ export default class OrchestrationService {
     notebookId: string,
     data: ArrayBuffer | Uint8Array,
     metadata: BlobMetadata,
+    lookupHash: string,
     fek: CryptoKey,
     manifest: Manifest,
   ): Promise<CreateBlobResult> {
@@ -590,8 +593,8 @@ export default class OrchestrationService {
 
     // Step 5: Save blob and manifest to cache in parallel
     await Promise.all([
-      CacheService.upsertBlob(notebookId, uuid, encryptedBlob),
-      CacheService.upsertManifest(notebookId, encryptedManifest),
+      CacheService.upsertBlob(lookupHash, notebookId, uuid, encryptedBlob),
+      CacheService.upsertManifest(lookupHash, notebookId, encryptedManifest),
     ])
 
     return {
@@ -609,6 +612,7 @@ export default class OrchestrationService {
     uuid: string,
     data: ArrayBuffer | Uint8Array,
     metadata: BlobMetadata,
+    lookupHash: string,
     fek: CryptoKey,
     manifest: Manifest,
   ): Promise<UpdateBlobResult> {
@@ -646,8 +650,8 @@ export default class OrchestrationService {
 
     // Step 6: Save blob and manifest to cache in parallel
     await Promise.all([
-      CacheService.upsertBlob(notebookId, uuid, encryptedBlob),
-      CacheService.upsertManifest(notebookId, encryptedManifest),
+      CacheService.upsertBlob(lookupHash, notebookId, uuid, encryptedBlob),
+      CacheService.upsertManifest(lookupHash, notebookId, encryptedManifest),
     ])
 
     return {
@@ -663,6 +667,7 @@ export default class OrchestrationService {
   static async deleteBlob(
     notebookId: string,
     uuid: string,
+    lookupHash: string,
     fek: CryptoKey,
     manifest: Manifest,
   ): Promise<DeleteBlobResult> {
@@ -682,8 +687,8 @@ export default class OrchestrationService {
 
     // Step 4: Delete blob and save manifest to cache in parallel
     await Promise.all([
-      CacheService.deleteBlob(notebookId, uuid),
-      CacheService.upsertManifest(notebookId, encryptedManifest),
+      CacheService.deleteBlob(lookupHash, notebookId, uuid),
+      CacheService.upsertManifest(lookupHash, notebookId, encryptedManifest),
     ])
 
     return {
@@ -698,6 +703,7 @@ export default class OrchestrationService {
    */
   static async syncNotebook(
     notebookId: string,
+    lookupHash: string,
     fek: CryptoKey,
     onProgress?: (progress: SyncProgress) => void,
     signal?: AbortSignal,
@@ -705,6 +711,7 @@ export default class OrchestrationService {
     // Use SyncService to sync the notebook
     return await SyncService.sync({
       notebookId,
+      lookupHash,
       fek,
       onProgress,
       signal,
@@ -729,7 +736,7 @@ export default class OrchestrationService {
 
       try {
         // Step 1: Fetch notebook meta from cache
-        const notebookMeta = await CacheService.getNotebookMeta(notebookId)
+        const notebookMeta = await CacheService.getNotebookMeta(lookupHash, notebookId)
         if (!notebookMeta) {
           throw new Error(`Notebook meta not found in cache for notebook ${notebookId}`)
         }
@@ -743,6 +750,7 @@ export default class OrchestrationService {
         // Step 4: Sync notebook with progress callback
         const syncResult = await this.syncNotebook(
           notebookId,
+          lookupHash,
           fek,
           onProgress ? (progress) => onProgress(notebookId, progress) : undefined,
           signal,
@@ -772,12 +780,14 @@ export default class OrchestrationService {
    * Should be called before syncing notebooks to ensure map is up-to-date
    */
   static async syncRoot(
+    lookupHash: string,
     mek: CryptoKey,
     onProgress?: (progress: SyncProgress) => void,
     signal?: AbortSignal,
   ): Promise<SyncResult> {
     // Use SyncService to sync root-level data
     return await SyncService.syncRoot({
+      lookupHash,
       mek,
       onProgress,
       signal,

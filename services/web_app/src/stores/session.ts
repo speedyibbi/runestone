@@ -61,7 +61,7 @@ export const useSessionStore = defineStore('session', () => {
 
     try {
       // Check if user data exists in cache
-      const existsInCache = await OrchestrationService.existsInCache()
+      const existsInCache = await OrchestrationService.existsInCache(computedLookupHash)
 
       if (existsInCache) {
         // Scenario 2: Recurring user (same device) - Bootstrap from cache
@@ -109,6 +109,13 @@ export const useSessionStore = defineStore('session', () => {
     root.value.map = null
     notebook.value.fek = null
     notebook.value.manifest = null
+  }
+
+  /**
+   * Get the lookup hash for the current session
+   */
+  function getLookupHash(): string | null {
+    return lookupHash.value
   }
 
   // ==================== Codex (Notebook) Operations ====================
@@ -215,6 +222,7 @@ export const useSessionStore = defineStore('session', () => {
     const result = await OrchestrationService.updateNotebook(
       codexId,
       newTitle,
+      lookupHash.value,
       fek,
       root.value.mek!,
       notebook.value.manifest!,
@@ -251,6 +259,7 @@ export const useSessionStore = defineStore('session', () => {
     // Delete notebook
     const result = await OrchestrationService.deleteNotebook(
       codexId,
+      lookupHash.value,
       root.value.mek,
       notebook.value.manifest!,
       root.value.map!,
@@ -339,7 +348,7 @@ export const useSessionStore = defineStore('session', () => {
     }
 
     // Get blob data
-    const result = await OrchestrationService.getBlob(codexId, runeId, notebook.value.fek)
+    const result = await OrchestrationService.getBlob(codexId, runeId, lookupHash.value!, notebook.value.fek)
 
     // Convert ArrayBuffer to string (markdown)
     const decoder = new TextDecoder('utf-8')
@@ -373,6 +382,7 @@ export const useSessionStore = defineStore('session', () => {
       codexId,
       data,
       { type: 'note', title },
+      lookupHash.value!,
       notebook.value.fek,
       notebook.value.manifest,
     )
@@ -422,7 +432,7 @@ export const useSessionStore = defineStore('session', () => {
       data = encoder.encode(updates.content)
     } else {
       // Content not changed, fetch existing content
-      const result = await OrchestrationService.getBlob(codexId, runeId, notebook.value.fek)
+      const result = await OrchestrationService.getBlob(codexId, runeId, lookupHash.value!, notebook.value.fek)
       data = new Uint8Array(result.data)
     }
 
@@ -435,6 +445,7 @@ export const useSessionStore = defineStore('session', () => {
       runeId,
       data,
       { type: 'note', title },
+      lookupHash.value!,
       notebook.value.fek,
       notebook.value.manifest,
     )
@@ -475,6 +486,7 @@ export const useSessionStore = defineStore('session', () => {
     const result = await OrchestrationService.deleteBlob(
       codexId,
       runeId,
+      lookupHash.value!,
       notebook.value.fek,
       notebook.value.manifest,
     )
@@ -536,7 +548,7 @@ export const useSessionStore = defineStore('session', () => {
     }
 
     // Get blob data
-    const result = await OrchestrationService.getBlob(codexId, sigilId, notebook.value.fek)
+    const result = await OrchestrationService.getBlob(codexId, sigilId, lookupHash.value!, notebook.value.fek)
 
     return result.data
   }
@@ -564,6 +576,7 @@ export const useSessionStore = defineStore('session', () => {
       codexId,
       data,
       { type: 'image', title },
+      lookupHash.value!,
       notebook.value.fek,
       notebook.value.manifest,
     )
@@ -609,6 +622,7 @@ export const useSessionStore = defineStore('session', () => {
     const result = await OrchestrationService.deleteBlob(
       codexId,
       sigilId,
+      lookupHash.value!,
       notebook.value.fek,
       notebook.value.manifest,
     )
@@ -657,7 +671,7 @@ export const useSessionStore = defineStore('session', () => {
     }
 
     // Get blob data
-    const result = await OrchestrationService.getBlob(codexId, sigilId, notebook.value.fek)
+    const result = await OrchestrationService.getBlob(codexId, sigilId, lookupHash.value!, notebook.value.fek)
 
     // Infer MIME type from file extension (basic detection)
     const ext = entry.title.split('.').pop()?.toLowerCase()
@@ -750,6 +764,7 @@ export const useSessionStore = defineStore('session', () => {
     // Sync the notebook
     const result = await OrchestrationService.syncNotebook(
       codexId,
+      lookupHash.value!,
       notebook.value.fek,
       onProgress,
       signal,
@@ -820,6 +835,7 @@ export const useSessionStore = defineStore('session', () => {
     // Session Management
     setup,
     teardown,
+    getLookupHash,
 
     // Codex Operations
     listCodexes,

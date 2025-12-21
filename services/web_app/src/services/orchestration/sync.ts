@@ -103,6 +103,7 @@ export default class SyncService {
    * Download blobs from remote
    */
   private static async downloadBlobs(
+    lookupHash: string,
     notebookId: string,
     entries: ManifestEntry[],
     signal: AbortSignal | undefined,
@@ -122,7 +123,7 @@ export default class SyncService {
         const encryptedBlob = await RemoteService.getBlob(notebookId, entry.uuid, signal)
 
         // Save encrypted blob to cache
-        await CacheService.upsertBlob(notebookId, entry.uuid, encryptedBlob)
+        await CacheService.upsertBlob(lookupHash, notebookId, entry.uuid, encryptedBlob)
 
         downloaded++
         onProgress(i + 1, entries.length)
@@ -143,6 +144,7 @@ export default class SyncService {
    * Upload blobs to remote
    */
   private static async uploadBlobs(
+    lookupHash: string,
     notebookId: string,
     entries: ManifestEntry[],
     signal: AbortSignal | undefined,
@@ -159,7 +161,7 @@ export default class SyncService {
       const entry = entries[i]
       try {
         // Get encrypted blob from cache
-        const encryptedBlob = await CacheService.getBlob(notebookId, entry.uuid)
+        const encryptedBlob = await CacheService.getBlob(lookupHash, notebookId, entry.uuid)
 
         if (!encryptedBlob) {
           errors.push(`Blob ${entry.uuid} not found in cache`)
@@ -190,7 +192,7 @@ export default class SyncService {
    * Syncs notebook meta, manifest, and blobs
    */
   static async sync(options: SyncOptions): Promise<SyncResult> {
-    const { notebookId, fek, onProgress, signal } = options
+    const { notebookId, lookupHash, fek, onProgress, signal } = options
     const startTime = Date.now()
     const errors: string[] = []
 
@@ -206,7 +208,7 @@ export default class SyncService {
           // Remote notebook meta doesn't exist - will upload from cache
         }
 
-        cachedNotebookMeta = await CacheService.getNotebookMeta(notebookId)
+        cachedNotebookMeta = await CacheService.getNotebookMeta(lookupHash, notebookId)
 
         // Sync notebook meta (cache is source of truth if both exist)
         if (cachedNotebookMeta) {
@@ -219,7 +221,7 @@ export default class SyncService {
           }
         } else if (remoteNotebookMeta) {
           // Download to cache if missing
-          await CacheService.upsertNotebookMeta(notebookId, remoteNotebookMeta)
+          await CacheService.upsertNotebookMeta(lookupHash, notebookId, remoteNotebookMeta)
         } else {
           errors.push('Notebook meta not found in either remote or cache')
         }
@@ -245,7 +247,7 @@ export default class SyncService {
         // Remote manifest doesn't exist - will upload from cache
       }
 
-      cachedManifestEncrypted = await CacheService.getManifest(notebookId)
+      cachedManifestEncrypted = await CacheService.getManifest(lookupHash, notebookId)
 
       this.notifyProgress(onProgress, {
         phase: 'fetching_manifest',
@@ -301,6 +303,7 @@ export default class SyncService {
       let downloaded = 0
       if (syncActions.toDownload.length > 0) {
         downloaded = await this.downloadBlobs(
+          lookupHash,
           notebookId,
           syncActions.toDownload,
           signal,
@@ -319,6 +322,7 @@ export default class SyncService {
       let uploaded = 0
       if (syncActions.toUpload.length > 0) {
         uploaded = await this.uploadBlobs(
+          lookupHash,
           notebookId,
           syncActions.toUpload,
           signal,
@@ -368,7 +372,7 @@ export default class SyncService {
       // Save to both remote and cache
       await Promise.all([
         RemoteService.upsertManifest(notebookId, encryptedMergedManifest, signal),
-        CacheService.upsertManifest(notebookId, encryptedMergedManifest),
+        CacheService.upsertManifest(lookupHash, notebookId, encryptedMergedManifest),
       ])
 
       this.notifyProgress(onProgress, {
@@ -429,7 +433,7 @@ export default class SyncService {
    * Root meta is unencrypted JSON, map is encrypted with MEK
    */
   static async syncRoot(options: RootSyncOptions): Promise<SyncResult> {
-    const { mek, onProgress, signal } = options
+    const { lookupHash, mek, onProgress, signal } = options
     const startTime = Date.now()
     const errors: string[] = []
 
@@ -450,7 +454,7 @@ export default class SyncService {
         // Remote root meta doesn't exist - will upload from cache
       }
 
-      cachedRootMeta = await CacheService.getRootMeta()
+      cachedRootMeta = await CacheService.getRootMeta(lookupHash)
 
       this.notifyProgress(onProgress, {
         phase: 'syncing_root',
@@ -466,7 +470,7 @@ export default class SyncService {
         }
       } else if (remoteRootMeta) {
         // Download to cache if missing
-        await CacheService.upsertRootMeta(remoteRootMeta)
+        await CacheService.upsertRootMeta(lookupHash, remoteRootMeta)
       } else {
         errors.push('Root meta not found in either remote or cache')
       }
@@ -487,7 +491,7 @@ export default class SyncService {
         // Remote map doesn't exist - will upload from cache
       }
 
-      cachedMapEncrypted = await CacheService.getMap()
+      cachedMapEncrypted = await CacheService.getMap(lookupHash)
 
       // Decrypt maps if they exist
       let remoteMap: Map | null = null
@@ -538,7 +542,7 @@ export default class SyncService {
 
       await Promise.all([
         RemoteService.upsertMap(encryptedFinalMap, signal),
-        CacheService.upsertMap(encryptedFinalMap),
+        CacheService.upsertMap(lookupHash, encryptedFinalMap),
       ])
 
       this.notifyProgress(onProgress, {
