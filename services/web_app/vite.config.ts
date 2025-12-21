@@ -7,7 +7,7 @@ import { config } from '@runestone/config'
 export default defineConfig(({ mode }) => {
   return {
     define: {
-      __APP_CONFIG__: JSON.stringify(config.web_app),
+      __APP_CONFIG__: JSON.stringify({ global: config.global, ...config.web_app }),
     },
     plugins: [
       vue(),

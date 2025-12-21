@@ -34,6 +34,9 @@ dotenv.config({ path: envPath });
 export const config = Object.freeze({
   global: {
     environment: process.env.ENVIRONMENT,
+    featureFlags: {
+      cryptography: process.env.FEATURE_CRYPTOGRAPHY ? process.env.FEATURE_CRYPTOGRAPHY === 'true' : true,
+    },
   },
   aws: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
