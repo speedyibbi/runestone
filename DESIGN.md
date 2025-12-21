@@ -277,3 +277,341 @@ opfs/
 - Server never sees any encryption keys (MKEK, MEK, FKEK, FEK).
 - Server never sees decrypted data (notebook titles, note content, metadata).
 - Server only handles encrypted blobs and metadata.
+
+## 11. Feature Flags
+
+This section documents all configurable feature flags for controlling system behavior, security parameters, performance characteristics, and experimental features.
+
+### Core Feature Flags
+
+#### **FEATURE_MULTI_NOTEBOOK**
+- **Type**: `boolean`
+- **Default**: `true`
+- **Description**: Enable multiple notebook (codex) support per user.
+- **Impact**: When `false`, users limited to single notebook (simplified UX for MVP).
+- **Use Cases**:
+  - MVP rollout with simplified UX
+  - Testing single-notebook workflows
+  - Reduced complexity for specific deployments
+
+#### **FEATURE_FTS_SEARCH**
+- **Type**: `boolean`
+- **Default**: `true`
+- **Description**: Enable full-text search using SQLite WASM with encrypted `search.db.enc`.
+- **Impact**: Heavy feature; disabling reduces client-side storage and processing.
+- **Dependencies**: Requires `FEATURE_OPFS_CACHE` or alternative storage backend.
+- **Use Cases**:
+  - Gradual rollout of search functionality
+  - Low-powered device optimization
+  - Reduced storage footprint
+
+#### **FEATURE_OPFS_CACHE**
+- **Type**: `boolean`
+- **Default**: `true`
+- **Description**: Use Origin Private File System for caching encrypted blobs and manifests.
+- **Fallback**: Memory-only or IndexedDB when disabled or unavailable.
+- **Use Cases**:
+  - Browser compatibility issues
+  - Alternative storage backend testing
+  - Privacy-focused configurations
+
+#### **FEATURE_AUTO_SYNC**
+- **Type**: `boolean`
+- **Default**: `true`
+- **Description**: Enable automatic periodic synchronization with remote storage.
+- **Related**: `FEATURE_SYNC_INTERVAL_MS` (default: 300000 = 5 minutes).
+- **Use Cases**:
+  - Manual-only sync workflows
+  - Reduced network usage
+  - Testing sync behavior
+
+### Security & Encryption Flags
+
+#### **FEATURE_CRYPTOGRAPHY**
+- **Type**: `boolean`
+- **Default**: `true`
+- **Description**: Master switch for encryption functionality. When `false`, all data is stored unencrypted.
+- **Impact**:
+  - `false`: No encryption/decryption operations, no KDF derivations, no crypto keys
+  - `true`: Full encryption pipeline as designed
+- **Use Cases**:
+  - Development/testing environments
+  - Local-only deployments where encryption overhead is unnecessary
+  - Performance testing and debugging
+- **Warning**: Should NEVER be disabled in production deployments with remote storage.
+
+#### **FEATURE_ARGON2_KDF**
+- **Type**: `boolean`
+- **Default**: `true`
+- **Description**: Use Argon2id for FKEK derivation. When `false`, falls back to PBKDF2-SHA256.
+- **Security Note**: PBKDF2 is faster but less resistant to GPU/ASIC attacks.
+- **Use Cases**:
+  - Low-powered devices where Argon2id is too slow
+  - Environments lacking Argon2id support
+  - Performance testing
+
+#### **FEATURE_KDF_PROFILE**
+- **Type**: `'fast' | 'balanced' | 'paranoid'`
+- **Default**: `'balanced'`
+- **Description**: Controls KDF parameter strength for FKEK derivation (Argon2id).
+- **Parameters**:
+  ```typescript
+  fast: {
+    iterations: 1,
+    memory: 16384,      // 16 MB
+    parallelism: 1,
+    time_estimate: "~100ms"
+  }
+  balanced: {
+    iterations: 3,
+    memory: 65536,      // 64 MB
+    parallelism: 4,
+    time_estimate: "~500ms"
+  }
+  paranoid: {
+    iterations: 10,
+    memory: 262144,     // 256 MB
+    parallelism: 8,
+    time_estimate: "~3-5s"
+  }
+  ```
+- **Use Cases**:
+  - `fast`: Low-powered devices, development, testing
+  - `balanced`: Standard security for most users
+  - `paranoid`: High-security requirements, powerful devices, highly sensitive data
+
+#### **FEATURE_ZK_STRICT_MODE**
+- **Type**: `boolean`
+- **Default**: `false`
+- **Description**: Enable extra validation that no plaintext ever leaves client.
+- **Impact**: Additional runtime checks, useful for security auditing.
+- **Checks**:
+  - Verify all outbound data is encrypted
+  - Log any potential plaintext leaks
+  - Validate encryption parameters before operations
+- **Use Cases**:
+  - Security audits
+  - Compliance requirements
+  - Development and testing
+
+### Performance & Optimization Flags
+
+#### **FEATURE_PARALLEL_NOTEBOOK_LOAD**
+- **Type**: `boolean`
+- **Default**: `true`
+- **Description**: Load and decrypt multiple notebooks concurrently (Section 6 notes parallel loading capability).
+- **Impact**: Faster multi-notebook loading but higher memory/CPU burst.
+- **Use Cases**:
+  - Multi-notebook workflows
+  - Powerful devices
+  - Sequential loading for resource-constrained devices
+
+#### **FEATURE_LAZY_BLOB_LOAD**
+- **Type**: `boolean`
+- **Default**: `true`
+- **Description**: Fetch and decrypt blobs only when accessed, not during manifest load.
+- **Impact**: Reduces initial load time and bandwidth usage.
+- **Trade-off**: Slight delay when first opening a note/image.
+- **Use Cases**:
+  - Slow network connections
+  - Large notebooks with many blobs
+  - Mobile devices with limited bandwidth
+
+#### **FEATURE_AGGRESSIVE_MANIFEST_CACHE**
+- **Type**: `boolean`
+- **Default**: `false`
+- **Description**: Cache manifests more aggressively, reducing re-fetch frequency.
+- **Trade-off**: Better performance vs potentially stale data.
+- **Impact**: May delay detection of remote changes.
+- **Use Cases**:
+  - Single-device workflows
+  - Reduced network usage requirements
+  - Performance-critical environments
+
+#### **FEATURE_CRYPTO_WORKER**
+- **Type**: `boolean`
+- **Default**: `true`
+- **Description**: Offload cryptographic operations to Web Worker.
+- **Impact**: Prevents blocking main thread during encryption/decryption.
+- **Dependencies**: Requires Web Worker support in browser.
+- **Use Cases**:
+  - Smooth UI during crypto operations
+  - Large file encryption/decryption
+  - Fallback to main thread when workers unavailable
+
+#### **FEATURE_BLOB_COMPRESSION**
+- **Type**: `boolean`
+- **Default**: `true`
+- **Description**: Compress blobs before encryption (gzip/deflate).
+- **Impact**: Reduces storage space and bandwidth, adds CPU overhead.
+- **Trade-off**: Compression time vs storage/bandwidth savings.
+- **Use Cases**:
+  - Bandwidth-constrained environments
+  - Storage cost optimization
+  - Disable for pre-compressed content (images, videos)
+
+### Conflict Resolution Flags
+
+#### **FEATURE_CONFLICT_STRATEGY**
+- **Type**: `'lww' | 'manual' | 'auto-merge'`
+- **Default**: `'lww'`
+- **Description**: Strategy for handling sync conflicts (Section 7).
+  - `lww`: Last-Write-Wins based on timestamp (current implementation)
+  - `manual`: Prompt user to resolve conflicts interactively
+  - `auto-merge`: Attempt automatic merge (future enhancement)
+- **Use Cases**:
+  - Different user preferences for conflict handling
+  - A/B testing conflict resolution UX
+  - Future advanced merge capabilities
+
+#### **FEATURE_CONFLICT_NOTIFICATIONS**
+- **Type**: `boolean`
+- **Default**: `true`
+- **Description**: Notify users when conflicts are auto-resolved.
+- **Impact**: Improves transparency of sync behavior.
+- **Use Cases**:
+  - User awareness of data changes
+  - Debugging sync issues
+  - Silent operation for automated systems
+
+### Storage & Sync Flags
+
+#### **FEATURE_MAP_REALTIME_SYNC**
+- **Type**: `boolean`
+- **Default**: `false`
+- **Description**: Poll for `map.json.enc` changes more frequently (detects new notebooks faster).
+- **Impact**: Higher server requests, faster cross-device notebook discovery.
+- **Trade-off**: Network overhead vs sync speed.
+- **Use Cases**:
+  - Active multi-device workflows
+  - Real-time collaboration scenarios
+  - Reduced polling for single-device usage
+
+#### **FEATURE_BLOB_DEDUP**
+- **Type**: `boolean`
+- **Default**: `false`
+- **Description**: Enable hash-based deduplication for identical blobs (especially Sigils/images).
+- **Impact**: Saves storage space, adds complexity to manifest management.
+- **Implementation**: Compare blob hashes before upload, reuse existing blob UUID.
+- **Use Cases**:
+  - Large notebooks with duplicate images
+  - Storage cost optimization
+  - Reduced bandwidth usage
+
+#### **FEATURE_TITLE_SYNC_PRIORITY**
+- **Type**: `'map' | 'manifest'`
+- **Default**: `'manifest'`
+- **Description**: When map and manifest titles diverge, which is authoritative (Section 7).
+- **Current Design**: Manifest is source of truth.
+- **Use Cases**:
+  - Testing different sync strategies
+  - Resolving edge cases in title synchronization
+  - Future optimization of title updates
+
+#### **FEATURE_SYNC_INTERVAL_MS**
+- **Type**: `number`
+- **Default**: `300000` (5 minutes)
+- **Description**: Interval between automatic sync operations.
+- **Valid Range**: 60000 (1 min) to 3600000 (1 hour)
+- **Dependencies**: Requires `FEATURE_AUTO_SYNC=true`.
+- **Use Cases**:
+  - Balance between sync freshness and server load
+  - Different intervals for different user tiers
+  - Network condition adaptation
+
+### User Experience Flags
+
+#### **FEATURE_OFFLINE_MODE**
+- **Type**: `boolean`
+- **Default**: `true`
+- **Description**: Allow full offline editing with deferred sync queue.
+- **Impact**: Graceful handling of network disconnections.
+- **Implementation**: Queue changes locally, sync when connection restored.
+- **Use Cases**:
+  - Mobile/traveling users
+  - Unreliable network environments
+  - Airplane mode usage
+
+#### **FEATURE_IMAGE_THUMBNAILS**
+- **Type**: `boolean`
+- **Default**: `true`
+- **Description**: Generate and cache thumbnails for Sigils (images).
+- **Impact**: Improves gallery/preview performance, increases storage usage.
+- **Implementation**: Generate thumbnails on upload/first view.
+- **Use Cases**:
+  - Image-heavy notebooks
+  - Gallery views
+  - Reduced for storage-constrained devices
+
+#### **FEATURE_ONBOARDING_V2**
+- **Type**: `boolean`
+- **Default**: `false`
+- **Description**: Enable experimental onboarding flow for new users.
+- **Use Case**: A/B testing UX improvements.
+- **Rollout**: Gradual percentage-based rollout for new users.
+
+### Developer & Debug Flags
+
+#### **FEATURE_DEBUG_CRYPTO**
+- **Type**: `boolean`
+- **Default**: `false`
+- **Description**: Enable detailed logging for cryptographic operations.
+- **Logged Operations**:
+  - Key derivation timing
+  - Encryption/decryption operations
+  - Crypto worker messages
+- **Use Cases**:
+  - Debugging crypto issues
+  - Performance profiling
+  - Security auditing
+
+#### **FEATURE_DEBUG_SYNC**
+- **Type**: `boolean`
+- **Default**: `false`
+- **Description**: Enable detailed logging for sync operations.
+- **Logged Operations**:
+  - Sync triggers and intervals
+  - Conflict detection and resolution
+  - Upload/download operations
+- **Use Cases**:
+  - Debugging sync issues
+  - Understanding sync behavior
+  - Troubleshooting conflicts
+
+#### **FEATURE_DEBUG_STORAGE**
+- **Type**: `boolean`
+- **Default**: `false`
+- **Description**: Enable detailed logging for storage operations (OPFS, IndexedDB).
+- **Logged Operations**:
+  - File read/write operations
+  - Cache hits/misses
+  - Storage quota usage
+- **Use Cases**:
+  - Debugging storage issues
+  - Cache performance analysis
+  - Storage capacity planning
+
+#### **FEATURE_PERFORMANCE_METRICS**
+- **Type**: `boolean`
+- **Default**: `false`
+- **Description**: Collect and report timing data for operations.
+- **Metrics Collected**:
+  - KDF derivation time
+  - Encryption/decryption duration
+  - Network request latency
+  - Sync operation timing
+- **Impact**: Helps identify performance bottlenecks in production.
+- **Use Cases**:
+  - Performance monitoring
+  - User experience optimization
+  - Capacity planning
+
+#### **FEATURE_STORAGE_BACKEND**
+- **Type**: `'default' | 's3' | 'cloudflare-r2' | 'azure-blob' | 'custom'`
+- **Default**: `'default'`
+- **Description**: Configurable object storage backend.
+- **Use Cases**:
+  - Multi-cloud support
+  - Self-hosted deployments
+  - Cost optimization across providers
+  - Geographic redundancy
