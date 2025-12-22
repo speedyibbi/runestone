@@ -8,7 +8,7 @@ import type { RootMeta, NotebookMeta } from '@/interfaces/meta'
 /**
  * CacheService manages local OPFS cache for notebook data
  * Stores root-level files (meta.json, map.json.enc) and notebook-level files
- * 
+ *
  * OPFS structure (security-enhanced):
  *   <SHA256(opfs:lookup_hash)>/      # Hashed to prevent direct lookupHash exposure
  *     meta.json                         # Root meta (unencrypted)
@@ -95,7 +95,10 @@ export default class CacheService {
   /**
    * Upsert encrypted map.json.enc to cache
    */
-  static async upsertMap(lookupHash: string, encryptedMap: ArrayBuffer | Uint8Array): Promise<void> {
+  static async upsertMap(
+    lookupHash: string,
+    encryptedMap: ArrayBuffer | Uint8Array,
+  ): Promise<void> {
     const path = this.buildPath(lookupHash, { type: 'map' })
     await OPFSService.upsertFile(path, encryptedMap)
   }
@@ -111,7 +114,10 @@ export default class CacheService {
   /**
    * Get notebook meta.json from cache (unencrypted)
    */
-  static async getNotebookMeta(lookupHash: string, notebookId: string): Promise<NotebookMeta | null> {
+  static async getNotebookMeta(
+    lookupHash: string,
+    notebookId: string,
+  ): Promise<NotebookMeta | null> {
     const path = this.buildPath(lookupHash, { type: 'notebookMeta', notebookId })
     const data = await OPFSService.getFile(path)
 
@@ -127,7 +133,11 @@ export default class CacheService {
   /**
    * Upsert notebook meta.json to cache (unencrypted)
    */
-  static async upsertNotebookMeta(lookupHash: string, notebookId: string, meta: NotebookMeta): Promise<void> {
+  static async upsertNotebookMeta(
+    lookupHash: string,
+    notebookId: string,
+    meta: NotebookMeta,
+  ): Promise<void> {
     const path = this.buildPath(lookupHash, { type: 'notebookMeta', notebookId })
     const serialized = MetaService.serializeNotebookMeta(meta)
     const metaText = JSON.stringify(serialized, null, 2)
@@ -174,7 +184,11 @@ export default class CacheService {
   /**
    * Get encrypted blob from cache
    */
-  static async getBlob(lookupHash: string, notebookId: string, uuid: string): Promise<ArrayBuffer | null> {
+  static async getBlob(
+    lookupHash: string,
+    notebookId: string,
+    uuid: string,
+  ): Promise<ArrayBuffer | null> {
     const path = this.buildPath(lookupHash, { type: 'blob', notebookId, uuid })
     return await OPFSService.getFile(path)
   }

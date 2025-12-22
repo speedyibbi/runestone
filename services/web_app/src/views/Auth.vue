@@ -44,13 +44,13 @@ function handleEmailSubmit() {
     toast.error('Email cannot be empty')
     return
   }
-  
+
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   if (!emailRegex.test(email.value.trim())) {
     toast.error('Please enter a valid email address')
     return
   }
-  
+
   currentStep.value = 'passphrase'
 }
 
@@ -61,18 +61,18 @@ async function handlePassphraseSubmit() {
     passphraseInput.value?.focus()
     return
   }
-  
+
   isLoading.value = true
-  
+
   try {
     const combinedAuth = `${email.value}|${passphrase.value}`
     await sessionStore.setup(combinedAuth)
-    
+
     toast.success('Session initialized successfully')
     router.push('/select-codex')
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : 'Failed to initialize session'
-    
+
     if (errorMessage.includes('decrypt') || errorMessage.includes('passphrase')) {
       toast.error('Incorrect passphrase. Please try again.')
     } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
@@ -82,7 +82,7 @@ async function handlePassphraseSubmit() {
     } else {
       toast.error(errorMessage)
     }
-    
+
     console.error('Authentication error:', err)
     hasError.value = true
   } finally {
@@ -123,7 +123,7 @@ function handleBack() {
             />
           </div>
         </div>
-        
+
         <!-- Passphrase input step -->
         <div v-else key="passphrase" class="input-wrapper">
           <div class="input-container-relative">
@@ -137,15 +137,17 @@ function handleBack() {
             />
             <div v-if="isLoading" class="loading-pulse"></div>
           </div>
-          
+
           <!-- Back button -->
-          <button 
-            v-if="!isLoading"
-            class="back-button" 
-            @click="handleBack"
-          >
-            <svg class="arrow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M19 12H5M12 19l-7-7 7-7"/>
+          <button v-if="!isLoading" class="back-button" @click="handleBack">
+            <svg
+              class="arrow-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M19 12H5M12 19l-7-7 7-7" />
             </svg>
             Back
           </button>

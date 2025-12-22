@@ -93,7 +93,10 @@ export default class OrchestrationService {
     const encryptedMap = await CryptoService.encryptAndPack(mapBytes, mek)
 
     // Step 7: Cache both locally in parallel
-    await Promise.all([CacheService.upsertRootMeta(lookupHash, rootMeta), CacheService.upsertMap(lookupHash, encryptedMap)])
+    await Promise.all([
+      CacheService.upsertRootMeta(lookupHash, rootMeta),
+      CacheService.upsertMap(lookupHash, encryptedMap),
+    ])
 
     return {
       rootMeta,
@@ -199,7 +202,10 @@ export default class OrchestrationService {
     }
 
     // Step 5: Cache both locally for future use
-    await Promise.all([CacheService.upsertRootMeta(lookupHash, rootMeta), CacheService.upsertMap(lookupHash, encryptedMap)])
+    await Promise.all([
+      CacheService.upsertRootMeta(lookupHash, rootMeta),
+      CacheService.upsertMap(lookupHash, encryptedMap),
+    ])
 
     return {
       rootMeta,
@@ -528,7 +534,12 @@ export default class OrchestrationService {
    * Get a blob from a notebook
    * Retrieves and decrypts the blob from cache
    */
-  static async getBlob(notebookId: string, uuid: string, lookupHash: string, fek: CryptoKey): Promise<GetBlobResult> {
+  static async getBlob(
+    notebookId: string,
+    uuid: string,
+    lookupHash: string,
+    fek: CryptoKey,
+  ): Promise<GetBlobResult> {
     // Step 1: Get encrypted blob from cache
     const encryptedBlob = await CacheService.getBlob(lookupHash, notebookId, uuid)
 

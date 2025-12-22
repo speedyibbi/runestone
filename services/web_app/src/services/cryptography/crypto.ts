@@ -6,7 +6,7 @@ import { cryptoWorker } from '@/services/cryptography/crypto-worker-client'
  * CryptoService handles all encryption/decryption operations
  * Uses Argon2id/PBKDF2 for key derivation and AES-256-GCM for encryption
  * Heavy computations are offloaded to a dedicated Web Worker
- * 
+ *
  * When FEATURE_CRYPTOGRAPHY is disabled, all operations pass through data unencrypted
  */
 export default class CryptoService {
@@ -148,7 +148,7 @@ export default class CryptoService {
       return {
         ciphertext: keyData,
         nonce: new Uint8Array(12), // Dummy nonce
-        tag: new Uint8Array(16),    // Dummy tag
+        tag: new Uint8Array(16), // Dummy tag
       }
     }
 
@@ -187,7 +187,7 @@ export default class CryptoService {
         data.byteOffset,
         data.byteOffset + data.byteLength,
       ) as ArrayBuffer
-      
+
       return await crypto.subtle.importKey(
         'raw',
         keyBuffer,
@@ -223,7 +223,7 @@ export default class CryptoService {
       return {
         ciphertext: dataBuffer,
         nonce: new Uint8Array(12), // Dummy nonce
-        tag: new Uint8Array(16),    // Dummy tag
+        tag: new Uint8Array(16), // Dummy tag
       }
     }
 

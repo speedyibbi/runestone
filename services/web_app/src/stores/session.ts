@@ -348,7 +348,12 @@ export const useSessionStore = defineStore('session', () => {
     }
 
     // Get blob data
-    const result = await OrchestrationService.getBlob(codexId, runeId, lookupHash.value!, notebook.value.fek)
+    const result = await OrchestrationService.getBlob(
+      codexId,
+      runeId,
+      lookupHash.value!,
+      notebook.value.fek,
+    )
 
     // Convert ArrayBuffer to string (markdown)
     const decoder = new TextDecoder('utf-8')
@@ -432,7 +437,12 @@ export const useSessionStore = defineStore('session', () => {
       data = encoder.encode(updates.content)
     } else {
       // Content not changed, fetch existing content
-      const result = await OrchestrationService.getBlob(codexId, runeId, lookupHash.value!, notebook.value.fek)
+      const result = await OrchestrationService.getBlob(
+        codexId,
+        runeId,
+        lookupHash.value!,
+        notebook.value.fek,
+      )
       data = new Uint8Array(result.data)
     }
 
@@ -548,7 +558,12 @@ export const useSessionStore = defineStore('session', () => {
     }
 
     // Get blob data
-    const result = await OrchestrationService.getBlob(codexId, sigilId, lookupHash.value!, notebook.value.fek)
+    const result = await OrchestrationService.getBlob(
+      codexId,
+      sigilId,
+      lookupHash.value!,
+      notebook.value.fek,
+    )
 
     return result.data
   }
@@ -671,7 +686,12 @@ export const useSessionStore = defineStore('session', () => {
     }
 
     // Get blob data
-    const result = await OrchestrationService.getBlob(codexId, sigilId, lookupHash.value!, notebook.value.fek)
+    const result = await OrchestrationService.getBlob(
+      codexId,
+      sigilId,
+      lookupHash.value!,
+      notebook.value.fek,
+    )
 
     // Infer MIME type from file extension (basic detection)
     const ext = entry.title.split('.').pop()?.toLowerCase()
