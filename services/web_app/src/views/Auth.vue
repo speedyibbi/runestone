@@ -9,24 +9,24 @@ const router = useRouter()
 const sessionStore = useSessionStore()
 const toast = useToast()
 
-const email = ref('')
+const username = ref('')
 const passphrase = ref('')
-const currentStep = ref<'email' | 'passphrase'>('email')
+const currentStep = ref<'username' | 'passphrase'>('username')
 const isLoading = ref(false)
-const emailInput = ref<HTMLInputElement | null>(null)
+const usernameInput = ref<HTMLInputElement | null>(null)
 const passphraseInput = ref<HTMLInputElement | null>(null)
 const hasError = ref(false)
 
 onMounted(async () => {
   await nextTick()
-  emailInput.value?.focus()
+  usernameInput.value?.focus()
 })
 
 function handleTransitionComplete() {
   if (currentStep.value === 'passphrase') {
     passphraseInput.value?.focus()
-  } else if (currentStep.value === 'email') {
-    emailInput.value?.focus()
+  } else if (currentStep.value === 'username') {
+    usernameInput.value?.focus()
   }
 }
 
@@ -39,15 +39,9 @@ watch(isLoading, async (loading) => {
   }
 })
 
-function handleEmailSubmit() {
-  if (!email.value.trim()) {
-    toast.error('Email cannot be empty')
-    return
-  }
-
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  if (!emailRegex.test(email.value.trim())) {
-    toast.error('Please enter a valid email address')
+function handleUsernameSubmit() {
+  if (!username.value.trim()) {
+    toast.error('Username cannot be empty')
     return
   }
 
@@ -65,7 +59,7 @@ async function handlePassphraseSubmit() {
   isLoading.value = true
 
   try {
-    const combinedAuth = `${email.value}|${passphrase.value}`
+    const combinedAuth = `${username.value}|${passphrase.value}`
     await sessionStore.setup(combinedAuth)
 
     toast.success('Session initialized successfully')
@@ -92,8 +86,8 @@ async function handlePassphraseSubmit() {
 
 function handleKeydown(event: KeyboardEvent) {
   if (event.key === 'Enter' && !isLoading.value) {
-    if (currentStep.value === 'email') {
-      handleEmailSubmit()
+    if (currentStep.value === 'username') {
+      handleUsernameSubmit()
     } else {
       handlePassphraseSubmit()
     }
@@ -102,7 +96,7 @@ function handleKeydown(event: KeyboardEvent) {
 
 // Handle back button
 function handleBack() {
-  currentStep.value = 'email'
+  currentStep.value = 'username'
   passphrase.value = ''
 }
 </script>
@@ -111,14 +105,14 @@ function handleBack() {
   <main>
     <div class="input-container">
       <FadeTransition mode="out-in" @after-enter="handleTransitionComplete">
-        <!-- Email input step -->
-        <div v-if="currentStep === 'email'" key="email" class="input-wrapper">
+        <!-- Username input step -->
+        <div v-if="currentStep === 'username'" key="username" class="input-wrapper">
           <div class="input-container-relative">
             <input
-              ref="emailInput"
-              v-model="email"
-              type="email"
-              placeholder="Email"
+              ref="usernameInput"
+              v-model="username"
+              type="text"
+              placeholder="Username"
               @keydown="handleKeydown"
             />
           </div>
