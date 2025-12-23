@@ -91,6 +91,10 @@ export const config = Object.freeze({
         version: Number(process.env.NOTEBOOK_MANIFEST_VERSION) ?? 1,
       },
     },
+    localStorage: {
+        key: process.env.LOCAL_STORAGE_KEY ?? 'local_data',
+        expiration: Number(process.env.LOCAL_STORAGE_EXPIRATION) ?? 7, // days
+    },
   },
 });
 
