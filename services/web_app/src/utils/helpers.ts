@@ -54,3 +54,38 @@ export function base64ToArrayBuffer(base64: string): ArrayBuffer {
   const bytes = fromBase64(base64)
   return toArrayBuffer(bytes)
 }
+
+/**
+ * Username storage utilities using localStorage
+ */
+const STORAGE_KEY = __APP_CONFIG__.localStorage.key
+const EXPIRATION_DAYS = __APP_CONFIG__.localStorage.expiration
+
+/**
+ * Save username to localStorage
+ */
+export function saveUsername(username: string): void {
+  const expirationDate = new Date()
+  expirationDate.setDate(expirationDate.getDate() + EXPIRATION_DAYS)
+  
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ username, expirationDate }))
+}
+
+/**
+ * Get username from localStorage
+ * Returns null if username doesn't exist or has expired
+ */
+export function getSavedUsername(): string | null {
+  const { username, expirationDate } = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}')
+
+  if (!username) {
+    return null
+  }
+
+  if (new Date(expirationDate) < new Date()) {
+    localStorage.removeItem(STORAGE_KEY)
+    return null
+  }
+  
+  return username
+}

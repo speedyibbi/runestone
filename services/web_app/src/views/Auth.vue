@@ -3,6 +3,7 @@ import { ref, nextTick, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
 import { useToast } from '@/composables/useToast'
+import { getSavedUsername, saveUsername } from '@/utils/helpers'
 import FadeTransition from '@/components/base/FadeTransition.vue'
 import LoadingPulseInput from '@/components/base/LoadingPulseInput.vue'
 
@@ -20,6 +21,12 @@ const passphraseInput = ref<InstanceType<typeof LoadingPulseInput> | null>(null)
 const hasError = ref(false)
 
 onMounted(async () => {
+  // Load saved username
+  const savedUsername = getSavedUsername()
+  if (savedUsername) {
+    username.value = savedUsername
+  }
+  
   await nextTick()
   usernameInput.value?.focus()
 })
@@ -63,6 +70,9 @@ async function handlePassphraseSubmit() {
   try {
     const combinedAuth = `${username.value}|${passphrase.value}`
     await sessionStore.setup(combinedAuth, authMode.value)
+    
+    // Save username for next login
+    saveUsername(username.value)
     
     if (authMode.value === 'login') {
       toast.success('Logged in successfully')
