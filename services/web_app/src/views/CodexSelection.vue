@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useCodex } from '@/composables/useCodex'
 import { useToast } from '@/composables/useToast'
 import FadeTransition from '@/components/base/FadeTransition.vue'
+import LoadingPulseInput from '@/components/base/LoadingPulseInput.vue'
 
 const router = useRouter()
 const toast = useToast()
@@ -20,7 +21,7 @@ const isCreating = ref(false)
 const showCreateForm = ref(false)
 const newCodexTitle = ref('')
 const openingCodexId = ref<string | null>(null)
-const titleInput = ref<HTMLInputElement | null>(null)
+const titleInput = ref<InstanceType<typeof LoadingPulseInput> | null>(null)
 
 const hasCodexes = computed(() => codexes.value.length > 0)
 const isFewItems = computed(() => codexes.value.length <= 3)
@@ -149,17 +150,14 @@ onMounted(() => {
 
           <div class="content-area create-content">
             <div class="create-form">
-              <div class="input-container-relative">
-                <input
-                  ref="titleInput"
-                  v-model="newCodexTitle"
-                  type="text"
-                  placeholder="Codex title"
-                  :disabled="isCreating"
-                  @keydown="handleKeydown"
-                />
-                <div v-if="isCreating" class="loading-pulse"></div>
-              </div>
+              <LoadingPulseInput
+                ref="titleInput"
+                v-model="newCodexTitle"
+                type="text"
+                placeholder="Codex title"
+                :loading="isCreating"
+                @keydown="handleKeydown"
+              />
               <button
                 v-if="!isCreating"
                 class="back-button"
@@ -380,84 +378,6 @@ h1 {
   align-items: center;
   gap: 0.5rem;
   position: relative;
-}
-
-/* Container for input and loading animation */
-.input-container-relative {
-  position: relative;
-  width: 100%;
-  display: flex;
-  justify-content: center;
-}
-
-.create-form input {
-  width: 35rem;
-  max-width: 90vw;
-  padding: 1rem 0;
-  color: var(--color-foreground);
-  font-size: 1.1rem;
-  text-align: center;
-  border: none;
-  border-bottom: 0.1rem solid var(--color-accent);
-  background-color: transparent;
-  transition: border-bottom-color 0.2s ease;
-}
-
-.create-form input::placeholder {
-  color: var(--color-accent);
-}
-
-.create-form input:focus {
-  outline: none;
-  border-bottom-color: var(--color-foreground);
-}
-
-.create-form input:disabled {
-  cursor: not-allowed;
-  color: var(--color-accent);
-  opacity: 0.6;
-  border-bottom-color: var(--color-accent);
-}
-
-/* Loading pulse animation element */
-.loading-pulse {
-  position: absolute;
-  bottom: -0.1rem;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 100%;
-  max-width: 35rem;
-  height: 0.1rem;
-  background:
-    linear-gradient(90deg, transparent 0%, var(--color-foreground) 50%, transparent 100%),
-    linear-gradient(90deg, transparent 0%, var(--color-foreground) 50%, transparent 100%);
-  background-size:
-    40% 100%,
-    40% 100%;
-  background-position:
-    -150% 0,
-    -150% 0;
-  background-repeat: no-repeat;
-  animation: loading-pulse 2s ease-in-out infinite;
-  pointer-events: none;
-}
-
-@keyframes loading-pulse {
-  0% {
-    background-position:
-      -150% 0,
-      -150% 0;
-  }
-  50% {
-    background-position:
-      250% 0,
-      -150% 0;
-  }
-  100% {
-    background-position:
-      250% 0,
-      250% 0;
-  }
 }
 
 .back-button {
