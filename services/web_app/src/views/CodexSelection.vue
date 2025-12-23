@@ -1,69 +1,185 @@
 <script lang="ts" setup>
+import { ref, computed, onMounted, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
+import { useCodex } from '@/composables/useCodex'
+import { useToast } from '@/composables/useToast'
 import FadeTransition from '@/components/base/FadeTransition.vue'
+
+const router = useRouter()
+const toast = useToast()
+
+const {
+  codexes,
+  isLoadingCodex,
+  openCodex: openCodexComposable,
+  createCodex: createCodexComposable,
+  refreshCodexList,
+} = useCodex()
+
+const isCreating = ref(false)
+const showCreateForm = ref(false)
+const newCodexTitle = ref('')
+const openingCodexId = ref<string | null>(null)
+const titleInput = ref<HTMLInputElement | null>(null)
+
+const hasCodexes = computed(() => codexes.value.length > 0)
+const isFewItems = computed(() => codexes.value.length <= 3)
+
+async function openCodex(codexId: string) {
+  openingCodexId.value = codexId
+  
+  try {
+    await openCodexComposable(codexId)
+    
+    router.push(`/codex/${codexId}`)
+  } catch (err) {
+    console.error('Error opening codex:', err)
+    openingCodexId.value = null
+  }
+}
+
+function showCreate() {
+  showCreateForm.value = true
+  nextTick(() => {
+    titleInput.value?.focus()
+  })
+}
+
+function cancelCreate() {
+  showCreateForm.value = false
+  newCodexTitle.value = ''
+}
+
+async function createCodex() {
+  if (!newCodexTitle.value.trim()) {
+    toast.error('Codex title cannot be empty')
+    await nextTick()
+    titleInput.value?.focus()
+    return
+  }
+  
+  isCreating.value = true
+  
+  try {
+    const codexId = await createCodexComposable(newCodexTitle.value.trim())
+    
+    newCodexTitle.value = ''
+    showCreateForm.value = false
+  } catch (err) {
+    console.error('Error creating codex:', err)
+  } finally {
+    isCreating.value = false
+  }
+}
+
+function handleKeydown(event: KeyboardEvent) {
+  if (event.key === 'Enter' && !isCreating.value) {
+    createCodex()
+  } else if (event.key === 'Escape') {
+    cancelCreate()
+  }
+}
+
+function handleTransitionComplete() {
+  if (showCreateForm.value) {
+    titleInput.value?.focus()
+  }
+}
+
+onMounted(() => {
+  refreshCodexList()
+})
 </script>
 
 <template>
   <main>
     <div class="container">
-      <h1>
-        <FadeTransition mode="out-in">
-          <span key="select">Select a Codex</span>
-        </FadeTransition>
-      </h1>
+      <FadeTransition mode="out-in" @after-enter="handleTransitionComplete">
+        <!-- List View -->
+        <div v-if="!showCreateForm" key="list-view" class="view">
+          <h1>Select a Codex</h1>
 
-      <!-- Main Content Area -->
-      <div class="content-area">
-        <FadeTransition mode="out-in">
-          <div key="list-view" class="list-view">
+          <!-- Main Content Area -->
+          <div class="content-area">
             <!-- Codex List -->
-            <div class="codex-list">
-              <div class="codex-item-wrapper">
-                <button class="codex-item">
-                  <div class="codex-title">Sample Codex</div>
-                  <div class="codex-uuid">123e4567-e89b-12d3-a456-426614174000</div>
-                </button>
-              </div>
-              <div class="codex-item-wrapper">
-                <button class="codex-item">
-                  <div class="codex-title">Another Codex</div>
-                  <div class="codex-uuid">987fcdeb-51a2-43f1-b789-123456789abc</div>
+            <div v-if="hasCodexes" :class="['codex-list', { 'few-items': isFewItems }]">
+              <div
+                v-for="codex in codexes"
+                :key="codex.uuid"
+                class="codex-item-wrapper"
+              >
+                <button
+                  :class="['codex-item', { loading: openingCodexId === codex.uuid }]"
+                  :disabled="openingCodexId !== null"
+                  @click="openCodex(codex.uuid)"
+                >
+                  <div class="codex-title">{{ codex.title }}</div>
+                  <div class="codex-uuid">{{ codex.uuid }}</div>
+                  <div v-if="openingCodexId === codex.uuid" class="loading-pulse-codex"></div>
                 </button>
               </div>
             </div>
 
             <!-- Empty State -->
-            <!-- <div class="empty-state">
-              <p>No codexes yet. Create your first one!</p>
-            </div> -->
+            <div v-else-if="!isLoadingCodex" class="empty-state">
+              <p>No codexes yet.</p>
+            </div>
+
+            <!-- Loading State -->
+            <div v-else class="empty-state">
+              <p>Loading codexes...</p>
+            </div>
           </div>
 
-          <!-- Form View -->
-          <!-- <div key="form-view" class="form-view">
-          </div> -->
-        </FadeTransition>
-      </div>
-
-      <!-- Create Section with Fixed Height -->
-      <div class="create-section">
-        <FadeTransition mode="out-in">
-          <!-- Create Codex Form -->
-          <!-- <div key="form" class="create-form">
-            <div class="input-container-relative">
-              <input
-                type="text"
-                placeholder="Codex title"
-              />
-              <div class="loading-pulse"></div>
-            </div>
-            <button class="back-button">
-              ← Back
-            </button>
-          </div> -->
-
           <!-- Create Button -->
-          <button key="button" class="create-button">+ Create New Codex</button>
-        </FadeTransition>
-      </div>
+          <div class="create-section">
+            <button
+              class="create-button"
+              :disabled="openingCodexId !== null"
+              @click="showCreate"
+            >
+              + Create New Codex
+            </button>
+          </div>
+        </div>
+
+        <!-- Create View -->
+        <div v-else key="create-view" class="view">
+          <h1>Create a Codex</h1>
+
+          <div class="content-area create-content">
+            <div class="create-form">
+              <div class="input-container-relative">
+                <input
+                  ref="titleInput"
+                  v-model="newCodexTitle"
+                  type="text"
+                  placeholder="Codex title"
+                  :disabled="isCreating"
+                  @keydown="handleKeydown"
+                />
+                <div v-if="isCreating" class="loading-pulse"></div>
+              </div>
+              <button
+                v-if="!isCreating"
+                class="back-button"
+                @click="cancelCreate"
+              >
+                <svg
+                  class="arrow-icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M19 12H5M12 19l-7-7 7-7" />
+                </svg>
+                Back
+              </button>
+            </div>
+          </div>
+        </div>
+      </FadeTransition>
     </div>
   </main>
 </template>
@@ -85,6 +201,13 @@ main {
   flex-direction: column;
 }
 
+.view {
+  width: 100%;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
 h1 {
   font-size: 2rem;
   margin-bottom: 2rem;
@@ -100,22 +223,21 @@ h1 {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  position: relative;
-}
-
-.list-view,
-.form-view {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
   padding: 0 2rem;
   overflow-y: auto;
   overflow-x: hidden;
+  position: relative;
 
   /* Hide scrollbar */
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE and Edge */
+}
+
+.create-content {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: visible;
 }
 
 .codex-list {
@@ -244,14 +366,13 @@ h1 {
   flex-shrink: 0;
 }
 
-/* Fixed height container to prevent layout shift */
 .create-section {
   flex-shrink: 0;
   width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  position: relative;
+  padding: 2rem 0;
 }
 
 .create-form {
@@ -259,6 +380,7 @@ h1 {
   flex-direction: column;
   align-items: center;
   gap: 0.5rem;
+  position: relative;
 }
 
 /* Container for input and loading animation */
@@ -271,6 +393,7 @@ h1 {
 
 .create-form input {
   width: 35rem;
+  max-width: 90vw;
   padding: 1rem 0;
   color: var(--color-foreground);
   font-size: 1.1rem;
@@ -303,7 +426,8 @@ h1 {
   bottom: -0.1rem;
   left: 50%;
   transform: translateX(-50%);
-  width: 35rem;
+  width: 100%;
+  max-width: 35rem;
   height: 0.1rem;
   background:
     linear-gradient(90deg, transparent 0%, var(--color-foreground) 50%, transparent 100%),
@@ -349,10 +473,18 @@ h1 {
   bottom: 0;
   left: 50%;
   transform: translate(-50%, 150%);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .back-button:hover {
   color: var(--color-foreground);
+}
+
+.arrow-icon {
+  width: 1rem;
+  height: 1rem;
 }
 
 .create-button {
@@ -366,6 +498,7 @@ h1 {
   transition: all 0.2s ease;
   letter-spacing: -0.01em;
   width: 35rem;
+  max-width: 90vw;
 }
 
 .create-button:not(:disabled):hover {

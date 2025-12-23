@@ -67,14 +67,16 @@ async function handlePassphraseSubmit() {
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : 'Failed to initialize session'
 
-    if (errorMessage.includes('decrypt') || errorMessage.includes('passphrase')) {
-      toast.error('Incorrect passphrase. Please try again.')
-    } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
-      toast.error('Network error. Please check your connection.')
-    } else if (errorMessage.includes('crypto')) {
-      toast.error('Cryptography error. Please try again.')
+    if (errorMessage.includes('decrypt') || errorMessage.includes('passphrase') || errorMessage.includes('invalid')) {
+      toast.error('Wrong passphrase. Please try again.')
+    } else if (errorMessage.includes('network') || errorMessage.includes('fetch') || errorMessage.includes('connection')) {
+      toast.error('Unable to connect. Please check your internet.')
+    } else if (errorMessage.includes('timeout')) {
+      toast.error('Request timed out. Please try again.')
+    } else if (errorMessage.includes('not found') || errorMessage.includes('404')) {
+      toast.error('Account not found.')
     } else {
-      toast.error(errorMessage)
+      toast.error('Something went wrong. Please try again.')
     }
 
     console.error('Authentication error:', err)
@@ -94,7 +96,6 @@ function handleKeydown(event: KeyboardEvent) {
   }
 }
 
-// Handle back button
 function handleBack() {
   currentStep.value = 'username'
   passphrase.value = ''
