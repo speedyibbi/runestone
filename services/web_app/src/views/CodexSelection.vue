@@ -429,4 +429,22 @@ h1 {
   cursor: not-allowed;
   opacity: 0.5;
 }
+
+@keyframes loading-pulse {
+  0% {
+    background-position:
+      -150% 0,
+      -150% 0;
+  }
+  50% {
+    background-position:
+      250% 0,
+      -150% 0;
+  }
+  100% {
+    background-position:
+      250% 0,
+      250% 0;
+  }
+}
 </style>
