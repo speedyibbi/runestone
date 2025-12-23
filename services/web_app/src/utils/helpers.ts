@@ -10,18 +10,29 @@ export function toArrayBuffer(data: ArrayBuffer | Uint8Array): ArrayBuffer {
 }
 
 /**
- * Convert Uint8Array or ArrayBuffer to base64 string
+ * Convert Uint8Array or ArrayBuffer to base64 string (URL-safe)
+ * Uses URL-safe base64 encoding (replaces + with -, / with _, removes =)
+ * to ensure compatibility with file system paths and URLs
  */
 export function toBase64(data: Uint8Array | ArrayBuffer): string {
   const bytes = data instanceof ArrayBuffer ? new Uint8Array(data) : data
-  return btoa(String.fromCharCode(...bytes))
+  const base64 = btoa(String.fromCharCode(...bytes))
+  // Convert to URL-safe base64: replace + with -, / with _, remove =
+  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
 }
 
 /**
- * Convert base64 string to Uint8Array
+ * Convert base64 string to Uint8Array (handles URL-safe base64)
+ * Converts URL-safe base64 back to standard base64 before decoding
  */
 export function fromBase64(base64: string): Uint8Array {
-  const binary = atob(base64)
+  // Convert URL-safe base64 back to standard base64
+  let standardBase64 = base64.replace(/-/g, '+').replace(/_/g, '/')
+  // Add padding if needed
+  while (standardBase64.length % 4) {
+    standardBase64 += '='
+  }
+  const binary = atob(standardBase64)
   const bytes = new Uint8Array(binary.length)
   for (let i = 0; i < binary.length; i++) {
     bytes[i] = binary.charCodeAt(i)

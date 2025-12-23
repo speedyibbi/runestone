@@ -75,6 +75,8 @@ async function handlePassphraseSubmit() {
       toast.error('Request timed out. Please try again.')
     } else if (errorMessage.includes('not found') || errorMessage.includes('404')) {
       toast.error('Account not found.')
+    } else if (errorMessage.includes('OPFS') || errorMessage.includes('storage') || errorMessage.includes('directory')) {
+      toast.error('Storage error. Please try refreshing the page.')
     } else {
       toast.error('Something went wrong. Please try again.')
     }
@@ -104,8 +106,11 @@ function handleBack() {
 
 <template>
   <main>
-    <div class="input-container">
-      <FadeTransition mode="out-in" @after-enter="handleTransitionComplete">
+    <div class="container">
+      <h1>Sign / Log In</h1>
+      
+      <div class="input-container">
+        <FadeTransition mode="out-in" @after-enter="handleTransitionComplete">
         <!-- Username input step -->
         <div v-if="currentStep === 'username'" key="username" class="input-wrapper">
           <div class="input-container-relative">
@@ -148,6 +153,7 @@ function handleBack() {
           </button>
         </div>
       </FadeTransition>
+      </div>
     </div>
   </main>
 </template>
@@ -159,6 +165,21 @@ main {
   display: flex;
   justify-content: center;
   align-items: center;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+h1 {
+  font-size: 2rem;
+  margin-bottom: 2rem;
+  color: var(--color-foreground);
+  text-align: center;
+  font-weight: 400;
+  letter-spacing: -0.02em;
 }
 
 .input-container {
