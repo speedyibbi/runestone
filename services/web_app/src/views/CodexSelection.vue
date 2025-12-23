@@ -61,7 +61,7 @@ async function createCodex() {
   isCreating.value = true
   
   try {
-    const codexId = await createCodexComposable(newCodexTitle.value.trim())
+    await createCodexComposable(newCodexTitle.value.trim())
     
     newCodexTitle.value = ''
     showCreateForm.value = false
@@ -361,7 +361,6 @@ h1 {
   text-align: center;
   padding: 2rem 0;
   color: var(--color-accent);
-  margin-bottom: 3rem;
   font-size: 0.9rem;
   flex-shrink: 0;
 }

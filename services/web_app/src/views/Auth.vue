@@ -9,6 +9,7 @@ const router = useRouter()
 const sessionStore = useSessionStore()
 const toast = useToast()
 
+const authMode = ref<'login' | 'signup'>('login')
 const username = ref('')
 const passphrase = ref('')
 const currentStep = ref<'username' | 'passphrase'>('username')
@@ -60,25 +61,33 @@ async function handlePassphraseSubmit() {
 
   try {
     const combinedAuth = `${username.value}|${passphrase.value}`
-    await sessionStore.setup(combinedAuth)
+    await sessionStore.setup(combinedAuth, authMode.value)
+    
+    if (authMode.value === 'login') {
+      toast.success('Logged in successfully')
+    } else {
+      toast.success('Account created successfully')
+    }
 
-    toast.success('Session initialized successfully')
     router.push('/select-codex')
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : 'Failed to initialize session'
 
-    if (errorMessage.includes('decrypt') || errorMessage.includes('passphrase') || errorMessage.includes('invalid')) {
+    // Handle specific error messages
+    if (errorMessage.includes('already exists')) {
+      toast.error('Account already exists. Please log in instead.')
+    } else if (errorMessage.includes('not found') || errorMessage.includes('does not exist')) {
+      toast.error('Account not found. Please check your credentials.')
+    } else if (errorMessage.includes('decrypt') || errorMessage.includes('passphrase') || errorMessage.includes('invalid')) {
       toast.error('Wrong passphrase. Please try again.')
     } else if (errorMessage.includes('network') || errorMessage.includes('fetch') || errorMessage.includes('connection')) {
       toast.error('Unable to connect. Please check your internet.')
     } else if (errorMessage.includes('timeout')) {
       toast.error('Request timed out. Please try again.')
-    } else if (errorMessage.includes('not found') || errorMessage.includes('404')) {
-      toast.error('Account not found.')
     } else if (errorMessage.includes('OPFS') || errorMessage.includes('storage') || errorMessage.includes('directory')) {
       toast.error('Storage error. Please try refreshing the page.')
     } else {
-      toast.error('Something went wrong. Please try again.')
+      toast.error(errorMessage || 'Something went wrong. Please try again.')
     }
 
     console.error('Authentication error:', err)
@@ -102,12 +111,41 @@ function handleBack() {
   currentStep.value = 'username'
   passphrase.value = ''
 }
+
+function switchMode(mode: 'login' | 'signup') {
+  if (authMode.value === mode) return
+  
+  authMode.value = mode
+  currentStep.value = 'username'
+  username.value = ''
+  passphrase.value = ''
+  
+  nextTick(() => {
+    usernameInput.value?.focus()
+  })
+}
 </script>
 
 <template>
   <main>
     <div class="container">
-      <h1>Sign / Log In</h1>
+      <h1>
+        <button
+          type="button"
+          :class="['mode-text', { active: authMode === 'login', inactive: authMode !== 'login' }]"
+          @click="switchMode('login')"
+        >
+          Log In
+        </button>
+        <span class="mode-separator">/</span>
+        <button
+          type="button"
+          :class="['mode-text', { active: authMode === 'signup', inactive: authMode !== 'signup' }]"
+          @click="switchMode('signup')"
+        >
+          Sign Up
+        </button>
+      </h1>
       
       <div class="input-container">
         <FadeTransition mode="out-in" @after-enter="handleTransitionComplete">
@@ -171,6 +209,8 @@ main {
   display: flex;
   flex-direction: column;
   align-items: center;
+  width: 100%;
+  max-width: 40rem;
 }
 
 h1 {
@@ -180,14 +220,58 @@ h1 {
   text-align: center;
   font-weight: 400;
   letter-spacing: -0.02em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
 }
 
+.mode-text {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: inherit;
+  font-family: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  transition: color 0.25s ease, opacity 0.25s ease;
+  user-select: none;
+}
+
+.mode-text.active {
+  color: var(--color-foreground);
+}
+
+.mode-text.inactive {
+  color: var(--color-accent);
+  opacity: 0.6;
+}
+
+.mode-text.inactive:hover {
+  opacity: 1;
+}
+
+.mode-text:focus-visible {
+  outline: 0.125rem solid var(--color-foreground);
+  outline-offset: 0.25rem;
+  opacity: 1;
+}
+
+.mode-separator {
+  color: var(--color-accent);
+  opacity: 0.4;
+  user-select: none;
+}
+
+/* Input Container */
 .input-container {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 1rem;
   position: relative;
+  width: 100%;
 }
 
 .input-wrapper {
@@ -195,10 +279,12 @@ h1 {
   flex-direction: column;
   align-items: center;
   gap: 0.5rem;
+  width: 100%;
 }
 
 input {
   width: 35rem;
+  max-width: 90vw;
   padding: 1rem 0;
   color: var(--color-foreground);
   font-size: 1.1rem;
@@ -240,6 +326,7 @@ input:disabled {
   left: 50%;
   transform: translateX(-50%);
   width: 35rem;
+  max-width: 90vw;
   height: 0.1rem;
   background:
     linear-gradient(90deg, transparent 0%, var(--color-foreground) 50%, transparent 100%),
@@ -273,6 +360,7 @@ input:disabled {
   }
 }
 
+/* Back Button */
 .back-button {
   background: none;
   border: none;
@@ -297,5 +385,13 @@ input:disabled {
 .arrow-icon {
   width: 1rem;
   height: 1rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 40rem) {
+  h1 {
+    font-size: 1.75rem;
+    gap: 0.4rem;
+  }
 }
 </style>

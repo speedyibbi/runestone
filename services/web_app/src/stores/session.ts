@@ -42,16 +42,20 @@ export const useSessionStore = defineStore('session', () => {
   // ==================== Session Management ====================
 
   /**
-   * Setup session - determines whether to bootstrap or initialize
-   * Handles three scenarios:
-   * 1. First time user: Initialize new account
-   * 2. Recurring user (same device): Bootstrap from cache
-   * 3. Recurring user (new device): Bootstrap from remote
+   * Setup session with explicit authentication mode
+   * mode: 'auto' | 'login' | 'signup'
+   * - 'auto': Automatic detection (login if exists, signup if not)
+   * - 'login': Must be existing user, fails if account not found
+   * - 'signup': Must be new user, fails if account already exists
    */
-  async function setup(userPassphrase: string, signal?: AbortSignal): Promise<void> {
+  async function setup(
+    userPassphrase: string,
+    mode: 'auto' | 'login' | 'signup' = 'auto',
+    signal?: AbortSignal,
+  ): Promise<void> {
     // If lookupHash is already set, return early
     if (lookupHash.value) {
-      throw new Error('Session already setup')
+      throw new Error('Session already active')
     }
 
     // IMPORTANT: Compute and set lookupHash immediately
@@ -64,7 +68,12 @@ export const useSessionStore = defineStore('session', () => {
       const existsInCache = await OrchestrationService.existsInCache(computedLookupHash)
 
       if (existsInCache) {
-        // Scenario 2: Recurring user (same device) - Bootstrap from cache
+        // User exists in cache
+        if (mode === 'signup') {
+          throw new Error('Account already exists. Please log in instead.')
+        }
+
+        // Bootstrap from cache (for both 'auto' and 'login' modes)
         const result = await OrchestrationService.bootstrapFromCache(computedLookupHash)
 
         // Update state
@@ -75,14 +84,24 @@ export const useSessionStore = defineStore('session', () => {
         const existsRemotely = await OrchestrationService.existsRemotely(signal)
 
         if (existsRemotely) {
-          // Scenario 3: Recurring user (new device) - Bootstrap from remote
+          // User exists remotely
+          if (mode === 'signup') {
+            throw new Error('Account already exists. Please log in instead.')
+          }
+
+          // Bootstrap from remote (for both 'auto' and 'login' modes)
           const result = await OrchestrationService.bootstrapFromRemote(computedLookupHash, signal)
 
           // Update state
           root.value.mek = result.mek
           root.value.map = result.map
         } else {
-          // Scenario 1: First time user - Initialize new account
+          // User does not exist
+          if (mode === 'login') {
+            throw new Error('Account not found. Please check your credentials or sign up.')
+          }
+
+          // Initialize new account (for both 'auto' and 'signup' modes)
           const result = await OrchestrationService.initialize(computedLookupHash)
 
           // Update state
