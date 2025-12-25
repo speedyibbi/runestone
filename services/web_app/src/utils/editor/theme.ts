@@ -10,7 +10,6 @@ export const minimalTheme = EditorView.theme(
   {
     '&': {
       color: 'var(--color-foreground)',
-      backgroundColor: 'var(--color-background)',
       fontFamily: 'var(--font-primary)',
       fontSize: '1rem',
       height: '100%',
@@ -194,7 +193,7 @@ export const minimalTheme = EditorView.theme(
     '.cm-blockquote-line': {
       borderLeft: '4px solid var(--color-accent)',
       paddingLeft: '1rem',
-      backgroundColor: 'var(--color-overlay-subtle)',
+      // backgroundColor: 'var(--color-overlay-subtle)',
       fontStyle: 'italic',
     },
 

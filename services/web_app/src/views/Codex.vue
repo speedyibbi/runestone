@@ -1,21 +1,92 @@
 <script lang="ts" setup>
-import { ref } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { useEditor } from '@/composables/useEditor'
+import { useCodex } from '@/composables/useCodex'
+import Explorer from '@/components/codex/Explorer.vue'
 import KeyboardShortcuts from '@/components/editor/KeyboardShortcuts.vue'
 import BubbleMenu from '@/components/editor/BubbleMenu.vue'
 
+const route = useRoute()
+
+// Editor setup
 const editorElement = ref<HTMLElement>()
 const { editorView, isPreviewMode, togglePreview } = useEditor(editorElement)
 
+// Codex setup
+const {
+  runes,
+  currentRune,
+  currentCodex,
+  isLoadingRune,
+  hasOpenRune,
+  openRune,
+  createRune,
+  refreshRuneList,
+} = useCodex(editorView)
+
+// Sidebar state
 const isSidebarCollapsed = ref(false)
 
 function toggleSidebar() {
   isSidebarCollapsed.value = !isSidebarCollapsed.value
 }
+
+// Computed
+const currentRuneId = computed(() => currentRune.value?.uuid ?? null)
+
+async function handleSelectRune(runeId: string) {
+  try {
+    await openRune(runeId)
+  } catch (err) {
+    console.error('Error opening rune:', err)
+  }
+}
+
+async function handleCreateRune(title: string) {
+  try {
+    const runeId = await createRune(title)
+    // Auto-open the newly created rune
+    await openRune(runeId)
+  } catch (err) {
+    console.error('Error creating rune:', err)
+  }
+}
+
+onMounted(() => {
+  refreshRuneList()
+  
+  const runeId = route.params.runeId as string | undefined
+  if (runeId) {
+    handleSelectRune(runeId)
+  }
+})
+
+// Watch route changes for runeId
+watch(
+  () => route.params.runeId,
+  (newRuneId) => {
+    if (newRuneId && typeof newRuneId === 'string') {
+      handleSelectRune(newRuneId)
+    }
+  },
+)
 </script>
 
 <template>
   <main>
+    <!-- Sidebar -->
+    <Explorer
+      :class="['sidebar', { collapsed: isSidebarCollapsed }]"
+      :runes="runes"
+      :current-rune-id="currentRuneId"
+      :is-loading="isLoadingRune"
+      :codex-title="currentCodex?.title"
+      @select-rune="handleSelectRune"
+      @create-rune="handleCreateRune"
+      @refresh="refreshRuneList"
+    />
+
     <!-- Sidebar Toggle Button -->
     <button
       class="sidebar-toggle"
@@ -54,13 +125,23 @@ function toggleSidebar() {
 
     <!-- Editor Panel -->
     <div class="editor-panel" :class="{ 'sidebar-collapsed': isSidebarCollapsed }">
+      <!-- Empty State -->
+      <div v-if="!hasOpenRune && !isLoadingRune" class="state-overlay">
+        <p class="empty-message">Select or create a rune to begin</p>
+      </div>
+
+      <!-- Loading State -->
+      <div v-else-if="isLoadingRune" class="state-overlay">
+        <p class="empty-message">Loading rune...</p>
+      </div>
+
       <!-- Editor -->
-      <div class="editor-container visible">
+      <div class="editor-container" :class="{ visible: hasOpenRune && !isLoadingRune }">
         <div ref="editorElement" class="editor"></div>
       </div>
 
       <!-- Preview Toggle Button -->
-      <div class="preview-toggle-container">
+      <div v-if="hasOpenRune" class="preview-toggle-container">
         <button
           class="preview-toggle"
           @click="togglePreview"
@@ -196,7 +277,6 @@ main {
   left: 0;
   width: 100%;
   height: 100%;
-  background: var(--color-background);
   z-index: 10;
   pointer-events: none;
   display: flex;
