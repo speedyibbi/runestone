@@ -580,6 +580,7 @@ export function useCodex(
 
   /**
    * Rename a rune
+   * If renaming a directory, also renames all children to update their paths
    */
   async function renameRune(runeId: string, newTitle: string): Promise<void> {
     clearError()
@@ -593,18 +594,58 @@ export function useCodex(
         throw new Error('Rune title cannot be empty')
       }
 
-      await sessionStore.updateRune(runeId, { title: newTitle.trim() })
+      const runeInfo = runes.value.find((r) => r.uuid === runeId)
+      if (!runeInfo) {
+        throw new Error(`Rune with ID ${runeId} not found`)
+      }
+
+      const oldTitle = runeInfo.title
+      const trimmedNewTitle = newTitle.trim()
+      const isDir = isDirectory(oldTitle)
+
+      // If renaming a directory, find all children and update their paths
+      if (isDir) {
+        // Get a snapshot of all runes before we start renaming
+        // This ensures we don't miss children if the list updates during the operation
+        const allRunes = [...runes.value]
+        
+        // Find all runes that are children of this directory
+        // Children have titles that start with the directory path
+        const children = allRunes.filter((r) => {
+          // Check if this rune is a child (starts with oldTitle)
+          // But not the directory itself
+          return r.title.startsWith(oldTitle) && r.uuid !== runeId
+        })
+
+        // Sort children by depth (shallowest first) to ensure parent directories are renamed before their children
+        const sortedChildren = [...children].sort((a, b) => {
+          const aDepth = a.title.split('/').length
+          const bDepth = b.title.split('/').length
+          return aDepth - bDepth
+        })
+
+        // Rename all children first (so parent directories are updated before their children)
+        for (const child of sortedChildren) {
+          // Replace the old directory path with the new one
+          const newChildTitle = child.title.replace(oldTitle, trimmedNewTitle)
+          await sessionStore.updateRune(child.uuid, { title: newChildTitle })
+        }
+      }
+
+      // Rename the rune itself
+      await sessionStore.updateRune(runeId, { title: trimmedNewTitle })
 
       // Update current rune if it's the one being renamed
       if (currentRune.value?.uuid === runeId) {
-        currentRune.value.title = newTitle.trim()
+        currentRune.value.title = trimmedNewTitle
       }
 
       // Refresh rune list
       refreshRuneList()
 
       if (showNotifications) {
-        toast.success('Note renamed')
+        const itemType = isDir ? 'directory' : 'note'
+        toast.success(`${itemType.charAt(0).toUpperCase() + itemType.slice(1)} renamed`)
       }
     } catch (err) {
       setError(err as Error)
@@ -614,6 +655,7 @@ export function useCodex(
 
   /**
    * Delete a rune
+   * If deleting a directory, also deletes all children recursively
    */
   async function deleteRune(runeId: string): Promise<void> {
     clearError()
@@ -624,8 +666,58 @@ export function useCodex(
       }
 
       const runeInfo = runes.value.find((r) => r.uuid === runeId)
-      const runeTitle = runeInfo?.title || 'Unknown'
+      if (!runeInfo) {
+        throw new Error(`Rune with ID ${runeId} not found`)
+      }
 
+      const runeTitle = runeInfo.title
+      const isDir = isDirectory(runeTitle)
+
+      // If deleting a directory, find all children and delete them first
+      if (isDir) {
+        // Get a snapshot of all runes before we start deleting
+        // This ensures we don't miss children if the list updates during the operation
+        const allRunes = [...runes.value]
+        
+        // Find all runes that are children of this directory
+        // Children have titles that start with the directory path
+        const children = allRunes.filter((r) => {
+          // Check if this rune is a child (starts with runeTitle)
+          // But not the directory itself
+          return r.title.startsWith(runeTitle) && r.uuid !== runeId
+        })
+
+        // Sort children by depth (deepest first) to ensure children are deleted before their parents
+        // This prevents issues if there are nested directories
+        const sortedChildren = [...children].sort((a, b) => {
+          const aDepth = a.title.split('/').length
+          const bDepth = b.title.split('/').length
+          return bDepth - aDepth // Reverse order - deepest first
+        })
+
+        // Store child count for notification (before deletion)
+        const childCount = sortedChildren.length
+
+        // Delete all children first
+        for (const child of sortedChildren) {
+          await sessionStore.deleteRune(child.uuid)
+
+          // If it's the current rune, close it
+          if (currentRune.value?.uuid === child.uuid) {
+            currentRune.value = null
+            cancelAutoSave()
+            setEditorContent('')
+            lastSavedContent = ''
+          }
+        }
+
+        // Update notification message
+        if (showNotifications && childCount > 0) {
+          toast.success(`Deleted directory and ${childCount} ${childCount === 1 ? 'item' : 'items'}`)
+        }
+      }
+
+      // Delete the rune itself
       await sessionStore.deleteRune(runeId)
 
       // If it's the current rune, close it
@@ -639,10 +731,11 @@ export function useCodex(
       // Refresh rune list
       refreshRuneList()
 
-      if (showNotifications) {
-        const itemType = runeInfo && isDirectory(runeInfo.title) ? 'directory' : 'note'
-        toast.success(`Deleted ${itemType}: ${runeTitle}`)
+      if (showNotifications && !isDir) {
+        // For files, show simple message
+        toast.success(`Deleted note: ${runeTitle}`)
       }
+      // For directories, notification was already shown above
     } catch (err) {
       setError(err as Error)
       throw err
