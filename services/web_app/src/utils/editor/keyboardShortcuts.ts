@@ -562,6 +562,15 @@ const shortcuts = {
 
   // Horizontal rule
   'Mod-Shift-h': (view: EditorView) => insertAtCursor(view, '\n---\n'),
+
+  // Save (Cmd/Ctrl+S) - prevent browser default
+  'Mod-s': (view: EditorView) => {
+    // Dispatch custom event for save
+    // The view component will listen for this and handle the actual save
+    const event = new CustomEvent('editor-save', { bubbles: true })
+    view.dom.dispatchEvent(event)
+    return true
+  },
 }
 
 /**

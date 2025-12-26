@@ -1,6 +1,7 @@
 <script lang="ts" setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
+import type { EditorView } from '@codemirror/view'
 import { useEditor } from '@/composables/useEditor'
 import { useCodex, type RuneInfo } from '@/composables/useCodex'
 import Explorer from '@/components/codex/Explorer.vue'
@@ -11,9 +12,11 @@ const route = useRoute()
 
 // Editor setup
 const editorElement = ref<HTMLElement>()
-const { editorView, isPreviewMode, togglePreview } = useEditor(editorElement)
 
-// Codex setup
+// Create editorView ref that we'll pass to useCodex
+const editorViewRef = ref<EditorView | null>(null) as import('vue').Ref<EditorView | null>
+
+// Create codex composable with the ref (it will be set when editor is created)
 const {
   runes,
   currentRune,
@@ -24,7 +27,25 @@ const {
   createRune,
   refreshRuneList,
   isDirectory,
-} = useCodex(editorView)
+  saveCurrentRune,
+  isSavingRune,
+  hasUnsavedChanges,
+  canSave,
+  error,
+  createAutoSaveCallback,
+} = useCodex(editorViewRef, { autoSave: true })
+
+// Get auto-save callback and create editor with it
+const autoSaveCallback = createAutoSaveCallback()
+const { editorView, isPreviewMode, togglePreview } = useEditor(
+  editorElement,
+  autoSaveCallback,
+)
+
+// Update editorViewRef when editorView becomes available
+watch(editorView, (view) => {
+  editorViewRef.value = view as EditorView | null
+}, { immediate: true })
 
 // Sidebar state
 const isSidebarCollapsed = ref(false)
@@ -327,14 +348,6 @@ async function handleCreateRune(title: string) {
   }
 }
 
-onMounted(() => {
-  refreshRuneList()
-  
-  const runeId = route.params.runeId as string | undefined
-  if (runeId) {
-    handleSelectRune(runeId)
-  }
-})
 
 // Watch route changes for runeId
 watch(
@@ -345,6 +358,171 @@ watch(
     }
   },
 )
+
+// Save functionality
+const lastSaveTime = ref<Date | null>(null)
+const showSaveStatus = ref(false)
+
+async function handleManualSave() {
+  if (!hasOpenRune.value) {
+    console.warn('Cannot save: No rune is open')
+    return
+  }
+  
+  if (!editorView.value) {
+    console.warn('Cannot save: Editor view is not available')
+    return
+  }
+  
+  if (!currentRune.value) {
+    console.warn('Cannot save: Current rune is null')
+    return
+  }
+  
+  // Get content directly from editor to verify it's available
+  const content = editorView.value.state.doc.toString()
+  // Force mark as dirty to ensure save happens (manual save should always save)
+  // This ensures the save will proceed even if auto-save thinks it's clean
+  currentRune.value.isDirty = true
+  
+  try {
+    await saveCurrentRune(false) // false = show notification
+    lastSaveTime.value = new Date()
+    showSaveStatus.value = true
+    // Hide status after 3 seconds
+    setTimeout(() => {
+      showSaveStatus.value = false
+    }, 3000)
+  } catch (err) {
+    console.error('Error saving rune:', err)
+    showSaveStatus.value = true
+    // Keep error visible longer
+    setTimeout(() => {
+      if (!hasUnsavedChanges.value && !isSavingRune.value) {
+        showSaveStatus.value = false
+      }
+    }, 5000)
+  }
+}
+
+// Keyboard shortcut handler for Cmd/Ctrl+S (fallback for non-editor areas)
+function handleKeydown(event: KeyboardEvent) {
+  // Cmd/Ctrl+S for manual save
+  if ((event.metaKey || event.ctrlKey) && event.key === 's') {
+    // Don't intercept if user is typing in an input/textarea
+    const target = event.target as HTMLElement
+    const isInputField = target.tagName === 'INPUT' || 
+                         target.tagName === 'TEXTAREA' || 
+                         target.isContentEditable ||
+                         target.closest('input') ||
+                         target.closest('textarea')
+    
+    if (isInputField) {
+      return
+    }
+    
+    // ALWAYS prevent default FIRST to stop browser save dialog
+    // This must happen before any other logic
+    event.preventDefault()
+    event.stopPropagation()
+    event.stopImmediatePropagation()
+    
+    // Only save if we have a rune open
+    if (hasOpenRune.value) {
+      handleManualSave()
+    }
+  }
+}
+
+// Handle save event from CodeMirror editor
+function handleEditorSave(event: Event) {
+  event.preventDefault()
+  event.stopPropagation()
+  
+  if (hasOpenRune.value) {
+    handleManualSave()
+  }
+}
+
+// Watch for auto-save completion to show status briefly
+watch(isSavingRune, (isSaving) => {
+  if (!isSaving && hasOpenRune.value && !hasUnsavedChanges.value && !error.value) {
+    // Auto-save just completed successfully
+    lastSaveTime.value = new Date()
+    showSaveStatus.value = true
+    setTimeout(() => {
+      showSaveStatus.value = false
+    }, 2000) // Shorter for auto-save
+  }
+})
+
+// Computed property for save status text
+const saveStatusText = computed(() => {
+  // Always show when saving
+  if (isSavingRune.value) {
+    return 'Saving...'
+  }
+  
+  // Always show errors
+  if (error.value) {
+    return 'Error saving'
+  }
+  
+  // Always show unsaved changes
+  if (hasUnsavedChanges.value) {
+    return 'Unsaved changes'
+  }
+  
+  // Only show "saved" status briefly after manual save or if explicitly shown
+  if (showSaveStatus.value && lastSaveTime.value) {
+    const now = new Date()
+    const diffMs = now.getTime() - lastSaveTime.value.getTime()
+    const diffSecs = Math.floor(diffMs / 1000)
+    
+    if (diffSecs < 1) {
+      return 'Saved just now'
+    } else if (diffSecs < 60) {
+      return 'Saved just now'
+    } else {
+      return 'Saved'
+    }
+  }
+  
+  // Don't show status when everything is saved and no recent activity
+  return ''
+})
+
+// Watch for editor element to set up save listener
+watch(editorElement, (element) => {
+  if (element) {
+    // Listen for save events from CodeMirror editor
+    // This handles Cmd/Ctrl+S when the editor is focused
+    element.addEventListener('editor-save', handleEditorSave)
+  }
+}, { immediate: true })
+
+onMounted(() => {
+  refreshRuneList()
+  
+  const runeId = route.params.runeId as string | undefined
+  if (runeId) {
+    handleSelectRune(runeId)
+  }
+  
+  // Add keyboard event listener with capture phase to catch it early
+  // This ensures we prevent default before the browser handles it
+  window.addEventListener('keydown', handleKeydown, { capture: true })
+})
+
+onUnmounted(() => {
+  // Remove keyboard event listener
+  window.removeEventListener('keydown', handleKeydown, { capture: true })
+  
+  // Remove editor save event listener
+  if (editorElement.value) {
+    editorElement.value.removeEventListener('editor-save', handleEditorSave)
+  }
+})
 </script>
 
 <template>
@@ -433,6 +611,11 @@ watch(
       <!-- Editor -->
       <div class="editor-container" :class="{ visible: hasOpenRune && !isLoadingRune }">
         <div ref="editorElement" class="editor"></div>
+      </div>
+
+      <!-- Save Status Indicator -->
+      <div v-if="hasOpenRune && saveStatusText" class="save-status" :class="{ 'has-error': error }">
+        <span>{{ saveStatusText }}</span>
       </div>
 
       <!-- Preview Toggle Button -->
@@ -640,12 +823,15 @@ main {
   font-family: var(--font-primary);
   pointer-events: none;
   opacity: 0.8;
-  transition: opacity 0.3s ease-in-out;
+  transition: all 0.3s ease-in-out;
+  backdrop-filter: blur(8px);
 }
 
-.save-status .error {
+.save-status.has-error {
   color: var(--color-error);
+  border-color: var(--color-error);
   opacity: 1;
+  background: var(--color-overlay-medium);
 }
 
 .preview-toggle-container {

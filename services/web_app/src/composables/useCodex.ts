@@ -1,7 +1,7 @@
 import { ref, computed, watch, type Ref, type ComputedRef } from 'vue'
 import { useSessionStore } from '@/stores/session'
 import { useToast } from '@/composables/useToast'
-import type { EditorView } from '@codemirror/view'
+import { EditorView, type ViewUpdate } from '@codemirror/view'
 import type { SyncProgress, SyncResult } from '@/interfaces/sync'
 
 // ==================== Interfaces ====================
@@ -89,6 +89,7 @@ export interface UseCodexReturn {
   getEditorContent: () => string
   setEditorContent: (content: string) => void
   isDirectory: (runeTitle: string) => boolean
+  createAutoSaveCallback: () => ((update: ViewUpdate) => void) | undefined
   error: Ref<Error | null>
 }
 
@@ -872,22 +873,23 @@ export function useCodex(
 
   // ==================== Editor Content Monitoring ====================
 
-  // Watch editor content changes for auto-save
-  if (editorView && autoSave) {
-    watch(
-      () => editorView.value?.state.doc.toString(),
-      (newContent) => {
-        if (!currentRune.value) return
+  // Auto-save callback function
+  // This will be passed to useEditor to set up the updateListener extension
+  function createAutoSaveCallback() {
+    if (!autoSave) return undefined
 
-        const currentContent = newContent || ''
+    return (update: ViewUpdate) => {
+      if (!currentRune.value) return
+      if (!update.docChanged) return // Only proceed if document actually changed
 
-        // Check if content has changed from last saved
-        if (currentContent !== lastSavedContent) {
-          markDirty()
-          scheduleAutoSave()
-        }
-      },
-    )
+      const currentContent = update.state.doc.toString()
+
+      // Check if content has changed from last saved
+      if (currentContent !== lastSavedContent) {
+        markDirty()
+        scheduleAutoSave()
+      }
+    }
   }
 
   // ==================== Initialization ====================
@@ -965,5 +967,6 @@ export function useCodex(
     getEditorContent,
     setEditorContent,
     isDirectory,
+    createAutoSaveCallback,
   }
 }

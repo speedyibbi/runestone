@@ -1,5 +1,5 @@
 import { onMounted, onUnmounted, ref, type Ref } from 'vue'
-import { EditorView, keymap } from '@codemirror/view'
+import { EditorView, keymap, ViewUpdate } from '@codemirror/view'
 import { EditorState, Compartment } from '@codemirror/state'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
 import { indentUnit, foldKeymap } from '@codemirror/language'
@@ -23,7 +23,10 @@ import {
 } from '@/utils/editor/folding'
 import { createKeyboardShortcuts } from '@/utils/editor/keyboardShortcuts'
 
-export function useEditor(editorElement: Ref<HTMLElement | undefined>) {
+export function useEditor(
+  editorElement: Ref<HTMLElement | undefined>,
+  onUpdate?: (update: ViewUpdate) => void,
+) {
   const editorView = ref<EditorView | null>(null)
   const isPreviewMode = ref(false)
 
@@ -97,6 +100,9 @@ export function useEditor(editorElement: Ref<HTMLElement | undefined>) {
 
         // Read-only compartment for dynamic reconfiguration
         readOnlyCompartment.of(EditorState.readOnly.of(false)),
+
+        // Update listener for auto-save and other update callbacks
+        ...(onUpdate ? [EditorView.updateListener.of(onUpdate)] : []),
       ],
     })
 
