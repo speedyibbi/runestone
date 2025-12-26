@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { ref, watch, nextTick } from 'vue'
 import type { RuneInfo } from '@/composables/useCodex'
 
 interface TreeItem {
@@ -57,8 +58,24 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<Emits>()
 
+// Refs for input elements
+const searchInputRef = ref<HTMLInputElement | null>(null)
+const createFileInputRef = ref<HTMLInputElement | null>(null)
+const createDirectoryInputRef = ref<HTMLInputElement | null>(null)
+
 function getDirectoryName(rune: RuneInfo): string {
-  return rune.title.endsWith('/') ? rune.title.slice(0, -1) : rune.title
+  // Extract just the directory name from the path (without parent prefixes)
+  const parts = rune.title.split('/')
+  // Remove trailing empty string if it's a directory
+  const cleanParts = rune.title.endsWith('/') ? parts.slice(0, -1) : parts
+  // Return the last part (directory name)
+  return cleanParts[cleanParts.length - 1] || ''
+}
+
+function getFileName(rune: RuneInfo): string {
+  // Extract just the filename from the path
+  const parts = rune.title.split('/')
+  return parts[parts.length - 1]
 }
 
 function handleItemClick(item: TreeItem) {
@@ -78,6 +95,28 @@ function handleItemClick(item: TreeItem) {
     emit('select-rune', item.rune.uuid)
   }
 }
+
+// Auto-focus input fields when they appear
+watch(() => props.showSearchForm, async (isVisible) => {
+  if (isVisible) {
+    await nextTick()
+    searchInputRef.value?.focus()
+  }
+})
+
+watch(() => props.showCreateForm, async (isVisible) => {
+  if (isVisible) {
+    await nextTick()
+    createFileInputRef.value?.focus()
+  }
+})
+
+watch(() => props.showCreateDirectoryForm, async (isVisible) => {
+  if (isVisible) {
+    await nextTick()
+    createDirectoryInputRef.value?.focus()
+  }
+})
 </script>
 
 <template>
@@ -141,6 +180,7 @@ function handleItemClick(item: TreeItem) {
           <Transition name="create-input">
             <div v-if="showSearchForm" class="create-item">
               <input
+                ref="searchInputRef"
                 :value="searchQuery"
                 type="text"
                 placeholder="Search files..."
@@ -155,6 +195,7 @@ function handleItemClick(item: TreeItem) {
           <Transition name="create-input">
             <div v-if="showCreateDirectoryForm" class="create-item">
               <input
+                ref="createDirectoryInputRef"
                 :value="newDirectoryName"
                 type="text"
                 placeholder="Directory name"
@@ -171,6 +212,7 @@ function handleItemClick(item: TreeItem) {
           <Transition name="create-input">
             <div v-if="showCreateForm" class="create-item">
               <input
+                ref="createFileInputRef"
                 :value="newRuneTitle"
                 type="text"
                 placeholder="File name"
@@ -251,7 +293,7 @@ function handleItemClick(item: TreeItem) {
                 <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
                 <polyline points="14 2 14 8 20 8" />
               </svg>
-              <span class="item-title">{{ item.isDirectory ? getDirectoryName(item.rune) : item.rune.title }}</span>
+              <span class="item-title">{{ item.isDirectory ? getDirectoryName(item.rune) : getFileName(item.rune) }}</span>
             </button>
           </template>
           <div v-else-if="showSearchForm && searchQuery.trim()" class="empty-search">

@@ -57,47 +57,113 @@ const treeItems = computed<TreeItem[]>(() => {
       )
     : runes.value
 
-  // Sort: directories first, then alphabetically
-  const sortedRunes = [...filteredRunes].sort((a, b) => {
-    const aIsDir = isDirectory(a.title)
-    const bIsDir = isDirectory(b.title)
+  // Build a tree structure
+  interface TreeNode {
+    rune: RuneInfo
+    children: TreeNode[]
+  }
 
-    if (aIsDir && !bIsDir) return -1
-    if (!aIsDir && bIsDir) return 1
-    return a.title.localeCompare(b.title)
-  })
-
-  for (const rune of sortedRunes) {
-    const pathParts = rune.title.split('/')
-    const level = pathParts.length - (isDirectory(rune.title) ? 2 : 1)
-
-    // Check if this item should be visible based on expanded directories
-    let shouldShow = true
-    if (level > 0) {
-      // Build parent path
+  // Helper to get parent path
+  function getParentPath(title: string): string | null {
+    const pathParts = title.split('/')
+    if (isDirectory(title)) {
+      // For directories, remove the trailing empty string and the directory name
+      if (pathParts.length <= 2) return null
+      const parentParts = pathParts.slice(0, -2)
+      return parentParts.length > 0 ? parentParts.join('/') + '/' : null
+    } else {
+      // For files, remove the filename
+      if (pathParts.length <= 1) return null
       const parentParts = pathParts.slice(0, -1)
-      if (isDirectory(rune.title)) {
-        parentParts.pop() // Remove trailing empty string from directory path
+      return parentParts.length > 0 ? parentParts.join('/') + '/' : null
+    }
+  }
+
+  // Create a map of parent path to children
+  const treeMap = new Map<string | null, TreeNode[]>()
+  const rootNodes: TreeNode[] = []
+
+  // First pass: create all nodes
+  const nodeMap = new Map<string, TreeNode>()
+  for (const rune of filteredRunes) {
+    const node: TreeNode = { rune, children: [] }
+    nodeMap.set(rune.title, node)
+  }
+
+  // Second pass: build parent-child relationships
+  for (const rune of filteredRunes) {
+    const node = nodeMap.get(rune.title)!
+    const parentPath = getParentPath(rune.title)
+
+    if (parentPath === null) {
+      rootNodes.push(node)
+    } else {
+      const parentNode = nodeMap.get(parentPath)
+      if (parentNode) {
+        parentNode.children.push(node)
+      } else {
+        // Parent doesn't exist, treat as root
+        rootNodes.push(node)
+      }
+    }
+  }
+
+  // Sort function for nodes: directories first, then alphabetically
+  function sortNodes(nodes: TreeNode[]): TreeNode[] {
+    return [...nodes].sort((a, b) => {
+      const aIsDir = isDirectory(a.rune.title)
+      const bIsDir = isDirectory(b.rune.title)
+
+      if (aIsDir && !bIsDir) return -1
+      if (!aIsDir && bIsDir) return 1
+      return a.rune.title.localeCompare(b.rune.title)
+    })
+  }
+
+  // Recursive function to build items in hierarchical order
+  function buildItems(nodes: TreeNode[], level: number) {
+    const sortedNodes = sortNodes(nodes)
+    
+    for (const node of sortedNodes) {
+      const pathParts = node.rune.title.split('/')
+      const itemLevel = pathParts.length - (isDirectory(node.rune.title) ? 2 : 1)
+
+      // Check if this item should be visible based on expanded directories
+      let shouldShow = true
+      if (itemLevel > 0) {
+        // Build parent path
+        const parentParts = pathParts.slice(0, -1)
+        if (isDirectory(node.rune.title)) {
+          parentParts.pop() // Remove trailing empty string from directory path
+        }
+
+        // Check if all parent directories are expanded
+        for (let i = 1; i <= parentParts.length; i++) {
+          const parentPath = parentParts.slice(0, i).join('/') + '/'
+          if (!expandedDirectories.value.has(parentPath)) {
+            shouldShow = false
+            break
+          }
+        }
       }
 
-      // Check if all parent directories are expanded
-      for (let i = 1; i <= parentParts.length; i++) {
-        const parentPath = parentParts.slice(0, i).join('/') + '/'
-        if (!expandedDirectories.value.has(parentPath)) {
-          shouldShow = false
-          break
+      if (shouldShow) {
+        items.push({
+          rune: node.rune,
+          level: itemLevel,
+          isDirectory: isDirectory(node.rune.title),
+        })
+
+        // If it's a directory and expanded, add its children
+        if (isDirectory(node.rune.title) && expandedDirectories.value.has(node.rune.title)) {
+          buildItems(node.children, itemLevel + 1)
         }
       }
     }
-
-    if (shouldShow) {
-      items.push({
-        rune,
-        level,
-        isDirectory: isDirectory(rune.title),
-      })
-    }
   }
+
+  // Build items starting from root
+  buildItems(rootNodes, 0)
 
   return items
 })
@@ -149,6 +215,19 @@ async function handleSelectRune(runeId: string) {
   try {
     // Clear directory selection when selecting a file
     selectedDirectory.value = null
+    
+    // Find the rune to get its path
+    const rune = runes.value.find((r) => r.uuid === runeId)
+    if (rune && !isDirectory(rune.title)) {
+      // Expand all parent directories
+      const pathParts = rune.title.split('/')
+      // Build all parent directory paths
+      for (let i = 1; i < pathParts.length; i++) {
+        const parentPath = pathParts.slice(0, i).join('/') + '/'
+        expandedDirectories.value.add(parentPath)
+      }
+    }
+    
     await openRune(runeId)
   } catch (err) {
     console.error('Error opening rune:', err)
@@ -165,14 +244,19 @@ async function handleCreateRune(title: string) {
   isCreating.value = true
 
   try {
-    // If a directory is selected and creating a file (not a directory), prepend the directory path
+    // If a directory is selected, prepend the directory path
     let finalTitle = title.trim()
-    if (selectedDirectory.value && !isDirectory(title.trim())) {
+    if (selectedDirectory.value) {
       // Remove trailing slash from directory name if present
       const dirPath = selectedDirectory.value.endsWith('/') 
         ? selectedDirectory.value.slice(0, -1) 
         : selectedDirectory.value
-      finalTitle = `${dirPath}/${title.trim()}`
+      
+      // If creating a directory, ensure it ends with /
+      const isDir = isDirectory(title.trim())
+      finalTitle = isDir 
+        ? `${dirPath}/${title.trim().replace(/\/$/, '')}/`
+        : `${dirPath}/${title.trim()}`
     }
 
     const runeId = await createRune(finalTitle)
@@ -185,6 +269,12 @@ async function handleCreateRune(title: string) {
 
     // Auto-open the newly created rune if it's not a directory
     if (!isDirectory(finalTitle)) {
+      // Expand all parent directories before opening
+      const pathParts = finalTitle.split('/')
+      for (let i = 1; i < pathParts.length; i++) {
+        const parentPath = pathParts.slice(0, i).join('/') + '/'
+        expandedDirectories.value.add(parentPath)
+      }
       await openRune(runeId)
       // Clear directory selection after creating file
       selectedDirectory.value = null
