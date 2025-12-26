@@ -553,10 +553,7 @@ onUnmounted(() => {
         <button
           class="ribbon-icon"
           :class="{ active: !leftSidebarCollapsed && activeLeftPanel === 'files' }"
-          @click="
-            activeLeftPanel = 'files'
-            leftSidebarCollapsed = false
-          "
+          @click="activeLeftPanel = 'files'; leftSidebarCollapsed = false"
           title="Explorer"
         >
           <svg
@@ -576,10 +573,7 @@ onUnmounted(() => {
         <button
           class="ribbon-icon"
           :class="{ active: !leftSidebarCollapsed && activeLeftPanel === 'search' }"
-          @click="
-            activeLeftPanel = 'search'
-            leftSidebarCollapsed = false
-          "
+          @click="activeLeftPanel = 'search'; leftSidebarCollapsed = false"
           title="Search"
         >
           <svg
@@ -600,10 +594,7 @@ onUnmounted(() => {
         <button
           class="ribbon-icon"
           :class="{ active: !leftSidebarCollapsed && activeLeftPanel === 'graph' }"
-          @click="
-            activeLeftPanel = 'graph'
-            leftSidebarCollapsed = false
-          "
+          @click="activeLeftPanel = 'graph'; leftSidebarCollapsed = false"
           title="Graph View"
         >
           <svg
