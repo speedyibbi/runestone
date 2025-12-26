@@ -48,17 +48,17 @@ watch(
   editorView,
   (view) => {
     editorViewRef.value = view as EditorView | null
-    
+
     // Set up update listener for status bar reactivity
     if (view) {
       const updateListener = () => {
         statusBarUpdateTrigger.value++
       }
-      
+
       // Listen to DOM events for changes
       view.dom.addEventListener('input', updateListener)
       view.dom.addEventListener('selectionchange', updateListener)
-      
+
       // Use MutationObserver to watch for editor changes
       const observer = new MutationObserver(updateListener)
       observer.observe(view.dom, {
@@ -66,7 +66,7 @@ watch(
         subtree: true,
         characterData: true,
       })
-      
+
       onUnmounted(() => {
         view.dom.removeEventListener('input', updateListener)
         view.dom.removeEventListener('selectionchange', updateListener)
@@ -183,7 +183,7 @@ function handleTabDrop(event: DragEvent, targetTabId: string) {
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
     const midpoint = rect.left + rect.width / 2
     const insertIndex = event.clientX < midpoint ? targetIndex : targetIndex + 1
-    
+
     const [draggedTab] = tabs.value.splice(draggedIndex, 1)
     const finalIndex = draggedIndex < insertIndex ? insertIndex - 1 : insertIndex
     tabs.value.splice(finalIndex, 0, draggedTab)
@@ -251,7 +251,7 @@ interface Heading {
 const headings = computed<Heading[]>(() => {
   // Trigger reactivity on editor updates
   statusBarUpdateTrigger.value
-  
+
   if (!editorView.value || !hasOpenRune.value) {
     return []
   }
@@ -264,9 +264,12 @@ const headings = computed<Heading[]>(() => {
     enter: (node) => {
       if (node.type.name.startsWith('ATXHeading')) {
         const level = parseInt(node.type.name.replace('ATXHeading', ''))
-        const headingText = doc.sliceString(node.from, node.to).replace(/^#+\s+/, '').trim()
+        const headingText = doc
+          .sliceString(node.from, node.to)
+          .replace(/^#+\s+/, '')
+          .trim()
         const line = doc.lineAt(node.from).number
-        
+
         if (headingText) {
           headingsList.push({
             level,
@@ -288,13 +291,13 @@ function handleHeadingClick(heading: Heading) {
 
   const view = editorView.value
   const pos = heading.position
-  
+
   // Scroll to the heading
   view.dispatch({
     selection: { anchor: pos },
     effects: [EditorView.scrollIntoView(pos, { y: 'start', yMargin: 100 })],
   })
-  
+
   // Focus the editor
   view.focus()
 }
@@ -303,7 +306,7 @@ function handleHeadingClick(heading: Heading) {
 const statusBarInfo = computed(() => {
   // Trigger reactivity
   statusBarUpdateTrigger.value
-  
+
   if (!editorView.value || !hasOpenRune.value) {
     return {
       lines: 0,
@@ -319,7 +322,7 @@ const statusBarInfo = computed(() => {
   const lines = doc.lines
   const characters = content.length
   const words = content.trim() ? content.trim().split(/\s+/).length : 0
-  
+
   const selection = editorView.value.state.selection.main
   const cursorPos = selection.head
   const cursorLine = doc.lineAt(cursorPos).number
@@ -546,11 +549,14 @@ onUnmounted(() => {
               </svg>
             </button>
           </FadeTransition>
-      </div>
+        </div>
         <button
           class="ribbon-icon"
           :class="{ active: !leftSidebarCollapsed && activeLeftPanel === 'files' }"
-          @click="activeLeftPanel = 'files'; leftSidebarCollapsed = false"
+          @click="
+            activeLeftPanel = 'files'
+            leftSidebarCollapsed = false
+          "
           title="Explorer"
         >
           <svg
@@ -570,7 +576,10 @@ onUnmounted(() => {
         <button
           class="ribbon-icon"
           :class="{ active: !leftSidebarCollapsed && activeLeftPanel === 'search' }"
-          @click="activeLeftPanel = 'search'; leftSidebarCollapsed = false"
+          @click="
+            activeLeftPanel = 'search'
+            leftSidebarCollapsed = false
+          "
           title="Search"
         >
           <svg
@@ -591,7 +600,10 @@ onUnmounted(() => {
         <button
           class="ribbon-icon"
           :class="{ active: !leftSidebarCollapsed && activeLeftPanel === 'graph' }"
-          @click="activeLeftPanel = 'graph'; leftSidebarCollapsed = false"
+          @click="
+            activeLeftPanel = 'graph'
+            leftSidebarCollapsed = false
+          "
           title="Graph View"
         >
           <svg
@@ -601,15 +613,14 @@ onUnmounted(() => {
             viewBox="0 0 32 32"
             fill="currentColor"
           >
-            <path d="M27 21.75c-0.795 0.004-1.538 0.229-2.169 0.616l0.018-0.010-2.694-2.449c0.724-1.105 1.154-2.459 1.154-3.913 0-1.572-0.503-3.027-1.358-4.212l0.015 0.021 3.062-3.062c0.57 0.316 1.249 0.503 1.971 0.508h0.002c2.347 0 4.25-1.903 4.25-4.25s-1.903-4.25-4.25-4.25c-2.347 0-4.25 1.903-4.25 4.25v0c0.005 0.724 0.193 1.403 0.519 1.995l-0.011-0.022-3.062 3.062c-1.147-0.84-2.587-1.344-4.144-1.344-0.868 0-1.699 0.157-2.467 0.443l0.049-0.016-0.644-1.17c0.726-0.757 1.173-1.787 1.173-2.921 0-2.332-1.891-4.223-4.223-4.223s-4.223 1.891-4.223 4.223c0 2.332 1.891 4.223 4.223 4.223 0.306 0 0.605-0.033 0.893-0.095l-0.028 0.005 0.642 1.166c-1.685 1.315-2.758 3.345-2.758 5.627 0 0.605 0.076 1.193 0.218 1.754l-0.011-0.049-0.667 0.283c-0.78-0.904-1.927-1.474-3.207-1.474-2.334 0-4.226 1.892-4.226 4.226s1.892 4.226 4.226 4.226c2.334 0 4.226-1.892 4.226-4.226 0-0.008-0-0.017-0-0.025v0.001c-0.008-0.159-0.023-0.307-0.046-0.451l0.003 0.024 0.667-0.283c1.303 2.026 3.547 3.349 6.1 3.349 1.703 0 3.268-0.589 4.503-1.574l-0.015 0.011 2.702 2.455c-0.258 0.526-0.41 1.144-0.414 1.797v0.001c0 2.347 1.903 4.25 4.25 4.25s4.25-1.903 4.25-4.25c0-2.347-1.903-4.25-4.25-4.25v0zM8.19 5c0-0.966 0.784-1.75 1.75-1.75s1.75 0.784 1.75 1.75c0 0.966-0.784 1.75-1.75 1.75v0c-0.966-0.001-1.749-0.784-1.75-1.75v-0zM5 22.42c-0.966-0.001-1.748-0.783-1.748-1.749s0.783-1.749 1.749-1.749c0.966 0 1.748 0.782 1.749 1.748v0c-0.001 0.966-0.784 1.749-1.75 1.75h-0zM27 3.25c0.966 0 1.75 0.784 1.75 1.75s-0.784 1.75-1.75 1.75c-0.966 0-1.75-0.784-1.75-1.75v0c0.001-0.966 0.784-1.749 1.75-1.75h0zM11.19 16c0-0.001 0-0.002 0-0.003 0-2.655 2.152-4.807 4.807-4.807 1.328 0 2.53 0.539 3.4 1.409l0.001 0.001 0.001 0.001c0.87 0.87 1.407 2.072 1.407 3.399 0 2.656-2.153 4.808-4.808 4.808s-4.808-2.153-4.808-4.808c0-0 0-0 0-0v0zM27 27.75c-0.966 0-1.75-0.784-1.75-1.75s0.784-1.75 1.75-1.75c0.966 0 1.75 0.784 1.75 1.75v0c-0.001 0.966-0.784 1.749-1.75 1.75h-0z" />
+            <path
+              d="M27 21.75c-0.795 0.004-1.538 0.229-2.169 0.616l0.018-0.010-2.694-2.449c0.724-1.105 1.154-2.459 1.154-3.913 0-1.572-0.503-3.027-1.358-4.212l0.015 0.021 3.062-3.062c0.57 0.316 1.249 0.503 1.971 0.508h0.002c2.347 0 4.25-1.903 4.25-4.25s-1.903-4.25-4.25-4.25c-2.347 0-4.25 1.903-4.25 4.25v0c0.005 0.724 0.193 1.403 0.519 1.995l-0.011-0.022-3.062 3.062c-1.147-0.84-2.587-1.344-4.144-1.344-0.868 0-1.699 0.157-2.467 0.443l0.049-0.016-0.644-1.17c0.726-0.757 1.173-1.787 1.173-2.921 0-2.332-1.891-4.223-4.223-4.223s-4.223 1.891-4.223 4.223c0 2.332 1.891 4.223 4.223 4.223 0.306 0 0.605-0.033 0.893-0.095l-0.028 0.005 0.642 1.166c-1.685 1.315-2.758 3.345-2.758 5.627 0 0.605 0.076 1.193 0.218 1.754l-0.011-0.049-0.667 0.283c-0.78-0.904-1.927-1.474-3.207-1.474-2.334 0-4.226 1.892-4.226 4.226s1.892 4.226 4.226 4.226c2.334 0 4.226-1.892 4.226-4.226 0-0.008-0-0.017-0-0.025v0.001c-0.008-0.159-0.023-0.307-0.046-0.451l0.003 0.024 0.667-0.283c1.303 2.026 3.547 3.349 6.1 3.349 1.703 0 3.268-0.589 4.503-1.574l-0.015 0.011 2.702 2.455c-0.258 0.526-0.41 1.144-0.414 1.797v0.001c0 2.347 1.903 4.25 4.25 4.25s4.25-1.903 4.25-4.25c0-2.347-1.903-4.25-4.25-4.25v0zM8.19 5c0-0.966 0.784-1.75 1.75-1.75s1.75 0.784 1.75 1.75c0 0.966-0.784 1.75-1.75 1.75v0c-0.966-0.001-1.749-0.784-1.75-1.75v-0zM5 22.42c-0.966-0.001-1.748-0.783-1.748-1.749s0.783-1.749 1.749-1.749c0.966 0 1.748 0.782 1.749 1.748v0c-0.001 0.966-0.784 1.749-1.75 1.75h-0zM27 3.25c0.966 0 1.75 0.784 1.75 1.75s-0.784 1.75-1.75 1.75c-0.966 0-1.75-0.784-1.75-1.75v0c0.001-0.966 0.784-1.749 1.75-1.75h0zM11.19 16c0-0.001 0-0.002 0-0.003 0-2.655 2.152-4.807 4.807-4.807 1.328 0 2.53 0.539 3.4 1.409l0.001 0.001 0.001 0.001c0.87 0.87 1.407 2.072 1.407 3.399 0 2.656-2.153 4.808-4.808 4.808s-4.808-2.153-4.808-4.808c0-0 0-0 0-0v0zM27 27.75c-0.966 0-1.75-0.784-1.75-1.75s0.784-1.75 1.75-1.75c0.966 0 1.75 0.784 1.75 1.75v0c-0.001 0.966-0.784 1.749-1.75 1.75h-0z"
+            />
           </svg>
         </button>
         <div class="ribbon-spacer"></div>
         <div class="ribbon-divider"></div>
-        <button
-          class="ribbon-icon"
-          title="Settings"
-        >
+        <button class="ribbon-icon" title="Settings">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             width="18"
@@ -622,13 +633,12 @@ onUnmounted(() => {
             stroke-linejoin="round"
           >
             <circle cx="12" cy="12" r="3" />
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z" />
+            <path
+              d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z"
+            />
           </svg>
         </button>
-        <button
-          class="ribbon-icon"
-          title="Exit"
-        >
+        <button class="ribbon-icon" title="Exit">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             width="18"
@@ -674,103 +684,13 @@ onUnmounted(() => {
         <div v-if="!leftSidebarCollapsed" class="sidebar-content">
           <!-- Runes Panel -->
           <div v-if="activeLeftPanel === 'files'" class="sidebar-section">
-          <!-- Rune Actions (above Runes title) -->
-          <div class="rune-actions">
-            <button class="icon-button" title="New Rune">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <path d="M14 2v6h6M12 18v-6M9 15h6" />
-              </svg>
-            </button>
-            <button class="icon-button" title="New Directory">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-                <path d="M12 11v6M9 14h6" />
-              </svg>
-            </button>
-            <button class="icon-button" title="Sort">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <path d="M3 6h18M7 12h10M9 18h6" />
-              </svg>
-            </button>
-            <button class="icon-button" title="Collapse">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <path d="m18 9-6-6-6 6" />
-                <path d="m6 15 6 6 6-6" />
-              </svg>
-            </button>
-          </div>
-          <div class="section-header">
-            <span class="section-title">Runes</span>
-          </div>
-          <div class="rune-list">
-            <div
-              v-for="rune in runes"
-              :key="rune.uuid"
-              class="rune-item"
-              :class="{ active: currentRune?.uuid === rune.uuid, directory: isDirectory(rune.title) }"
-              @click="handleRuneClick(rune)"
-            >
-              <span class="rune-icon">
+            <!-- Rune Actions (above Runes title) -->
+            <div class="rune-actions">
+              <button class="icon-button" title="New Rune">
                 <svg
-                  v-if="isDirectory(rune.title)"
                   xmlns="http://www.w3.org/2000/svg"
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-                </svg>
-                <svg
-                  v-else
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="14"
-                  height="14"
+                  width="16"
+                  height="16"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -779,36 +699,133 @@ onUnmounted(() => {
                   stroke-linejoin="round"
                 >
                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" />
+                  <path d="M14 2v6h6M12 18v-6M9 15h6" />
                 </svg>
-              </span>
-              <span class="rune-title">{{ rune.title }}</span>
+              </button>
+              <button class="icon-button" title="New Directory">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path
+                    d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
+                  />
+                  <path d="M12 11v6M9 14h6" />
+                </svg>
+              </button>
+              <button class="icon-button" title="Sort">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M3 6h18M7 12h10M9 18h6" />
+                </svg>
+              </button>
+              <button class="icon-button" title="Collapse">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="m18 9-6-6-6 6" />
+                  <path d="m6 15 6 6 6-6" />
+                </svg>
+              </button>
             </div>
-            <div v-if="runes.length === 0" class="empty-rune-list">
-              <p>No runes yet</p>
+            <div class="section-header">
+              <span class="section-title">Runes</span>
+            </div>
+            <div class="rune-list">
+              <div
+                v-for="rune in runes"
+                :key="rune.uuid"
+                class="rune-item"
+                :class="{
+                  active: currentRune?.uuid === rune.uuid,
+                  directory: isDirectory(rune.title),
+                }"
+                @click="handleRuneClick(rune)"
+              >
+                <span class="rune-icon">
+                  <svg
+                    v-if="isDirectory(rune.title)"
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path
+                      d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
+                    />
+                  </svg>
+                  <svg
+                    v-else
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" />
+                  </svg>
+                </span>
+                <span class="rune-title">{{ rune.title }}</span>
+              </div>
+              <div v-if="runes.length === 0" class="empty-rune-list">
+                <p>No runes yet</p>
+              </div>
             </div>
           </div>
-      </div>
 
-        <!-- Search Panel -->
-        <div v-else-if="activeLeftPanel === 'search'" class="sidebar-section">
-          <div class="section-header">
-            <span class="section-title">Search</span>
+          <!-- Search Panel -->
+          <div v-else-if="activeLeftPanel === 'search'" class="sidebar-section">
+            <div class="section-header">
+              <span class="section-title">Search</span>
+            </div>
+            <div class="search-placeholder">
+              <p>Search functionality coming soon</p>
+            </div>
           </div>
-          <div class="search-placeholder">
-            <p>Search functionality coming soon</p>
-          </div>
-      </div>
 
-        <!-- Graph Panel -->
-        <div v-else-if="activeLeftPanel === 'graph'" class="sidebar-section">
-          <div class="section-header">
-            <span class="section-title">Graph View</span>
-      </div>
-          <div class="graph-placeholder">
-            <p>Graph view coming soon</p>
+          <!-- Graph Panel -->
+          <div v-else-if="activeLeftPanel === 'graph'" class="sidebar-section">
+            <div class="section-header">
+              <span class="section-title">Graph View</span>
+            </div>
+            <div class="graph-placeholder">
+              <p>Graph view coming soon</p>
+            </div>
           </div>
-        </div>
         </div>
       </FadeTransition>
     </aside>
@@ -838,11 +855,7 @@ onUnmounted(() => {
             >
               <span class="tab-title">{{ tab.title || 'Untitled' }}</span>
               <span v-if="tab.hasUnsavedChanges" class="tab-dot"></span>
-        <button
-                class="tab-close"
-                title="Close"
-                @click.stop="handleTabClose($event, tab)"
-              >
+              <button class="tab-close" title="Close" @click.stop="handleTabClose($event, tab)">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   width="12"
@@ -861,7 +874,10 @@ onUnmounted(() => {
           </div>
         </div>
         <div class="top-bar-right">
-          <div class="save-status" :class="{ 'has-error': error, 'has-unsaved': hasUnsavedChanges }">
+          <div
+            class="save-status"
+            :class="{ 'has-error': error, 'has-unsaved': hasUnsavedChanges }"
+          >
             <span v-if="saveStatusText">{{ saveStatusText }}</span>
           </div>
           <button
@@ -891,42 +907,42 @@ onUnmounted(() => {
           </button>
           <button
             class="icon-button"
-          @click="togglePreview"
+            @click="togglePreview"
             :class="{ active: isPreviewMode }"
-          :title="isPreviewMode ? 'Exit Preview (Ctrl+E)' : 'Enter Preview (Ctrl+E)'"
-        >
-          <svg
-            v-if="isPreviewMode"
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
+            :title="isPreviewMode ? 'Exit Preview (Ctrl+E)' : 'Enter Preview (Ctrl+E)'"
           >
-            <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-            <path d="m15 5 4 4" />
-          </svg>
-          <svg
-            v-else
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-            <circle cx="12" cy="12" r="3" />
-          </svg>
-        </button>
-      </div>
+            <svg
+              v-if="isPreviewMode"
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+              <path d="m15 5 4 4" />
+            </svg>
+            <svg
+              v-else
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+          </button>
+        </div>
       </header>
 
       <!-- Editor Area -->
@@ -958,11 +974,7 @@ onUnmounted(() => {
         </div>
 
         <!-- Editor -->
-        <div
-          v-else
-          class="editor-container"
-          :class="{ visible: hasOpenRune && !isLoadingRune }"
-        >
+        <div v-else class="editor-container" :class="{ visible: hasOpenRune && !isLoadingRune }">
           <div ref="editorElement" class="editor"></div>
         </div>
       </div>
@@ -987,7 +999,7 @@ onUnmounted(() => {
           </span>
         </div>
       </footer>
-      </div>
+    </div>
 
     <!-- Right Sidebar (Outline) -->
     <aside class="right-sidebar" :class="{ collapsed: rightSidebarCollapsed }">
@@ -995,11 +1007,7 @@ onUnmounted(() => {
         <div class="sidebar-title">
           <h3>Outline</h3>
         </div>
-        <button
-          class="sidebar-toggle"
-          @click="rightSidebarCollapsed = true"
-          title="Close Outline"
-        >
+        <button class="sidebar-toggle" @click="rightSidebarCollapsed = true" title="Close Outline">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             width="16"
@@ -1037,8 +1045,8 @@ onUnmounted(() => {
       </FadeTransition>
     </aside>
 
-      <KeyboardShortcuts />
-      <BubbleMenu :editor-view="editorView" />
+    <KeyboardShortcuts />
+    <BubbleMenu :editor-view="editorView" />
   </main>
 </template>
 
@@ -1080,7 +1088,9 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1), margin-bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition:
+    height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    margin-bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
 }
 
@@ -1143,7 +1153,10 @@ onUnmounted(() => {
   flex-direction: column;
   background: transparent;
   border-right: 1px solid var(--color-overlay-subtle);
-  transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.25s cubic-bezier(0.4, 0, 0.2, 1), max-width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition:
+    width 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    min-width 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    max-width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
 }
 
@@ -1438,7 +1451,9 @@ onUnmounted(() => {
   border: none;
   border-bottom: 1px solid var(--color-overlay-subtle);
   cursor: grab;
-  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition:
+    transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   font-size: 0.8125rem;
   line-height: 1.4;
   color: var(--color-muted);
@@ -1695,7 +1710,10 @@ onUnmounted(() => {
   flex-direction: column;
   background: transparent;
   border-left: 1px solid var(--color-overlay-subtle);
-  transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.25s cubic-bezier(0.4, 0, 0.2, 1), max-width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition:
+    width 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    min-width 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    max-width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
 }
 
