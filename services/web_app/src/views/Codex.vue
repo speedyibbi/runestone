@@ -2,7 +2,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useEditor } from '@/composables/useEditor'
-import { useCodex } from '@/composables/useCodex'
+import { useCodex, type RuneInfo } from '@/composables/useCodex'
 import Explorer from '@/components/codex/Explorer.vue'
 import KeyboardShortcuts from '@/components/editor/KeyboardShortcuts.vue'
 import BubbleMenu from '@/components/editor/BubbleMenu.vue'
@@ -23,17 +23,122 @@ const {
   openRune,
   createRune,
   refreshRuneList,
+  isDirectory,
 } = useCodex(editorView)
 
 // Sidebar state
 const isSidebarCollapsed = ref(false)
+const expandedDirectories = ref<Set<string>>(new Set())
+const showCreateForm = ref(false)
+const showCreateDirectoryForm = ref(false)
+const showSearchForm = ref(false)
+const newRuneTitle = ref('')
+const newDirectoryName = ref('')
+const searchQuery = ref('')
+const isCreating = ref(false)
 
 function toggleSidebar() {
   isSidebarCollapsed.value = !isSidebarCollapsed.value
 }
 
+// Tree structure building
+interface TreeItem {
+  rune: RuneInfo
+  level: number
+  isDirectory: boolean
+}
+
+const treeItems = computed<TreeItem[]>(() => {
+  const items: TreeItem[] = []
+  const filteredRunes = searchQuery.value.trim()
+    ? runes.value.filter((rune) =>
+        rune.title.toLowerCase().includes(searchQuery.value.toLowerCase()),
+      )
+    : runes.value
+
+  // Sort: directories first, then alphabetically
+  const sortedRunes = [...filteredRunes].sort((a, b) => {
+    const aIsDir = isDirectory(a.title)
+    const bIsDir = isDirectory(b.title)
+
+    if (aIsDir && !bIsDir) return -1
+    if (!aIsDir && bIsDir) return 1
+    return a.title.localeCompare(b.title)
+  })
+
+  for (const rune of sortedRunes) {
+    const pathParts = rune.title.split('/')
+    const level = pathParts.length - (isDirectory(rune.title) ? 2 : 1)
+
+    // Check if this item should be visible based on expanded directories
+    let shouldShow = true
+    if (level > 0) {
+      // Build parent path
+      const parentParts = pathParts.slice(0, -1)
+      if (isDirectory(rune.title)) {
+        parentParts.pop() // Remove trailing empty string from directory path
+      }
+
+      // Check if all parent directories are expanded
+      for (let i = 1; i <= parentParts.length; i++) {
+        const parentPath = parentParts.slice(0, i).join('/') + '/'
+        if (!expandedDirectories.value.has(parentPath)) {
+          shouldShow = false
+          break
+        }
+      }
+    }
+
+    if (shouldShow) {
+      items.push({
+        rune,
+        level,
+        isDirectory: isDirectory(rune.title),
+      })
+    }
+  }
+
+  return items
+})
+
 // Computed
 const currentRuneId = computed(() => currentRune.value?.uuid ?? null)
+
+// Explorer event handlers
+function handleToggleDirectory(dirName: string) {
+  if (expandedDirectories.value.has(dirName)) {
+    expandedDirectories.value.delete(dirName)
+  } else {
+    expandedDirectories.value.add(dirName)
+  }
+}
+
+function handleNewFile() {
+  showCreateForm.value = true
+  showCreateDirectoryForm.value = false
+  showSearchForm.value = false
+  newRuneTitle.value = ''
+}
+
+function handleNewDirectory() {
+  showCreateDirectoryForm.value = true
+  showCreateForm.value = false
+  showSearchForm.value = false
+  newDirectoryName.value = ''
+}
+
+function handleSearch() {
+  showSearchForm.value = !showSearchForm.value
+  if (!showSearchForm.value) {
+    searchQuery.value = ''
+  }
+  showCreateForm.value = false
+  showCreateDirectoryForm.value = false
+}
+
+function handleCollapse() {
+  expandedDirectories.value.clear()
+}
 
 async function handleSelectRune(runeId: string) {
   try {
@@ -44,12 +149,30 @@ async function handleSelectRune(runeId: string) {
 }
 
 async function handleCreateRune(title: string) {
+  if (!title.trim()) return
+
+  isCreating.value = true
+
   try {
-    const runeId = await createRune(title)
-    // Auto-open the newly created rune
-    await openRune(runeId)
+    const runeId = await createRune(title.trim())
+
+    // Reset forms
+    showCreateForm.value = false
+    showCreateDirectoryForm.value = false
+    newRuneTitle.value = ''
+    newDirectoryName.value = ''
+
+    // Auto-open the newly created rune if it's not a directory
+    if (!isDirectory(title.trim())) {
+      await openRune(runeId)
+    } else {
+      // Auto-expand the directory
+      expandedDirectories.value.add(title.trim())
+    }
   } catch (err) {
     console.error('Error creating rune:', err)
+  } finally {
+    isCreating.value = false
   }
 }
 
@@ -78,13 +201,32 @@ watch(
     <!-- Sidebar -->
     <Explorer
       :class="['sidebar', { collapsed: isSidebarCollapsed }]"
-      :runes="runes"
+      :tree-items="treeItems"
       :current-rune-id="currentRuneId"
       :is-loading="isLoadingRune"
       :codex-title="currentCodex?.title"
+      :expanded-directories="expandedDirectories"
+      :show-create-form="showCreateForm"
+      :show-create-directory-form="showCreateDirectoryForm"
+      :show-search-form="showSearchForm"
+      :new-rune-title="newRuneTitle"
+      :new-directory-name="newDirectoryName"
+      :search-query="searchQuery"
+      :is-creating="isCreating"
       @select-rune="handleSelectRune"
+      @toggle-directory="handleToggleDirectory"
       @create-rune="handleCreateRune"
+      @new-file="handleNewFile"
+      @new-directory="handleNewDirectory"
+      @search="handleSearch"
+      @collapse="handleCollapse"
       @refresh="refreshRuneList"
+      @update:new-rune-title="(val) => (newRuneTitle = val)"
+      @update:new-directory-name="(val) => (newDirectoryName = val)"
+      @update:search-query="(val) => (searchQuery = val)"
+      @update:show-create-form="(val) => (showCreateForm = val)"
+      @update:show-create-directory-form="(val) => (showCreateDirectoryForm = val)"
+      @update:show-search-form="(val) => (showSearchForm = val)"
     />
 
     <!-- Sidebar Toggle Button -->

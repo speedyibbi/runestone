@@ -1,7 +1,10 @@
-import { ref, computed, watch, type Ref } from 'vue'
+import { ref, computed, watch, type Ref, type ComputedRef } from 'vue'
 import { useSessionStore } from '@/stores/session'
 import { useToast } from '@/composables/useToast'
 import type { EditorView } from '@codemirror/view'
+import type { SyncProgress, SyncResult } from '@/interfaces/sync'
+
+// ==================== Interfaces ====================
 
 export interface CodexInfo {
   uuid: string
@@ -12,11 +15,16 @@ export interface RuneInfo {
   uuid: string
   title: string
   last_updated: string
-  isDirty?: boolean
 }
 
 export interface CurrentRuneState extends RuneInfo {
   isDirty: boolean
+}
+
+export interface SigilInfo {
+  uuid: string
+  title: string
+  last_updated: string
 }
 
 export interface UseCodexOptions {
@@ -25,7 +33,71 @@ export interface UseCodexOptions {
   showNotifications?: boolean
 }
 
-export function useCodex(editorView?: Ref<EditorView | null>, options: UseCodexOptions = {}) {
+export interface UseCodexReturn {
+  // State
+  currentCodex: Ref<CodexInfo | null>
+  currentRune: Ref<CurrentRuneState | null>
+  codexes: Ref<CodexInfo[]>
+  runes: Ref<RuneInfo[]>
+  sigils: Ref<SigilInfo[]>
+
+  // Loading states
+  isLoadingCodex: Ref<boolean>
+  isLoadingRune: Ref<boolean>
+  isSavingRune: Ref<boolean>
+  isSyncing: Ref<boolean>
+
+  // Computed
+  hasUnsavedChanges: ComputedRef<boolean>
+  canSave: ComputedRef<boolean>
+  hasOpenCodex: ComputedRef<boolean>
+  hasOpenRune: ComputedRef<boolean>
+
+  // Codex operations
+  refreshCodexList: () => void
+  openCodex: (codexId: string) => Promise<void>
+  createCodex: (title: string) => Promise<string>
+  renameCodex: (newTitle: string) => Promise<void>
+  deleteCodex: () => Promise<void>
+  closeCodex: () => void
+
+  // Rune operations
+  refreshRuneList: () => void
+  openRune: (runeId: string) => Promise<void>
+  createRune: (title: string, content?: string) => Promise<string>
+  saveCurrentRune: (silent?: boolean) => Promise<void>
+  renameRune: (runeId: string, newTitle: string) => Promise<void>
+  deleteRune: (runeId: string) => Promise<void>
+  duplicateRune: (runeId: string) => Promise<string>
+  closeRune: () => void
+
+  // Sigil operations
+  refreshSigilList: () => void
+  createSigil: (file: File) => Promise<string>
+  getSigilUrl: (sigilId: string) => Promise<string>
+  deleteSigil: (sigilId: string) => Promise<void>
+
+  // Sync operations
+  syncCurrentCodex: (onProgress?: (progress: SyncProgress) => void) => Promise<SyncResult>
+  syncAllCodexes: (
+    onProgress?: (codexId: string, title: string, progress: SyncProgress) => void,
+  ) => Promise<Record<string, SyncResult>>
+  lastSyncTime: Ref<string | null>
+
+  // Utility
+  clearError: () => void
+  getEditorContent: () => string
+  setEditorContent: (content: string) => void
+  isDirectory: (runeTitle: string) => boolean
+  error: Ref<Error | null>
+}
+
+// ==================== Main Composable ====================
+
+export function useCodex(
+  editorView?: Ref<EditorView | null>,
+  options: UseCodexOptions = {},
+): UseCodexReturn {
   const { autoSave = true, autoSaveDelay = 1000, showNotifications = true } = options
 
   // Stores and utilities
@@ -34,15 +106,14 @@ export function useCodex(editorView?: Ref<EditorView | null>, options: UseCodexO
 
   // ==================== State ====================
 
-  // Current codex
+  // Current state
   const currentCodex = ref<CodexInfo | null>(null)
-
-  // Current rune (note)
   const currentRune = ref<CurrentRuneState | null>(null)
 
   // Lists
   const codexes = ref<CodexInfo[]>([])
   const runes = ref<RuneInfo[]>([])
+  const sigils = ref<SigilInfo[]>([])
 
   // Loading states
   const isLoadingCodex = ref(false)
@@ -53,22 +124,20 @@ export function useCodex(editorView?: Ref<EditorView | null>, options: UseCodexO
   // Error state
   const error = ref<Error | null>(null)
 
-  // Last sync time
+  // Sync state
   const lastSyncTime = ref<string | null>(null)
 
-  // Auto-save timer
+  // Auto-save tracking
   let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
-
-  // Track original content for dirty detection
   let lastSavedContent = ''
 
-  // ==================== Computed ====================
+  // ==================== Computed Properties ====================
 
   const hasUnsavedChanges = computed(() => currentRune.value?.isDirty ?? false)
 
-  const canSave = computed(() => {
-    return currentRune.value !== null && currentRune.value.isDirty && !isSavingRune.value
-  })
+  const canSave = computed(
+    () => currentRune.value !== null && currentRune.value.isDirty && !isSavingRune.value,
+  )
 
   const hasOpenCodex = computed(() => currentCodex.value !== null)
 
@@ -93,6 +162,14 @@ export function useCodex(editorView?: Ref<EditorView | null>, options: UseCodexO
     if (showToast && showNotifications) {
       toast.error(errorObj.message)
     }
+  }
+
+  /**
+   * Check if a rune title represents a directory
+   * Directories are runes with titles ending in '/'
+   */
+  function isDirectory(runeTitle: string): boolean {
+    return runeTitle.endsWith('/')
   }
 
   /**
@@ -190,33 +267,34 @@ export function useCodex(editorView?: Ref<EditorView | null>, options: UseCodexO
     isLoadingCodex.value = true
 
     try {
-      // Check for unsaved changes
+      // Warn about unsaved changes
       if (hasUnsavedChanges.value && showNotifications) {
         toast.warning('You have unsaved changes in the current note')
       }
 
-      // Close current codex if any
+      // Close current if any
       if (currentCodex.value) {
         closeCodex()
       }
 
-      // Open the codex in session store
+      // Open in session store
       await sessionStore.openCodex(codexId)
 
-      // Get codex info
+      // Update state
       const codexInfo = sessionStore.getCurrentCodex()
       if (codexInfo) {
         currentCodex.value = codexInfo
       }
 
-      // Load runes list
+      // Load runes and sigils
       refreshRuneList()
+      refreshSigilList()
 
-      // Update last sync time
+      // Update sync time
       lastSyncTime.value = sessionStore.getLastSyncTime()
 
       if (showNotifications) {
-        toast.success(`Opened codex: ${codexInfo?.title}`)
+        toast.success(`Opened: ${codexInfo?.title}`)
       }
     } catch (err) {
       setError(err as Error)
@@ -329,6 +407,7 @@ export function useCodex(editorView?: Ref<EditorView | null>, options: UseCodexO
     currentCodex.value = null
     currentRune.value = null
     runes.value = []
+    sigils.value = []
     lastSyncTime.value = null
 
     // Clear editor
@@ -361,6 +440,7 @@ export function useCodex(editorView?: Ref<EditorView | null>, options: UseCodexO
   /**
    * Open a rune by ID
    * Loads the rune content into the editor
+   * Directories cannot be opened in the editor
    */
   async function openRune(runeId: string): Promise<void> {
     clearError()
@@ -372,11 +452,9 @@ export function useCodex(editorView?: Ref<EditorView | null>, options: UseCodexO
       }
 
       // Check for unsaved changes
-      if (hasUnsavedChanges.value) {
+      if (hasUnsavedChanges.value && currentRune.value && autoSave) {
         // Auto-save before switching
-        if (currentRune.value && autoSave) {
-          await saveCurrentRune(true)
-        }
+        await saveCurrentRune(true)
       }
 
       // Cancel any pending auto-save
@@ -386,6 +464,11 @@ export function useCodex(editorView?: Ref<EditorView | null>, options: UseCodexO
       const runeInfo = runes.value.find((r) => r.uuid === runeId)
       if (!runeInfo) {
         throw new Error(`Rune with ID ${runeId} not found`)
+      }
+
+      // Check if it's a directory
+      if (isDirectory(runeInfo.title)) {
+        throw new Error('Cannot open directories in the editor')
       }
 
       // Fetch rune content
@@ -416,6 +499,7 @@ export function useCodex(editorView?: Ref<EditorView | null>, options: UseCodexO
 
   /**
    * Create a new rune
+   * Can create both regular runes and directories (titles ending in '/')
    */
   async function createRune(title: string, content: string = ''): Promise<string> {
     clearError()
@@ -435,7 +519,8 @@ export function useCodex(editorView?: Ref<EditorView | null>, options: UseCodexO
       refreshRuneList()
 
       if (showNotifications) {
-        toast.success(`Created note: ${title}`)
+        const itemType = isDirectory(title) ? 'directory' : 'note'
+        toast.success(`Created ${itemType}: ${title}`)
       }
 
       return runeId
@@ -554,8 +639,50 @@ export function useCodex(editorView?: Ref<EditorView | null>, options: UseCodexO
       refreshRuneList()
 
       if (showNotifications) {
-        toast.success(`Deleted note: ${runeTitle}`)
+        const itemType = runeInfo && isDirectory(runeInfo.title) ? 'directory' : 'note'
+        toast.success(`Deleted ${itemType}: ${runeTitle}`)
       }
+    } catch (err) {
+      setError(err as Error)
+      throw err
+    }
+  }
+
+  /**
+   * Duplicate a rune
+   * Creates a copy with " (Copy)" suffix
+   */
+  async function duplicateRune(runeId: string): Promise<string> {
+    clearError()
+
+    try {
+      if (!currentCodex.value) {
+        throw new Error('No codex is currently open')
+      }
+
+      // Get original rune
+      const runeInfo = runes.value.find((r) => r.uuid === runeId)
+      if (!runeInfo) {
+        throw new Error(`Rune with ID ${runeId} not found`)
+      }
+
+      // Don't duplicate directories
+      if (isDirectory(runeInfo.title)) {
+        throw new Error('Cannot duplicate directories')
+      }
+
+      // Get content
+      const content = await sessionStore.getRune(runeId)
+
+      // Create copy with " (Copy)" suffix
+      const newTitle = `${runeInfo.title} (Copy)`
+      const newRuneId = await createRune(newTitle, content)
+
+      if (showNotifications) {
+        toast.success(`Duplicated: ${runeInfo.title}`)
+      }
+
+      return newRuneId
     } catch (err) {
       setError(err as Error)
       throw err
@@ -576,13 +703,110 @@ export function useCodex(editorView?: Ref<EditorView | null>, options: UseCodexO
     lastSavedContent = ''
   }
 
+  // ==================== Sigil (Image) Operations ====================
+
+  /**
+   * Refresh the list of sigils from the session store
+   */
+  function refreshSigilList() {
+    try {
+      if (!sessionStore.hasOpenCodex) {
+        sigils.value = []
+        return
+      }
+
+      sigils.value = sessionStore.listSigils()
+    } catch (err) {
+      setError(err as Error)
+      sigils.value = []
+    }
+  }
+
+  /**
+   * Create a new sigil from an image file
+   */
+  async function createSigil(file: File): Promise<string> {
+    clearError()
+
+    try {
+      if (!currentCodex.value) {
+        throw new Error('No codex is currently open')
+      }
+
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        throw new Error('File must be an image')
+      }
+
+      // Read file as ArrayBuffer
+      const arrayBuffer = await file.arrayBuffer()
+
+      // Create sigil
+      const sigilId = await sessionStore.createSigil(file.name, arrayBuffer)
+
+      // Refresh sigil list
+      refreshSigilList()
+
+      if (showNotifications) {
+        toast.success(`Uploaded: ${file.name}`)
+      }
+
+      return sigilId
+    } catch (err) {
+      setError(err as Error)
+      throw err
+    }
+  }
+
+  /**
+   * Get a blob URL for a sigil (for display in UI)
+   */
+  async function getSigilUrl(sigilId: string): Promise<string> {
+    try {
+      const result = await sessionStore.getSigilUrl(sigilId)
+      return result.url
+    } catch (err) {
+      setError(err as Error)
+      throw err
+    }
+  }
+
+  /**
+   * Delete a sigil
+   */
+  async function deleteSigil(sigilId: string): Promise<void> {
+    clearError()
+
+    try {
+      if (!currentCodex.value) {
+        throw new Error('No codex is currently open')
+      }
+
+      const sigilInfo = sigils.value.find((s) => s.uuid === sigilId)
+      const sigilTitle = sigilInfo?.title || 'Unknown'
+
+      await sessionStore.deleteSigil(sigilId)
+
+      // Refresh sigil list
+      refreshSigilList()
+
+      if (showNotifications) {
+        toast.success(`Deleted: ${sigilTitle}`)
+      }
+    } catch (err) {
+      setError(err as Error)
+      throw err
+    }
+  }
+
   // ==================== Sync Operations ====================
 
   /**
    * Sync the currently open codex
-   * TODO: Implement sync functionality
    */
-  async function syncCurrentCodex(): Promise<void> {
+  async function syncCurrentCodex(
+    onProgress?: (progress: SyncProgress) => void,
+  ): Promise<SyncResult> {
     clearError()
     isSyncing.value = true
 
@@ -591,16 +815,20 @@ export function useCodex(editorView?: Ref<EditorView | null>, options: UseCodexO
         throw new Error('No codex is currently open')
       }
 
-      // TODO: Implement actual sync logic
-      // Placeholder: simulate sync
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      const result = await sessionStore.syncCurrentCodex(onProgress)
 
       // Update last sync time
-      lastSyncTime.value = new Date().toISOString()
+      lastSyncTime.value = sessionStore.getLastSyncTime()
+
+      // Refresh lists in case of changes
+      refreshRuneList()
+      refreshSigilList()
 
       if (showNotifications) {
-        toast.info('Sync not yet implemented')
+        toast.success('Synced successfully')
       }
+
+      return result
     } catch (err) {
       setError(err as Error)
       throw err
@@ -611,20 +839,29 @@ export function useCodex(editorView?: Ref<EditorView | null>, options: UseCodexO
 
   /**
    * Sync all codexes
-   * TODO: Implement sync functionality
    */
-  async function syncAllCodexes(): Promise<void> {
+  async function syncAllCodexes(
+    onProgress?: (codexId: string, title: string, progress: SyncProgress) => void,
+  ): Promise<Record<string, SyncResult>> {
     clearError()
     isSyncing.value = true
 
     try {
-      // TODO: Implement actual sync logic
-      // Placeholder: simulate sync
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      const results = await sessionStore.syncAllCodexes(onProgress)
+
+      // Refresh codex list
+      refreshCodexList()
+
+      // Update sync time if current codex was synced
+      if (currentCodex.value) {
+        lastSyncTime.value = sessionStore.getLastSyncTime()
+      }
 
       if (showNotifications) {
-        toast.info('Sync all not yet implemented')
+        toast.success('All codexes synced')
       }
+
+      return results
     } catch (err) {
       setError(err as Error)
       throw err
@@ -637,7 +874,6 @@ export function useCodex(editorView?: Ref<EditorView | null>, options: UseCodexO
 
   // Watch editor content changes for auto-save
   if (editorView && autoSave) {
-    // Set up a watcher on the editor view
     watch(
       () => editorView.value?.state.doc.toString(),
       (newContent) => {
@@ -665,6 +901,7 @@ export function useCodex(editorView?: Ref<EditorView | null>, options: UseCodexO
     if (openCodexInfo) {
       currentCodex.value = openCodexInfo
       refreshRuneList()
+      refreshSigilList()
       lastSyncTime.value = sessionStore.getLastSyncTime()
     }
   }
@@ -672,19 +909,20 @@ export function useCodex(editorView?: Ref<EditorView | null>, options: UseCodexO
   // ==================== Return API ====================
 
   return {
-    // Current State
+    // State
     currentCodex,
     currentRune,
     codexes,
     runes,
+    sigils,
 
-    // Loading States
+    // Loading states
     isLoadingCodex,
     isLoadingRune,
     isSavingRune,
     isSyncing,
 
-    // Error State
+    // Error state
     error,
 
     // Computed
@@ -693,24 +931,31 @@ export function useCodex(editorView?: Ref<EditorView | null>, options: UseCodexO
     hasOpenCodex,
     hasOpenRune,
 
-    // Codex Operations
+    // Codex operations
+    refreshCodexList,
     openCodex,
     createCodex,
     renameCodex,
     deleteCodex,
     closeCodex,
-    refreshCodexList,
 
-    // Rune Operations
+    // Rune operations
+    refreshRuneList,
     openRune,
     createRune,
     saveCurrentRune,
     renameRune,
     deleteRune,
+    duplicateRune,
     closeRune,
-    refreshRuneList,
 
-    // Sync Operations (Placeholders)
+    // Sigil operations
+    refreshSigilList,
+    createSigil,
+    getSigilUrl,
+    deleteSigil,
+
+    // Sync operations
     syncCurrentCodex,
     syncAllCodexes,
     lastSyncTime,
@@ -719,5 +964,6 @@ export function useCodex(editorView?: Ref<EditorView | null>, options: UseCodexO
     clearError,
     getEditorContent,
     setEditorContent,
+    isDirectory,
   }
 }
