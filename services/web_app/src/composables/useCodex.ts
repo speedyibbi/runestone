@@ -608,7 +608,7 @@ export function useCodex(
         // Get a snapshot of all runes before we start renaming
         // This ensures we don't miss children if the list updates during the operation
         const allRunes = [...runes.value]
-        
+
         // Find all runes that are children of this directory
         // Children have titles that start with the directory path
         const children = allRunes.filter((r) => {
@@ -678,7 +678,7 @@ export function useCodex(
         // Get a snapshot of all runes before we start deleting
         // This ensures we don't miss children if the list updates during the operation
         const allRunes = [...runes.value]
-        
+
         // Find all runes that are children of this directory
         // Children have titles that start with the directory path
         const children = allRunes.filter((r) => {
@@ -713,7 +713,9 @@ export function useCodex(
 
         // Update notification message
         if (showNotifications && childCount > 0) {
-          toast.success(`Deleted directory and ${childCount} ${childCount === 1 ? 'item' : 'items'}`)
+          toast.success(
+            `Deleted directory and ${childCount} ${childCount === 1 ? 'item' : 'items'}`,
+          )
         }
       }
 

@@ -28,10 +28,10 @@ const isFewItems = computed(() => codexes.value.length <= 3)
 
 async function openCodex(codexId: string) {
   openingCodexId.value = codexId
-  
+
   try {
     await openCodexComposable(codexId)
-    
+
     router.push(`/codex/${codexId}`)
   } catch (err) {
     console.error('Error opening codex:', err)
@@ -58,12 +58,12 @@ async function createCodex() {
     titleInput.value?.focus()
     return
   }
-  
+
   isCreating.value = true
-  
+
   try {
     await createCodexComposable(newCodexTitle.value.trim())
-    
+
     newCodexTitle.value = ''
     showCreateForm.value = false
   } catch (err) {
@@ -104,11 +104,7 @@ onMounted(() => {
           <div class="content-area">
             <!-- Codex List -->
             <div v-if="hasCodexes" :class="['codex-list', { 'few-items': isFewItems }]">
-              <div
-                v-for="codex in codexes"
-                :key="codex.uuid"
-                class="codex-item-wrapper"
-              >
+              <div v-for="codex in codexes" :key="codex.uuid" class="codex-item-wrapper">
                 <button
                   :class="['codex-item', { loading: openingCodexId === codex.uuid }]"
                   :disabled="openingCodexId !== null"
@@ -134,11 +130,7 @@ onMounted(() => {
 
           <!-- Create Button -->
           <div class="create-section">
-            <button
-              class="create-button"
-              :disabled="openingCodexId !== null"
-              @click="showCreate"
-            >
+            <button class="create-button" :disabled="openingCodexId !== null" @click="showCreate">
               + Create New Codex
             </button>
           </div>
@@ -158,11 +150,7 @@ onMounted(() => {
                 :loading="isCreating"
                 @keydown="handleKeydown"
               />
-              <button
-                v-if="!isCreating"
-                class="back-button"
-                @click="cancelCreate"
-              >
+              <button v-if="!isCreating" class="back-button" @click="cancelCreate">
                 <svg
                   class="arrow-icon"
                   viewBox="0 0 24 24"

@@ -67,7 +67,7 @@ const EXPIRATION_DAYS = __APP_CONFIG__.localStorage.expiration
 export function saveUsername(username: string): void {
   const expirationDate = new Date()
   expirationDate.setDate(expirationDate.getDate() + EXPIRATION_DAYS)
-  
+
   localStorage.setItem(STORAGE_KEY, JSON.stringify({ username, expirationDate }))
 }
 
@@ -86,6 +86,6 @@ export function getSavedUsername(): string | null {
     localStorage.removeItem(STORAGE_KEY)
     return null
   }
-  
+
   return username
 }

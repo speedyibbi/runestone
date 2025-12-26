@@ -36,15 +36,16 @@ const {
 
 // Get auto-save callback and create editor with it
 const autoSaveCallback = createAutoSaveCallback()
-const { editorView, isPreviewMode, togglePreview } = useEditor(
-  editorElement,
-  autoSaveCallback,
-)
+const { editorView, isPreviewMode, togglePreview } = useEditor(editorElement, autoSaveCallback)
 
 // Update editorViewRef when editorView becomes available
-watch(editorView, (view) => {
-  editorViewRef.value = view as EditorView | null
-}, { immediate: true })
+watch(
+  editorView,
+  (view) => {
+    editorViewRef.value = view as EditorView | null
+  },
+  { immediate: true },
+)
 
 // Computed
 const currentRuneId = computed(() => currentRune.value?.uuid ?? null)
@@ -68,23 +69,23 @@ async function handleManualSave() {
     console.warn('Cannot save: No rune is open')
     return
   }
-  
+
   if (!editorView.value) {
     console.warn('Cannot save: Editor view is not available')
     return
   }
-  
+
   if (!currentRune.value) {
     console.warn('Cannot save: Current rune is null')
     return
   }
-  
+
   // Get content directly from editor to verify it's available
   const content = editorView.value.state.doc.toString()
   // Force mark as dirty to ensure save happens (manual save should always save)
   // This ensures the save will proceed even if auto-save thinks it's clean
   currentRune.value.isDirty = true
-  
+
   try {
     await saveCurrentRune(false) // false = show notification
     lastSaveTime.value = new Date()
@@ -111,22 +112,23 @@ function handleKeydown(event: KeyboardEvent) {
   if ((event.metaKey || event.ctrlKey) && event.key === 's') {
     // Don't intercept if user is typing in an input/textarea
     const target = event.target as HTMLElement
-    const isInputField = target.tagName === 'INPUT' || 
-                         target.tagName === 'TEXTAREA' || 
-                         target.isContentEditable ||
-                         target.closest('input') ||
-                         target.closest('textarea')
-    
+    const isInputField =
+      target.tagName === 'INPUT' ||
+      target.tagName === 'TEXTAREA' ||
+      target.isContentEditable ||
+      target.closest('input') ||
+      target.closest('textarea')
+
     if (isInputField) {
       return
     }
-    
+
     // ALWAYS prevent default FIRST to stop browser save dialog
     // This must happen before any other logic
     event.preventDefault()
     event.stopPropagation()
     event.stopImmediatePropagation()
-    
+
     // Only save if we have a rune open
     if (hasOpenRune.value) {
       handleManualSave()
@@ -138,7 +140,7 @@ function handleKeydown(event: KeyboardEvent) {
 function handleEditorSave(event: Event) {
   event.preventDefault()
   event.stopPropagation()
-  
+
   if (hasOpenRune.value) {
     handleManualSave()
   }
@@ -162,23 +164,23 @@ const saveStatusText = computed(() => {
   if (isSavingRune.value) {
     return 'Saving...'
   }
-  
+
   // Always show errors
   if (error.value) {
     return 'Error saving'
   }
-  
+
   // Always show unsaved changes
   if (hasUnsavedChanges.value) {
     return 'Unsaved changes'
   }
-  
+
   // Only show "saved" status briefly after manual save or if explicitly shown
   if (showSaveStatus.value && lastSaveTime.value) {
     const now = new Date()
     const diffMs = now.getTime() - lastSaveTime.value.getTime()
     const diffSecs = Math.floor(diffMs / 1000)
-    
+
     if (diffSecs < 1) {
       return 'Saved just now'
     } else if (diffSecs < 60) {
@@ -187,28 +189,32 @@ const saveStatusText = computed(() => {
       return 'Saved'
     }
   }
-  
+
   // Don't show status when everything is saved and no recent activity
   return ''
 })
 
 // Watch for editor element to set up save listener
-watch(editorElement, (element) => {
-  if (element) {
-    // Listen for save events from CodeMirror editor
-    // This handles Cmd/Ctrl+S when the editor is focused
-    element.addEventListener('editor-save', handleEditorSave)
-  }
-}, { immediate: true })
+watch(
+  editorElement,
+  (element) => {
+    if (element) {
+      // Listen for save events from CodeMirror editor
+      // This handles Cmd/Ctrl+S when the editor is focused
+      element.addEventListener('editor-save', handleEditorSave)
+    }
+  },
+  { immediate: true },
+)
 
 onMounted(() => {
   refreshRuneList()
-  
+
   const runeId = route.params.runeId as string | undefined
   if (runeId) {
     openRune(runeId)
   }
-  
+
   // Add keyboard event listener with capture phase to catch it early
   // This ensures we prevent default before the browser handles it
   window.addEventListener('keydown', handleKeydown, { capture: true })
@@ -217,7 +223,7 @@ onMounted(() => {
 onUnmounted(() => {
   // Remove keyboard event listener
   window.removeEventListener('keydown', handleKeydown, { capture: true })
-  
+
   // Remove editor save event listener
   if (editorElement.value) {
     editorElement.value.removeEventListener('editor-save', handleEditorSave)

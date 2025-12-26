@@ -26,7 +26,7 @@ onMounted(async () => {
   if (savedUsername) {
     username.value = savedUsername
   }
-  
+
   await nextTick()
   usernameInput.value?.focus()
 })
@@ -70,10 +70,10 @@ async function handlePassphraseSubmit() {
   try {
     const combinedAuth = `${username.value}|${passphrase.value}`
     await sessionStore.setup(combinedAuth, authMode.value)
-    
+
     // Save username for next login
     saveUsername(username.value)
-    
+
     if (authMode.value === 'login') {
       toast.success('Logged in successfully')
     } else {
@@ -89,13 +89,25 @@ async function handlePassphraseSubmit() {
       toast.error('Account already exists. Please log in instead.')
     } else if (errorMessage.includes('not found') || errorMessage.includes('does not exist')) {
       toast.error('Account not found. Please check your credentials.')
-    } else if (errorMessage.includes('decrypt') || errorMessage.includes('passphrase') || errorMessage.includes('invalid')) {
+    } else if (
+      errorMessage.includes('decrypt') ||
+      errorMessage.includes('passphrase') ||
+      errorMessage.includes('invalid')
+    ) {
       toast.error('Wrong passphrase. Please try again.')
-    } else if (errorMessage.includes('network') || errorMessage.includes('fetch') || errorMessage.includes('connection')) {
+    } else if (
+      errorMessage.includes('network') ||
+      errorMessage.includes('fetch') ||
+      errorMessage.includes('connection')
+    ) {
       toast.error('Unable to connect. Please check your internet.')
     } else if (errorMessage.includes('timeout')) {
       toast.error('Request timed out. Please try again.')
-    } else if (errorMessage.includes('OPFS') || errorMessage.includes('storage') || errorMessage.includes('directory')) {
+    } else if (
+      errorMessage.includes('OPFS') ||
+      errorMessage.includes('storage') ||
+      errorMessage.includes('directory')
+    ) {
       toast.error('Storage error. Please try refreshing the page.')
     } else {
       toast.error(errorMessage || 'Something went wrong. Please try again.')
@@ -125,12 +137,12 @@ function handleBack() {
 
 function switchMode(mode: 'login' | 'signup') {
   if (authMode.value === mode) return
-  
+
   authMode.value = mode
   currentStep.value = 'username'
   username.value = ''
   passphrase.value = ''
-  
+
   nextTick(() => {
     usernameInput.value?.focus()
   })
@@ -157,46 +169,46 @@ function switchMode(mode: 'login' | 'signup') {
           Sign Up
         </button>
       </h1>
-      
+
       <div class="input-container">
         <FadeTransition mode="out-in" @after-enter="handleTransitionComplete">
-        <!-- Username input step -->
-        <div v-if="currentStep === 'username'" key="username" class="input-wrapper">
-          <LoadingPulseInput
-            ref="usernameInput"
-            v-model="username"
-            type="text"
-            placeholder="Username"
-            @keydown="handleKeydown"
-          />
-        </div>
+          <!-- Username input step -->
+          <div v-if="currentStep === 'username'" key="username" class="input-wrapper">
+            <LoadingPulseInput
+              ref="usernameInput"
+              v-model="username"
+              type="text"
+              placeholder="Username"
+              @keydown="handleKeydown"
+            />
+          </div>
 
-        <!-- Passphrase input step -->
-        <div v-else key="passphrase" class="input-wrapper">
-          <LoadingPulseInput
-            ref="passphraseInput"
-            v-model="passphrase"
-            type="password"
-            placeholder="Passphrase"
-            :loading="isLoading"
-            @keydown="handleKeydown"
-          />
+          <!-- Passphrase input step -->
+          <div v-else key="passphrase" class="input-wrapper">
+            <LoadingPulseInput
+              ref="passphraseInput"
+              v-model="passphrase"
+              type="password"
+              placeholder="Passphrase"
+              :loading="isLoading"
+              @keydown="handleKeydown"
+            />
 
-          <!-- Back button -->
-          <button v-if="!isLoading" class="back-button" @click="handleBack">
-            <svg
-              class="arrow-icon"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <path d="M19 12H5M12 19l-7-7 7-7" />
-            </svg>
-            Back
-          </button>
-        </div>
-      </FadeTransition>
+            <!-- Back button -->
+            <button v-if="!isLoading" class="back-button" @click="handleBack">
+              <svg
+                class="arrow-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M19 12H5M12 19l-7-7 7-7" />
+              </svg>
+              Back
+            </button>
+          </div>
+        </FadeTransition>
       </div>
     </div>
   </main>
@@ -241,7 +253,9 @@ h1 {
   font-weight: inherit;
   letter-spacing: inherit;
   cursor: pointer;
-  transition: color 0.25s ease, opacity 0.25s ease;
+  transition:
+    color 0.25s ease,
+    opacity 0.25s ease;
   user-select: none;
 }
 
