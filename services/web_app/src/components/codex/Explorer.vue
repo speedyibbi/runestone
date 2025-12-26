@@ -13,6 +13,7 @@ interface Props {
   treeItems?: TreeItem[]
   currentRuneId?: string | null
   expandedDirectories?: Set<string>
+  selectedDirectory?: string | null
   showCreateForm?: boolean
   showCreateDirectoryForm?: boolean
   showSearchForm?: boolean
@@ -29,6 +30,7 @@ interface Emits {
   (e: 'search'): void
   (e: 'collapse'): void
   (e: 'select-rune', runeId: string): void
+  (e: 'select-directory', dirName: string | null): void
   (e: 'toggle-directory', dirName: string): void
   (e: 'create-rune', title: string): void
   (e: 'update:newRuneTitle', value: string): void
@@ -43,6 +45,7 @@ const props = withDefaults(defineProps<Props>(), {
   isLoading: false,
   treeItems: () => [],
   expandedDirectories: () => new Set(),
+  selectedDirectory: null,
   showCreateForm: false,
   showCreateDirectoryForm: false,
   showSearchForm: false,
@@ -56,6 +59,24 @@ const emit = defineEmits<Emits>()
 
 function getDirectoryName(rune: RuneInfo): string {
   return rune.title.endsWith('/') ? rune.title.slice(0, -1) : rune.title
+}
+
+function handleItemClick(item: TreeItem) {
+  if (item.rune.uuid === 'temp-new-file' || item.rune.uuid === 'temp-new-directory') {
+    return
+  }
+
+  if (item.isDirectory) {
+    // Toggle directory expansion
+    emit('toggle-directory', item.rune.title)
+    
+    // Select the directory (parent will clear selection when collapsing)
+    emit('select-directory', item.rune.title)
+  } else {
+    // For files, select the rune and clear directory selection
+    emit('select-directory', null)
+    emit('select-rune', item.rune.uuid)
+  }
 }
 </script>
 
@@ -172,13 +193,14 @@ function getDirectoryName(rune: RuneInfo): string {
                 'item',
                 { 
                   'is-active': item.rune.uuid === currentRuneId && !item.isDirectory,
+                  'is-directory-selected': item.isDirectory && selectedDirectory === item.rune.title,
                   'is-temp': item.rune.uuid === 'temp-new-file' || item.rune.uuid === 'temp-new-directory',
                   'is-directory': item.isDirectory,
                   'is-expanded': item.isDirectory && expandedDirectories.has(item.rune.title)
                 }
               ]"
               :style="{ paddingLeft: (0.5 + item.level * 1) + 'rem' }"
-              @click="item.rune.uuid !== 'temp-new-file' && item.rune.uuid !== 'temp-new-directory' && (item.isDirectory ? emit('toggle-directory', item.rune.title) : emit('select-rune', item.rune.uuid))"
+              @click="handleItemClick(item)"
               :disabled="item.rune.uuid === 'temp-new-file' || item.rune.uuid === 'temp-new-directory'"
             >
               <svg 
@@ -196,6 +218,10 @@ function getDirectoryName(rune: RuneInfo): string {
               >
                 <polyline points="9 18 15 12 9 6" />
               </svg>
+              <span 
+                v-else
+                class="item-icon chevron-spacer"
+              ></span>
               <svg 
                 v-if="item.isDirectory"
                 class="item-icon directory-icon" 
@@ -315,7 +341,7 @@ function getDirectoryName(rune: RuneInfo): string {
 }
 
 .list::-webkit-scrollbar {
-  width: 8px;
+  width: 2px;
 }
 
 .list::-webkit-scrollbar-track {
@@ -505,8 +531,8 @@ function getDirectoryName(rune: RuneInfo): string {
 }
 
 .item-icon {
-  width: 16px;
-  height: 16px;
+  width: 1rem;
+  height: 1rem;
   color: var(--color-accent);
   opacity: 0.7;
   flex-shrink: 0;
@@ -531,8 +557,8 @@ function getDirectoryName(rune: RuneInfo): string {
 }
 
 .chevron-icon {
-  width: 12px;
-  height: 12px;
+  width: 0.6rem;
+  height: 0.6rem;
   color: var(--color-accent);
   opacity: 0.6;
   margin-right: 0.125rem;
@@ -542,6 +568,21 @@ function getDirectoryName(rune: RuneInfo): string {
 
 .chevron-icon.is-expanded {
   transform: rotate(0deg);
+}
+
+.chevron-spacer {
+  width: 0.6rem;
+  height: 0.6rem;
+  margin-right: 0.125rem;
+  flex-shrink: 0;
+}
+
+.item.is-directory-selected {
+  background: var(--color-overlay-medium);
+}
+
+.item.is-directory-selected:hover {
+  background: var(--color-overlay-medium);
 }
 
 .item-title {

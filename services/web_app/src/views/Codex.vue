@@ -29,6 +29,7 @@ const {
 // Sidebar state
 const isSidebarCollapsed = ref(false)
 const expandedDirectories = ref<Set<string>>(new Set())
+const selectedDirectory = ref<string | null>(null)
 const showCreateForm = ref(false)
 const showCreateDirectoryForm = ref(false)
 const showSearchForm = ref(false)
@@ -108,6 +109,10 @@ const currentRuneId = computed(() => currentRune.value?.uuid ?? null)
 function handleToggleDirectory(dirName: string) {
   if (expandedDirectories.value.has(dirName)) {
     expandedDirectories.value.delete(dirName)
+    // Clear selection when collapsing a directory
+    if (selectedDirectory.value === dirName) {
+      selectedDirectory.value = null
+    }
   } else {
     expandedDirectories.value.add(dirName)
   }
@@ -142,10 +147,16 @@ function handleCollapse() {
 
 async function handleSelectRune(runeId: string) {
   try {
+    // Clear directory selection when selecting a file
+    selectedDirectory.value = null
     await openRune(runeId)
   } catch (err) {
     console.error('Error opening rune:', err)
   }
+}
+
+function handleSelectDirectory(dirName: string | null) {
+  selectedDirectory.value = dirName
 }
 
 async function handleCreateRune(title: string) {
@@ -154,7 +165,17 @@ async function handleCreateRune(title: string) {
   isCreating.value = true
 
   try {
-    const runeId = await createRune(title.trim())
+    // If a directory is selected and creating a file (not a directory), prepend the directory path
+    let finalTitle = title.trim()
+    if (selectedDirectory.value && !isDirectory(title.trim())) {
+      // Remove trailing slash from directory name if present
+      const dirPath = selectedDirectory.value.endsWith('/') 
+        ? selectedDirectory.value.slice(0, -1) 
+        : selectedDirectory.value
+      finalTitle = `${dirPath}/${title.trim()}`
+    }
+
+    const runeId = await createRune(finalTitle)
 
     // Reset forms
     showCreateForm.value = false
@@ -163,11 +184,13 @@ async function handleCreateRune(title: string) {
     newDirectoryName.value = ''
 
     // Auto-open the newly created rune if it's not a directory
-    if (!isDirectory(title.trim())) {
+    if (!isDirectory(finalTitle)) {
       await openRune(runeId)
+      // Clear directory selection after creating file
+      selectedDirectory.value = null
     } else {
       // Auto-expand the directory
-      expandedDirectories.value.add(title.trim())
+      expandedDirectories.value.add(finalTitle)
     }
   } catch (err) {
     console.error('Error creating rune:', err)
@@ -206,6 +229,7 @@ watch(
       :is-loading="isLoadingRune"
       :codex-title="currentCodex?.title"
       :expanded-directories="expandedDirectories"
+      :selected-directory="selectedDirectory"
       :show-create-form="showCreateForm"
       :show-create-directory-form="showCreateDirectoryForm"
       :show-search-form="showSearchForm"
@@ -214,6 +238,7 @@ watch(
       :search-query="searchQuery"
       :is-creating="isCreating"
       @select-rune="handleSelectRune"
+      @select-directory="handleSelectDirectory"
       @toggle-directory="handleToggleDirectory"
       @create-rune="handleCreateRune"
       @new-file="handleNewFile"
