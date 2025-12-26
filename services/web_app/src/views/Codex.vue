@@ -51,11 +51,36 @@ interface TreeItem {
 
 const treeItems = computed<TreeItem[]>(() => {
   const items: TreeItem[] = []
-  const filteredRunes = searchQuery.value.trim()
+  const searchMode = searchQuery.value.trim().length > 0
+  const filteredRunes = searchMode
     ? runes.value.filter((rune) =>
         rune.title.toLowerCase().includes(searchQuery.value.toLowerCase()),
       )
     : runes.value
+
+  // When searching, collect all parent directories that need to be shown
+  const requiredParentDirs = new Set<string>()
+  if (searchMode) {
+    // For each matching item, add all its parent directories to the required set
+    for (const rune of filteredRunes) {
+      const pathParts = rune.title.split('/')
+      // Build all parent directory paths
+      for (let i = 1; i < pathParts.length; i++) {
+        const parentPath = pathParts.slice(0, i).join('/') + '/'
+        requiredParentDirs.add(parentPath)
+      }
+    }
+  }
+
+  // When searching, include parent directories in the runes to display
+  const runesToDisplay = searchMode
+    ? [
+        ...filteredRunes,
+        ...Array.from(requiredParentDirs)
+          .map((dirPath) => runes.value.find((r) => r.title === dirPath))
+          .filter((r): r is RuneInfo => r !== undefined),
+      ]
+    : filteredRunes
 
   // Build a tree structure
   interface TreeNode {
@@ -85,13 +110,13 @@ const treeItems = computed<TreeItem[]>(() => {
 
   // First pass: create all nodes
   const nodeMap = new Map<string, TreeNode>()
-  for (const rune of filteredRunes) {
+  for (const rune of runesToDisplay) {
     const node: TreeNode = { rune, children: [] }
     nodeMap.set(rune.title, node)
   }
 
   // Second pass: build parent-child relationships
-  for (const rune of filteredRunes) {
+  for (const rune of runesToDisplay) {
     const node = nodeMap.get(rune.title)!
     const parentPath = getParentPath(rune.title)
 
@@ -137,10 +162,12 @@ const treeItems = computed<TreeItem[]>(() => {
           parentParts.pop() // Remove trailing empty string from directory path
         }
 
-        // Check if all parent directories are expanded
+        // Check if all parent directories are expanded (or required in search mode)
         for (let i = 1; i <= parentParts.length; i++) {
           const parentPath = parentParts.slice(0, i).join('/') + '/'
-          if (!expandedDirectories.value.has(parentPath)) {
+          const isExpanded = expandedDirectories.value.has(parentPath)
+          const isRequired = searchMode && requiredParentDirs.has(parentPath)
+          if (!isExpanded && !isRequired) {
             shouldShow = false
             break
           }
@@ -154,8 +181,10 @@ const treeItems = computed<TreeItem[]>(() => {
           isDirectory: isDirectory(node.rune.title),
         })
 
-        // If it's a directory and expanded, add its children
-        if (isDirectory(node.rune.title) && expandedDirectories.value.has(node.rune.title)) {
+        // If it's a directory and (expanded or required in search mode), add its children
+        const isExpanded = expandedDirectories.value.has(node.rune.title)
+        const isRequired = searchMode && requiredParentDirs.has(node.rune.title)
+        if (isDirectory(node.rune.title) && (isExpanded || isRequired)) {
           buildItems(node.children, itemLevel + 1)
         }
       }
@@ -209,6 +238,15 @@ function handleSearch() {
 
 function handleCollapse() {
   expandedDirectories.value.clear()
+}
+
+function handleRefresh() {
+  refreshRuneList()
+  // Optionally clear search when refreshing
+  if (searchQuery.value.trim()) {
+    searchQuery.value = ''
+    showSearchForm.value = false
+  }
 }
 
 async function handleSelectRune(runeId: string) {
@@ -335,7 +373,7 @@ watch(
       @new-directory="handleNewDirectory"
       @search="handleSearch"
       @collapse="handleCollapse"
-      @refresh="refreshRuneList"
+      @refresh="handleRefresh"
       @update:new-rune-title="(val) => (newRuneTitle = val)"
       @update:new-directory-name="(val) => (newDirectoryName = val)"
       @update:search-query="(val) => (searchQuery = val)"
