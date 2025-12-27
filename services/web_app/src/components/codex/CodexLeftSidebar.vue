@@ -12,7 +12,7 @@ export interface TreeNode {
   parentPath: string
 }
 
-type EditingState = 
+type EditingState =
   | { type: 'creating-rune'; parentPath: string }
   | { type: 'creating-directory'; parentPath: string }
   | { type: 'renaming'; runeId: string }

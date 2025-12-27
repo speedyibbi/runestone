@@ -112,18 +112,23 @@ watch(
 )
 
 // This handles the edge case where the editor initializes after openRune has already completed
-watch(
-  [editorView, currentRune],
-  ([view, rune], [oldView, oldRune]) => {
-    if (view && !oldView && rune) {
-      const currentContent = view.state.doc.toString()
-      if (!currentContent.trim()) {
-        nextTick(() => {
-          if (view && rune && currentRune.value?.uuid === rune.uuid && editorView.value === view) {
-            // Use the session store directly to avoid triggering openRune again
-            const sessionStore = useSessionStore()
-            sessionStore.getRune(rune.uuid).then((content) => {
-              if (view && rune && currentRune.value?.uuid === rune.uuid && editorView.value === view) {
+watch([editorView, currentRune], ([view, rune], [oldView, oldRune]) => {
+  if (view && !oldView && rune) {
+    const currentContent = view.state.doc.toString()
+    if (!currentContent.trim()) {
+      nextTick(() => {
+        if (view && rune && currentRune.value?.uuid === rune.uuid && editorView.value === view) {
+          // Use the session store directly to avoid triggering openRune again
+          const sessionStore = useSessionStore()
+          sessionStore
+            .getRune(rune.uuid)
+            .then((content) => {
+              if (
+                view &&
+                rune &&
+                currentRune.value?.uuid === rune.uuid &&
+                editorView.value === view
+              ) {
                 view.dispatch({
                   changes: {
                     from: 0,
@@ -132,15 +137,15 @@ watch(
                   },
                 })
               }
-            }).catch(() => {
+            })
+            .catch(() => {
               // Ignore errors - content might already be loading via openRune
             })
-          }
-        })
-      }
+        }
+      })
     }
-  },
-)
+  }
+})
 
 onUnmounted(() => {
   if (editorView.value && currentUpdateListener) {
@@ -172,7 +177,11 @@ const statusMessage = ref<string | null>(null)
 const statusType = ref<'info' | 'success' | 'warning' | 'error' | null>(null)
 let statusTimeout: ReturnType<typeof setTimeout> | null = null
 
-function setStatusMessage(message: string | null, type: 'info' | 'success' | 'warning' | 'error' | null = null, duration: number = 3000) {
+function setStatusMessage(
+  message: string | null,
+  type: 'info' | 'success' | 'warning' | 'error' | null = null,
+  duration: number = 3000,
+) {
   if (statusTimeout) {
     clearTimeout(statusTimeout)
     statusTimeout = null
@@ -261,7 +270,7 @@ function handleTabClose(tab: Tab) {
         if (nextTab.runeId) {
           openRune(nextTab.runeId)
         }
-    } else {
+      } else {
         activeTabId.value = null
         closeRune()
       }
@@ -364,7 +373,7 @@ function buildTree(runes: RuneInfo[]): TreeNode[] {
         .filter((child) => {
           if (child.uuid === rune.uuid) return false
           if (!child.title.startsWith(rune.title)) return false
-          
+
           const remaining = child.title.slice(rune.title.length)
           const cleanRemaining = remaining.startsWith('/') ? remaining.slice(1) : remaining
           const remainingParts = cleanRemaining.split('/').filter((p) => p)
@@ -381,10 +390,10 @@ function buildTree(runes: RuneInfo[]): TreeNode[] {
 
   for (const rune of sortedRunes) {
     const parentPath = getParentPath(rune.title)
-    
+
     const parts = rune.title.split('/').filter((p) => p)
     const isRootLevel = parts.length <= 1
-    
+
     if (parentPath === '' && isRootLevel) {
       const node = buildNode(rune, 0, '')
       if (node) {
@@ -398,7 +407,7 @@ function buildTree(runes: RuneInfo[]): TreeNode[] {
 
 const runeTree = computed(() => buildTree(runes.value))
 
-type EditingState = 
+type EditingState =
   | { type: 'creating-rune'; parentPath: string }
   | { type: 'creating-directory'; parentPath: string }
   | { type: 'renaming'; runeId: string }
@@ -437,12 +446,12 @@ const createInDirectory = ref<string>('')
 async function handleCreateRuneSubmit(title: string) {
   try {
     if (!editingState.value || editingState.value.type !== 'creating-rune') return
-    
+
     const targetDir = editingState.value.parentPath
     const fullTitle = targetDir ? `${targetDir}${title}` : title
     editingState.value = null
     createInDirectory.value = ''
-    
+
     const runeId = await createRune(fullTitle)
     expandAllParentDirectories(fullTitle)
     await openRune(runeId)
@@ -463,13 +472,13 @@ function handleCreateRuneCancel() {
 async function handleCreateDirectorySubmit(title: string) {
   try {
     if (!editingState.value || editingState.value.type !== 'creating-directory') return
-    
+
     const directoryTitle = title.endsWith('/') ? title : `${title}/`
     const targetDir = editingState.value.parentPath
     const fullTitle = targetDir ? `${targetDir}${directoryTitle}` : directoryTitle
     editingState.value = null
     createInDirectory.value = ''
-    
+
     await createRune(fullTitle, '')
     expandAllParentDirectories(fullTitle)
     setStatusMessage(`Created directory: ${title}`, 'success')
@@ -541,57 +550,61 @@ function handleRuneContextMenu(event: MouseEvent, rune: RuneInfo) {
             }
           } catch (err) {
             console.error('Error duplicating rune:', err)
-            setStatusMessage(err instanceof Error ? err.message : 'Error duplicating', 'error', 5000)
+            setStatusMessage(
+              err instanceof Error ? err.message : 'Error duplicating',
+              'error',
+              5000,
+            )
           }
         }
       },
       disabled: isDir,
     },
-      {
+    {
       label: 'Delete',
       action: async () => {
         if (selectedRuneForAction.value) {
           try {
             const runeToDelete = selectedRuneForAction.value
-            
+
             const runesToDelete: RuneInfo[] = []
             if (isDirectory(runeToDelete.title)) {
               runesToDelete.push(
-                ...runes.value.filter((r) => 
-                  r.title.startsWith(runeToDelete.title) && r.uuid !== runeToDelete.uuid
-                )
+                ...runes.value.filter(
+                  (r) => r.title.startsWith(runeToDelete.title) && r.uuid !== runeToDelete.uuid,
+                ),
               )
             }
             runesToDelete.push(runeToDelete)
-            
-            const tabsToClose = tabs.value.filter((tab) => 
-              tab.runeId && runesToDelete.some((r) => r.uuid === tab.runeId)
+
+            const tabsToClose = tabs.value.filter(
+              (tab) => tab.runeId && runesToDelete.some((r) => r.uuid === tab.runeId),
             )
-            
+
             tabsToClose.forEach((tab) => {
-  const index = tabs.value.findIndex((t) => t.id === tab.id)
-  if (index !== -1) {
-    tabs.value.splice(index, 1)
+              const index = tabs.value.findIndex((t) => t.id === tab.id)
+              if (index !== -1) {
+                tabs.value.splice(index, 1)
               }
             })
-            
+
             if (tabsToClose.some((t) => t.id === activeTabId.value)) {
-      if (tabs.value.length > 0) {
+              if (tabs.value.length > 0) {
                 const nextTab = tabs.value[0]
-        activeTabId.value = nextTab.id
-        if (nextTab.runeId) {
-          openRune(nextTab.runeId)
-        }
-      } else {
-        activeTabId.value = null
-        closeRune()
-      }
-    }
-            
+                activeTabId.value = nextTab.id
+                if (nextTab.runeId) {
+                  openRune(nextTab.runeId)
+                }
+              } else {
+                activeTabId.value = null
+                closeRune()
+              }
+            }
+
             if (selectedDirectory.value && runeToDelete.title.startsWith(selectedDirectory.value)) {
               selectedDirectory.value = ''
             }
-            
+
             await deleteRune(runeToDelete.uuid)
             const itemType = isDirectory(runeToDelete.title) ? 'directory' : 'note'
             setStatusMessage(`Deleted ${itemType}`, 'success')
@@ -611,14 +624,14 @@ function handleRuneContextMenu(event: MouseEvent, rune: RuneInfo) {
 
 async function handleRenameRuneSubmit(newTitle: string) {
   if (!editingState.value || editingState.value.type !== 'renaming') return
-  
+
   const runeId = editingState.value.runeId
   const rune = runes.value.find((r) => r.uuid === runeId)
   if (!rune) {
     editingState.value = null
     return
   }
-  
+
   try {
     const parentPath = getParentPath(rune.title)
     const fullTitle = parentPath ? `${parentPath}${newTitle}` : newTitle
@@ -645,7 +658,7 @@ function handleRenameRuneCancel() {
 
 function handleEditSubmit(value: string) {
   if (!editingState.value) return
-  
+
   if (editingState.value.type === 'creating-rune') {
     handleCreateRuneSubmit(value)
   } else if (editingState.value.type === 'creating-directory') {
@@ -657,7 +670,7 @@ function handleEditSubmit(value: string) {
 
 function handleEditCancel() {
   if (!editingState.value) return
-  
+
   if (editingState.value.type === 'creating-rune') {
     handleCreateRuneCancel()
   } else if (editingState.value.type === 'creating-directory') {

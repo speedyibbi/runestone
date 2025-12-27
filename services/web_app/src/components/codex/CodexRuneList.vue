@@ -6,7 +6,7 @@ import CodexRuneActions from './CodexRuneActions.vue'
 import CodexRuneTreeNode from './CodexRuneTreeNode.vue'
 import CodexRuneItem from './CodexRuneItem.vue'
 
-type EditingState = 
+type EditingState =
   | { type: 'creating-rune'; parentPath: string }
   | { type: 'creating-directory'; parentPath: string }
   | { type: 'renaming'; runeId: string }
@@ -126,7 +126,11 @@ function handleCollapse() {
       <!-- Placeholder for creating at root level -->
       <Transition name="rune-item-fade">
         <CodexRuneItem
-          v-if="editingState && (editingState.type === 'creating-rune' || editingState.type === 'creating-directory') && editingState.parentPath === ''"
+          v-if="
+            editingState &&
+            (editingState.type === 'creating-rune' || editingState.type === 'creating-directory') &&
+            editingState.parentPath === ''
+          "
           :rune="null"
           :active="false"
           :is-directory="editingState.type === 'creating-directory'"
@@ -249,7 +253,8 @@ function handleCollapse() {
 }
 
 .rune-item-fade-leave-active {
-  transition: opacity 0.3s cubic-bezier(0.25, 0.1, 0.25, 1),
+  transition:
+    opacity 0.3s cubic-bezier(0.25, 0.1, 0.25, 1),
     transform 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
   position: absolute !important;
   width: 100%;
@@ -277,12 +282,14 @@ function handleCollapse() {
 }
 
 .directory-indicator-fade-enter-active {
-  transition: opacity 0.2s cubic-bezier(0.25, 0.1, 0.25, 1),
+  transition:
+    opacity 0.2s cubic-bezier(0.25, 0.1, 0.25, 1),
     transform 0.2s cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
 .directory-indicator-fade-leave-active {
-  transition: opacity 0.15s cubic-bezier(0.25, 0.1, 0.25, 1),
+  transition:
+    opacity 0.15s cubic-bezier(0.25, 0.1, 0.25, 1),
     transform 0.15s cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 

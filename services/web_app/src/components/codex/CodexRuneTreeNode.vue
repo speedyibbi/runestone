@@ -4,7 +4,7 @@ import type { RuneInfo } from '@/composables/useCodex'
 import type { TreeNode } from './CodexLeftSidebar.vue'
 import CodexRuneItem from './CodexRuneItem.vue'
 
-type EditingState = 
+type EditingState =
   | { type: 'creating-rune'; parentPath: string }
   | { type: 'creating-directory'; parentPath: string }
   | { type: 'renaming'; runeId: string }
@@ -42,19 +42,29 @@ function getDisplayName(node: TreeNode): string {
 }
 
 const isEditing = computed(() => {
-  return props.editingState?.type === 'renaming' && props.editingState.runeId === props.node.rune.uuid
+  return (
+    props.editingState?.type === 'renaming' && props.editingState.runeId === props.node.rune.uuid
+  )
 })
 
 const showCreatePlaceholder = computed(() => {
   if (!props.editingState) return false
-  if (props.editingState.type === 'creating-rune' || props.editingState.type === 'creating-directory') {
-    return props.editingState.parentPath === props.node.rune.title && props.isDirectory(props.node.rune.title)
+  if (
+    props.editingState.type === 'creating-rune' ||
+    props.editingState.type === 'creating-directory'
+  ) {
+    return (
+      props.editingState.parentPath === props.node.rune.title &&
+      props.isDirectory(props.node.rune.title)
+    )
   }
   return false
 })
 
 const isExpanded = computed(() => {
-  return props.isDirectory(props.node.rune.title) && props.expandedDirectories.has(props.node.rune.title)
+  return (
+    props.isDirectory(props.node.rune.title) && props.expandedDirectories.has(props.node.rune.title)
+  )
 })
 
 function handleRuneClick(rune: RuneInfo | null, event?: MouseEvent) {
@@ -97,10 +107,7 @@ function handleRuneContextMenu(event: MouseEvent, rune: RuneInfo | null) {
     />
     <!-- Recursively render children if directory is expanded -->
     <Transition name="directory-expand">
-      <div
-        v-if="isDirectory(node.rune.title) && isExpanded"
-        class="children-wrapper"
-      >
+      <div v-if="isDirectory(node.rune.title) && isExpanded" class="children-wrapper">
         <div class="children-container">
           <TransitionGroup name="rune-item-fade" tag="div" class="children-list">
             <CodexRuneTreeNode
@@ -188,7 +195,8 @@ function handleRuneContextMenu(event: MouseEvent, rune: RuneInfo | null) {
 }
 
 .rune-item-fade-leave-active {
-  transition: opacity 0.3s cubic-bezier(0.25, 0.1, 0.25, 1),
+  transition:
+    opacity 0.3s cubic-bezier(0.25, 0.1, 0.25, 1),
     transform 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
   position: absolute !important;
   width: 100%;

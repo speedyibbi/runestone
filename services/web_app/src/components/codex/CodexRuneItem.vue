@@ -46,13 +46,13 @@ const CLICK_DEBOUNCE_MS = 200
 
 function handleClick(event: MouseEvent) {
   if (props.isEditing || props.isCreating) return
-  
+
   if (clickTimeout) {
     clearTimeout(clickTimeout)
     clickTimeout = null
     return
   }
-  
+
   clickTimeout = setTimeout(() => {
     emit('click', props.rune, event)
     clickTimeout = null
@@ -61,7 +61,7 @@ function handleClick(event: MouseEvent) {
 
 function handleDoubleClick() {
   if (props.isEditing || props.isCreating) return
-  
+
   if (clickTimeout) {
     clearTimeout(clickTimeout)
     clickTimeout = null
@@ -76,9 +76,10 @@ watch(
       if (props.rune && props.isEditing) {
         // Renaming: extract just the name part (without parent path)
         const fullTitle = props.rune.title
-        const name = props.parentPath && fullTitle.startsWith(props.parentPath)
-          ? fullTitle.slice(props.parentPath.length)
-          : fullTitle
+        const name =
+          props.parentPath && fullTitle.startsWith(props.parentPath)
+            ? fullTitle.slice(props.parentPath.length)
+            : fullTitle
         // Remove trailing / for directories
         inputValue.value = props.isDirectory && name.endsWith('/') ? name.slice(0, -1) : name
       } else {
@@ -139,15 +140,21 @@ function handleInput(event: Event) {
 <template>
   <div
     class="rune-item"
-    :class="{ 
-      active, 
-      directory: isDirectory, 
-      selected, 
-      editing: isEditing, 
-      creating: isCreating 
+    :class="{
+      active,
+      directory: isDirectory,
+      selected,
+      editing: isEditing,
+      creating: isCreating,
     }"
     :style="{ paddingLeft: `${0.875 + level * 1.25}rem` }"
-    :title="isEditing || isCreating ? undefined : (isDirectory ? 'Click to expand/collapse • Double-click to select for creating items' : undefined)"
+    :title="
+      isEditing || isCreating
+        ? undefined
+        : isDirectory
+          ? 'Click to expand/collapse • Double-click to select for creating items'
+          : undefined
+    "
     @click="handleClick"
     @dblclick="handleDoubleClick"
     @contextmenu="handleContextMenu($event, rune)"
@@ -201,7 +208,9 @@ function handleInput(event: Event) {
         <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" />
       </svg>
     </span>
-    <span v-if="!isEditing && !isCreating" class="rune-title">{{ displayName || (rune?.title ?? '') }}</span>
+    <span v-if="!isEditing && !isCreating" class="rune-title">{{
+      displayName || (rune?.title ?? '')
+    }}</span>
     <div v-if="isEditing || isCreating" class="rune-input-wrapper">
       <input
         ref="inputRef"
@@ -225,7 +234,10 @@ function handleInput(event: Event) {
   margin: 0.0625rem 0;
   border-radius: 0.5rem;
   cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    transform 0.15s ease;
   color: var(--color-foreground);
   font-size: 0.8125rem;
   line-height: 1.5;

@@ -28,11 +28,7 @@ const emit = defineEmits<Emits>()
       <div class="sidebar-title">
         <h3>Outline</h3>
       </div>
-      <button
-        class="sidebar-toggle"
-        @click="emit('update:collapsed', true)"
-        title="Close Outline"
-      >
+      <button class="sidebar-toggle" @click="emit('update:collapsed', true)" title="Close Outline">
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="16"

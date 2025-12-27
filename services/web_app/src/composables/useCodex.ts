@@ -635,7 +635,6 @@ export function useCodex(
 
       // Refresh rune list
       refreshRuneList()
-
     } catch (err) {
       setError(err as Error)
       throw err

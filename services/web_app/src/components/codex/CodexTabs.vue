@@ -73,7 +73,7 @@ function handleTabDrop(event: DragEvent, targetTabId: string) {
   }
 
   const draggedIndex = props.tabs.findIndex((t) => t.id === draggedTabId.value)
-  
+
   if (draggedIndex === -1) {
     draggedTabId.value = null
     draggedOverTabId.value = null
@@ -125,19 +125,19 @@ function handleTabDragEnd() {
 
 function handleContainerDragOver(event: DragEvent) {
   if (!draggedTabId.value) return
-  
+
   event.preventDefault()
   if (event.dataTransfer) {
     event.dataTransfer.dropEffect = 'move'
   }
-  
+
   const container = event.currentTarget as HTMLElement
   const tabs = container.querySelectorAll('.tab')
   if (tabs.length === 0) return
-  
+
   const lastTab = tabs[tabs.length - 1] as HTMLElement
   const lastTabRect = lastTab.getBoundingClientRect()
-  
+
   if (event.clientX > lastTabRect.right) {
     draggedOverTabId.value = null
     isDraggingAfterLast.value = true
@@ -146,17 +146,17 @@ function handleContainerDragOver(event: DragEvent) {
 
 function handleContainerDrop(event: DragEvent) {
   if (!draggedTabId.value || !isDraggingAfterLast.value) return
-  
+
   event.preventDefault()
-  
+
   const draggedIndex = props.tabs.findIndex((t) => t.id === draggedTabId.value)
   if (draggedIndex === -1) return
-  
+
   const newTabs = [...props.tabs]
   const [draggedTab] = newTabs.splice(draggedIndex, 1)
   newTabs.push(draggedTab)
   emit('update:tabs', newTabs)
-  
+
   draggedTabId.value = null
   draggedOverTabId.value = null
   isDraggingAfterLast.value = false
@@ -177,11 +177,7 @@ function handleTabClose(event: MouseEvent, tab: Tab) {
 </script>
 
 <template>
-  <div 
-    class="document-tabs"
-    @dragover="handleContainerDragOver"
-    @drop="handleContainerDrop"
-  >
+  <div class="document-tabs" @dragover="handleContainerDragOver" @drop="handleContainerDrop">
     <div
       v-for="tab in tabs"
       :key="tab.id"

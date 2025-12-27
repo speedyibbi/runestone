@@ -33,19 +33,19 @@ const displayStatusMessage = computed(() => {
   if (props.statusMessage) {
     return props.statusMessage
   }
-  
+
   if (props.isSaving) {
     return 'Saving...'
   }
-  
+
   if (props.hasError) {
     return 'Error saving'
   }
-  
+
   if (props.hasUnsavedChanges) {
     return 'Unsaved changes'
   }
-  
+
   return null
 })
 
@@ -54,19 +54,19 @@ const displayStatusType = computed(() => {
   if (props.statusType) {
     return props.statusType
   }
-  
+
   if (props.isSaving) {
     return 'info'
   }
-  
+
   if (props.hasError) {
     return 'error'
   }
-  
+
   if (props.hasUnsavedChanges) {
     return 'warning'
   }
-  
+
   return null
 })
 
@@ -80,7 +80,10 @@ const displayStatusClass = computed(() => {
 <template>
   <footer class="status-bar">
     <div class="status-bar-left">
-      <span v-if="displayStatusMessage" :class="['status-item', 'status-message', displayStatusClass]">
+      <span
+        v-if="displayStatusMessage"
+        :class="['status-item', 'status-message', displayStatusClass]"
+      >
         {{ displayStatusMessage }}
       </span>
       <template v-else>
