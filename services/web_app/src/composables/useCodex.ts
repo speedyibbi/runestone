@@ -154,15 +154,12 @@ export function useCodex(
   }
 
   /**
-   * Set error state and optionally show toast
+   * Set error state (no toast for editor errors)
    */
-  function setError(err: Error | string, showToast = true) {
+  function setError(err: Error | string, showToast = false) {
     const errorObj = typeof err === 'string' ? new Error(err) : err
     error.value = errorObj
-
-    if (showToast && showNotifications) {
-      toast.error(errorObj.message)
-    }
+    // Editor errors are shown in status bar, not toasts
   }
 
   /**
@@ -185,7 +182,9 @@ export function useCodex(
    * Set editor content
    */
   function setEditorContent(content: string) {
-    if (!editorView?.value) return
+    if (!editorView?.value) {
+      return
+    }
 
     editorView.value.dispatch({
       changes: {
@@ -268,11 +267,6 @@ export function useCodex(
     isLoadingCodex.value = true
 
     try {
-      // Warn about unsaved changes
-      if (hasUnsavedChanges.value && showNotifications) {
-        toast.warning('You have unsaved changes in the current note')
-      }
-
       // Close current if any
       if (currentCodex.value) {
         closeCodex()
@@ -484,12 +478,16 @@ export function useCodex(
       }
 
       // Load content into editor
-      setEditorContent(content)
-      lastSavedContent = content
-
-      if (showNotifications) {
-        toast.info(`Opened note: ${runeInfo.title}`)
+      // Try to set content immediately, but don't wait if editor isn't ready
+      if (editorView?.value) {
+        setEditorContent(content)
+        lastSavedContent = content
+      } else {
+        // Editor not ready yet, store content and let watch handle it
+        lastSavedContent = content
       }
+
+      // Status shown in status bar, not toast
     } catch (err) {
       setError(err as Error)
       throw err
@@ -519,10 +517,7 @@ export function useCodex(
       // Refresh rune list
       refreshRuneList()
 
-      if (showNotifications) {
-        const itemType = isDirectory(title) ? 'directory' : 'note'
-        toast.success(`Created ${itemType}: ${title}`)
-      }
+      // Status shown in status bar, not toast
 
       return runeId
     } catch (err) {
@@ -567,9 +562,7 @@ export function useCodex(
       // Refresh rune list
       refreshRuneList()
 
-      if (showNotifications && !silent) {
-        toast.success('Note saved')
-      }
+      // Status shown in status bar, not toast
     } catch (err) {
       setError(err as Error)
       throw err
@@ -643,10 +636,6 @@ export function useCodex(
       // Refresh rune list
       refreshRuneList()
 
-      if (showNotifications) {
-        const itemType = isDir ? 'directory' : 'note'
-        toast.success(`${itemType.charAt(0).toUpperCase() + itemType.slice(1)} renamed`)
-      }
     } catch (err) {
       setError(err as Error)
       throw err
@@ -711,12 +700,7 @@ export function useCodex(
           }
         }
 
-        // Update notification message
-        if (showNotifications && childCount > 0) {
-          toast.success(
-            `Deleted directory and ${childCount} ${childCount === 1 ? 'item' : 'items'}`,
-          )
-        }
+        // Status shown in status bar, not toast
       }
 
       // Delete the rune itself
@@ -733,11 +717,7 @@ export function useCodex(
       // Refresh rune list
       refreshRuneList()
 
-      if (showNotifications && !isDir) {
-        // For files, show simple message
-        toast.success(`Deleted note: ${runeTitle}`)
-      }
-      // For directories, notification was already shown above
+      // Status shown in status bar, not toast
     } catch (err) {
       setError(err as Error)
       throw err
@@ -843,9 +823,7 @@ export function useCodex(
       // Refresh sigil list
       refreshSigilList()
 
-      if (showNotifications) {
-        toast.success(`Uploaded: ${file.name}`)
-      }
+      // Status shown in status bar, not toast
 
       return sigilId
     } catch (err) {
@@ -886,9 +864,7 @@ export function useCodex(
       // Refresh sigil list
       refreshSigilList()
 
-      if (showNotifications) {
-        toast.success(`Deleted: ${sigilTitle}`)
-      }
+      // Status shown in status bar, not toast
     } catch (err) {
       setError(err as Error)
       throw err

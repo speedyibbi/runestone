@@ -112,6 +112,8 @@ export const minimalTheme = EditorView.theme(
     '.cm-scroller': {
       fontFamily: 'var(--font-primary)',
       lineHeight: '1.6',
+      scrollbarWidth: 'none', // Firefox
+      msOverflowStyle: 'none', // IE and Edge
     },
 
     // Code blocks
