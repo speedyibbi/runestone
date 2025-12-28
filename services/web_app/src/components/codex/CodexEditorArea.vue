@@ -48,7 +48,7 @@ watch(
     </div>
 
     <!-- Loading State -->
-    <div v-else-if="!isLoadingRune" class="loading-state">
+    <div v-else-if="isLoadingRune" class="loading-state">
       <Loader message="Loading document..." />
     </div>
 
