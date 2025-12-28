@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { getShortcutDescriptions } from '@/utils/editor/keyboardShortcuts'
 
 const dialogRef = ref<HTMLDialogElement | null>(null)
 const isClosing = ref(false)
-const shortcutDescriptions = getShortcutDescriptions()
+// Memoize shortcut descriptions to avoid recalculating on every render
+const shortcutDescriptions = computed(() => getShortcutDescriptions())
 
 const open = () => {
   if (dialogRef.value && !dialogRef.value.open) {
@@ -45,7 +46,13 @@ const handleBackdropClick = (event: MouseEvent) => {
 }
 
 // Handle keyboard shortcut to toggle the panel
+// Optimized to only check relevant keys early
 const handleKeydown = (event: KeyboardEvent) => {
+  // Early exit for irrelevant keys
+  if (event.key !== '?' && event.key !== 'Escape') {
+    return
+  }
+
   // Toggle on '?' (Shift + /)
   if (event.key === '?' && !event.metaKey && !event.ctrlKey && !event.altKey) {
     // Only if not in an input/textarea
@@ -87,8 +94,22 @@ defineExpose({
   >
     <div class="shortcuts-modal" :class="{ closing: isClosing }" tabindex="-1">
       <div class="shortcuts-header">
-        <h2>⌨️ Keyboard Shortcuts</h2>
-        <button class="close-button" @click="close" tabindex="0">×</button>
+        <h2>Keyboard Shortcuts</h2>
+        <button class="close-button" @click="close" tabindex="0" aria-label="Close">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
+        </button>
       </div>
 
       <div class="shortcuts-content">
@@ -99,7 +120,7 @@ defineExpose({
         >
           <h3>{{ category }}</h3>
           <div class="shortcuts-list">
-            <div v-for="shortcut in shortcuts" :key="shortcut.keys" class="shortcut-item">
+            <div v-for="shortcut in shortcuts" :key="`${category}-${shortcut.keys}`" class="shortcut-item">
               <kbd class="shortcut-keys">{{ shortcut.keys }}</kbd>
               <span class="shortcut-description">{{ shortcut.description }}</span>
             </div>
@@ -116,8 +137,8 @@ defineExpose({
 
 <style scoped>
 .shortcuts-dialog {
-  max-width: 50rem;
-  width: calc(100% - 4rem);
+  max-width: 48rem;
+  width: calc(100% - 3rem);
   max-height: 85vh;
   padding: 0;
   border: none;
@@ -127,7 +148,6 @@ defineExpose({
 
 .shortcuts-dialog::backdrop {
   background-color: var(--color-modal-backdrop);
-  backdrop-filter: blur(4px);
   animation: fadeIn 0.2s ease-out;
 }
 
@@ -156,20 +176,19 @@ defineExpose({
 .shortcuts-modal {
   background-color: var(--color-background);
   border: 1px solid var(--color-overlay-border);
-  border-radius: 12px;
+  border-radius: 0.75rem;
   width: 100%;
   max-height: 85vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 20px 60px var(--color-modal-shadow);
-  animation: slideUp 0.3s ease-out;
-  will-change: transform, opacity;
-  outline: none; /* Remove focus outline since we're using it just to manage focus */
+  box-shadow: 0 1.25rem 1.5625rem -0.3125rem var(--color-modal-shadow);
+  animation: slideUp 0.2s ease-out;
+  outline: none;
 }
 
 @keyframes slideUp {
   from {
-    transform: translateY(20px);
+    transform: translateY(0.5rem);
     opacity: 0;
   }
   to {
@@ -184,78 +203,86 @@ defineExpose({
     opacity: 1;
   }
   to {
-    transform: translateY(20px);
+    transform: translateY(0.5rem);
     opacity: 0;
   }
 }
 
 .shortcuts-modal.closing {
   animation: slideOut 0.2s ease-out forwards;
+  will-change: transform, opacity;
 }
 
 .shortcuts-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1.5rem 2rem;
+  padding: 1rem 1.5rem;
   border-bottom: 1px solid var(--color-overlay-border);
+  gap: 0.5rem;
 }
 
 .shortcuts-header h2 {
   font-family: var(--font-primary);
-  font-size: 1.5rem;
-  font-weight: 600;
+  font-size: 1.125rem;
+  font-weight: 500;
   color: var(--color-foreground);
   margin: 0;
+  letter-spacing: -0.01em;
+  line-height: 1.4;
 }
 
 .close-button {
   background: transparent;
   border: none;
   color: var(--color-muted);
-  font-size: 2rem;
-  line-height: 1;
   cursor: pointer;
-  padding: 0;
-  width: 2rem;
-  height: 2rem;
+  padding: 0.375rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
-  transition: all 0.2s;
+  border-radius: 0.375rem;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 0.6;
 }
 
 .close-button:hover {
-  background-color: var(--color-overlay-light);
-  color: var(--color-accent);
+  background: var(--color-overlay-subtle);
+  color: var(--color-foreground);
+  opacity: 1;
 }
 
 .shortcuts-content {
   overflow-y: auto;
-  padding: 1.5rem 2rem;
+  overflow-x: hidden;
+  padding: 1rem;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
-  gap: 2rem;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 1.5rem;
 }
 
 .shortcuts-category {
-  margin-bottom: 1rem;
+  margin-bottom: 0;
 }
 
 .shortcuts-category h3 {
   font-family: var(--font-primary);
-  font-size: 1.1rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--color-foreground);
-  margin: 0 0 1rem 0;
-  padding-bottom: 0.5rem;
+  margin: 0 0 0.875rem 0;
+  padding: 0 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.7;
+  line-height: 1.5;
 }
 
 .shortcuts-list {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.25rem;
+  padding: 0 0.5rem;
 }
 
 .shortcut-item {
@@ -263,76 +290,88 @@ defineExpose({
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0.5rem 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
 }
 
 .shortcut-keys {
   font-family: var(--font-code);
-  font-size: 0.85rem;
-  padding: 0.35rem 0.6rem;
+  font-size: 0.8125rem;
+  padding: 0.375rem 0.625rem;
   background-color: var(--color-overlay-light);
-  border: 1px solid var(--color-accent);
-  border-radius: 4px;
-  color: var(--color-accent);
+  border: 1px solid var(--color-overlay-border);
+  border-radius: 0.375rem;
+  color: var(--color-foreground);
   white-space: nowrap;
-  min-width: 10rem;
+  min-width: 7.5rem;
   text-align: center;
-  box-shadow: 0 1px 2px var(--color-modal-shadow);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  line-height: 1.3;
 }
 
 .shortcut-description {
   font-family: var(--font-primary);
-  font-size: 0.95rem;
-  color: var(--color-muted);
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: var(--color-foreground);
   flex: 1;
+  opacity: 0.85;
+  line-height: 1.5;
+  letter-spacing: -0.005em;
 }
 
 .shortcuts-footer {
-  padding: 1rem 2rem;
+  padding: 0.75rem 1.5rem;
   border-top: 1px solid var(--color-overlay-border);
   text-align: center;
 }
 
 .shortcuts-footer p {
   font-family: var(--font-primary);
-  font-size: 0.9rem;
+  font-size: 0.8125rem;
+  font-weight: 400;
   color: var(--color-muted);
   margin: 0;
+  opacity: 0.8;
+  line-height: 1.5;
 }
 
 .shortcuts-footer kbd {
   font-family: var(--font-code);
-  font-size: 0.85rem;
+  font-size: 0.8125rem;
   padding: 0.25rem 0.5rem;
   background-color: var(--color-overlay-light);
-  border: 1px solid var(--color-accent);
-  border-radius: 4px;
-  color: var(--color-accent);
+  border: 1px solid var(--color-overlay-border);
+  border-radius: 0.375rem;
+  color: var(--color-foreground);
   margin: 0 0.25rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
 }
 
 /* Scrollbar styling */
 .shortcuts-content::-webkit-scrollbar {
-  width: 2px;
+  width: 0.25rem;
 }
 
 .shortcuts-content::-webkit-scrollbar-track {
-  background-color: var(--color-overlay-subtle);
+  background: transparent;
 }
 
 .shortcuts-content::-webkit-scrollbar-thumb {
-  background-color: var(--color-overlay-hover);
-  border-radius: 4px;
+  background: var(--color-overlay-subtle);
+  border-radius: 0.125rem;
 }
 
 .shortcuts-content::-webkit-scrollbar-thumb:hover {
-  background-color: var(--color-overlay-active);
+  background: var(--color-overlay-light);
 }
 
 /* Responsive design */
 @media (max-width: 50rem) {
   .shortcuts-dialog {
-    width: calc(100% - 2rem);
+    width: calc(100% - 1.5rem);
     max-height: 90vh;
   }
 
@@ -342,15 +381,24 @@ defineExpose({
 
   .shortcuts-content {
     grid-template-columns: 1fr;
-    padding: 1rem;
+    padding: 0.75rem;
+    gap: 1.25rem;
   }
 
   .shortcuts-header {
-    padding: 1rem;
+    padding: 0.875rem 1rem;
   }
 
   .shortcuts-footer {
-    padding: 1rem;
+    padding: 0.625rem 1rem;
+  }
+
+  .shortcuts-list {
+    padding: 0 0.25rem;
+  }
+
+  .shortcut-item {
+    padding: 0.5rem;
   }
 
   .shortcut-item {
