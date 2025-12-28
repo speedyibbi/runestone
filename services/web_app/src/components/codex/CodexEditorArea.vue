@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { ref, watch } from 'vue'
+import Loader from '@/components/base/Loader.vue'
 
 interface Props {
   hasOpenRune: boolean
@@ -47,8 +48,8 @@ watch(
     </div>
 
     <!-- Loading State -->
-    <div v-else-if="isLoadingRune" class="loading-state">
-      <p class="loading-message">Loading document...</p>
+    <div v-else-if="!isLoadingRune" class="loading-state">
+      <Loader message="Loading document..." />
     </div>
 
     <!-- Editor -->
@@ -89,8 +90,7 @@ watch(
   opacity: 0.3;
 }
 
-.empty-message,
-.loading-message {
+.empty-message {
   font-size: 0.875rem;
   color: var(--color-accent);
   margin: 0;

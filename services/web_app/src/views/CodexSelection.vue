@@ -5,6 +5,7 @@ import { useCodex } from '@/composables/useCodex'
 import { useToast } from '@/composables/useToast'
 import FadeTransition from '@/components/base/FadeTransition.vue'
 import LoadingPulseInput from '@/components/base/LoadingPulseInput.vue'
+import Loader from '@/components/base/Loader.vue'
 
 const router = useRouter()
 const toast = useToast()
@@ -124,7 +125,7 @@ onMounted(() => {
 
             <!-- Loading State -->
             <div v-else class="empty-state">
-              <p>Loading codexes...</p>
+              <Loader message="Loading codexes..." />
             </div>
           </div>
 
