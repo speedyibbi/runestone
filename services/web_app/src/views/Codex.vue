@@ -958,6 +958,7 @@ onUnmounted(() => {
       <CodexEditorArea
         :has-open-rune="hasOpenRune"
         :is-loading-rune="isLoadingRune"
+        :current-rune-id="currentRune?.uuid ?? null"
         @update:editor-element="editorElement = $event"
       />
 

@@ -178,40 +178,42 @@ function handleTabClose(event: MouseEvent, tab: Tab) {
 
 <template>
   <div class="document-tabs" @dragover="handleContainerDragOver" @drop="handleContainerDrop">
-    <div
-      v-for="tab in tabs"
-      :key="tab.id"
-      class="tab"
-      :class="{
-        active: tab.id === activeTabId,
-        dragging: tab.id === draggedTabId,
-        'drag-over': tab.id === draggedOverTabId,
-      }"
-      draggable="true"
-      @dragstart="handleTabDragStart($event, tab.id)"
-      @dragover="handleTabDragOver($event, tab.id)"
-      @drop="handleTabDrop($event, tab.id)"
-      @dragend="handleTabDragEnd"
-      @click="handleTabClick(tab)"
-    >
-      <span class="tab-title">{{ tab.title || 'Untitled' }}</span>
-      <span v-if="tab.hasUnsavedChanges" class="tab-dot"></span>
-      <button class="tab-close" title="Close" @click.stop="handleTabClose($event, tab)">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="12"
-          height="12"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path d="M18 6L6 18M6 6l12 12" />
-        </svg>
-      </button>
-    </div>
+    <TransitionGroup name="tab" tag="div" class="tabs-container">
+      <div
+        v-for="tab in tabs"
+        :key="tab.id"
+        class="tab"
+        :class="{
+          active: tab.id === activeTabId,
+          dragging: tab.id === draggedTabId,
+          'drag-over': tab.id === draggedOverTabId,
+        }"
+        draggable="true"
+        @dragstart="handleTabDragStart($event, tab.id)"
+        @dragover="handleTabDragOver($event, tab.id)"
+        @drop="handleTabDrop($event, tab.id)"
+        @dragend="handleTabDragEnd"
+        @click="handleTabClick(tab)"
+      >
+        <span class="tab-title">{{ tab.title || 'Untitled' }}</span>
+        <span v-if="tab.hasUnsavedChanges" class="tab-dot"></span>
+        <button class="tab-close" title="Close" @click.stop="handleTabClose($event, tab)">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+    </TransitionGroup>
   </div>
 </template>
 
@@ -230,8 +232,13 @@ function handleTabClose(event: MouseEvent, tab: Tab) {
   position: relative;
 }
 
-.document-tabs > * {
-  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+.tabs-container {
+  display: flex;
+  align-items: flex-end;
+  gap: 0;
+  height: 100%;
+  position: relative;
+  width: 100%;
 }
 
 .document-tabs::-webkit-scrollbar {
@@ -247,9 +254,6 @@ function handleTabClose(event: MouseEvent, tab: Tab) {
   border: none;
   border-bottom: 1px solid var(--color-overlay-subtle);
   cursor: grab;
-  transition:
-    transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-    opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   font-size: 0.8125rem;
   line-height: 1.4;
   color: var(--color-muted);
@@ -296,11 +300,12 @@ function handleTabClose(event: MouseEvent, tab: Tab) {
 .tab.dragging {
   opacity: 0.5;
   cursor: grabbing;
+  transition: opacity 0.15s ease !important;
 }
 
 .tab.drag-over {
   transform: translateX(0.25rem);
-  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
 .tab-title {
@@ -347,5 +352,51 @@ function handleTabClose(event: MouseEvent, tab: Tab) {
   background: var(--color-overlay-light);
   color: var(--color-foreground);
   opacity: 1;
+}
+
+/* Tab enter/leave animations */
+.tab-enter-active {
+  transition:
+    opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tab-leave-active {
+  transition:
+    opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    max-width 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    min-width 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    padding-left 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    padding-right 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: absolute !important;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.tab-enter-from {
+  opacity: 0;
+  transform: translateX(-0.75rem) scale(0.96);
+}
+
+.tab-leave-to {
+  opacity: 0;
+  transform: translateX(0.5rem) scale(0.98);
+  max-width: 0 !important;
+  min-width: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  overflow: hidden;
+  margin: 0;
+}
+
+.tab-enter-to,
+.tab-leave-from {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+}
+
+.tab-move {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 </style>

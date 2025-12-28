@@ -1,10 +1,12 @@
 <script lang="ts" setup>
 import { ref, watch } from 'vue'
 import Loader from '@/components/base/Loader.vue'
+import FadeTransition from '@/components/base/FadeTransition.vue'
 
 interface Props {
   hasOpenRune: boolean
   isLoadingRune: boolean
+  currentRuneId?: string | null
 }
 
 const props = defineProps<Props>()
@@ -53,9 +55,15 @@ watch(
     </div>
 
     <!-- Editor -->
-    <div v-else class="editor-container" :class="{ visible: hasOpenRune && !isLoadingRune }">
-      <div ref="editorElement" class="editor"></div>
-    </div>
+    <FadeTransition v-else mode="out-in">
+      <div
+        v-if="hasOpenRune && !isLoadingRune"
+        :key="currentRuneId || 'editor'"
+        class="editor-container"
+      >
+        <div ref="editorElement" class="editor"></div>
+      </div>
+    </FadeTransition>
   </div>
 </template>
 
@@ -105,15 +113,7 @@ watch(
   width: 100%;
   display: flex;
   justify-content: center;
-  opacity: 0;
-  transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  pointer-events: none;
   overflow: hidden;
-}
-
-.editor-container.visible {
-  opacity: 1;
-  pointer-events: auto;
 }
 
 .editor {
