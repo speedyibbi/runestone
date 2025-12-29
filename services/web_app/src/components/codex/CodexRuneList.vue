@@ -195,7 +195,7 @@ function handleCollapse() {
   gap: 0.5rem;
   padding: 0.25rem 0.5rem;
   background: var(--color-overlay-subtle);
-  border-radius: 0.25rem;
+  border-radius: 4px;
   font-size: 0.6875rem;
   white-space: nowrap;
 }
@@ -218,7 +218,7 @@ function handleCollapse() {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 0.125rem;
+  border-radius: 2px;
   transition: all 0.15s;
   opacity: 0.6;
 }

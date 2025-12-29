@@ -211,12 +211,12 @@ onUnmounted(() => {
 .modal-container {
   background-color: var(--color-background);
   border: 1px solid var(--color-overlay-border);
-  border-radius: 0.75rem;
+  border-radius: 12px;
   width: 100%;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 1.25rem 1.5625rem -0.3125rem var(--color-modal-shadow);
+  box-shadow: 0 2px 6px -1px var(--color-modal-shadow);
   outline: none;
   max-height: 85vh;
   overflow: hidden;
@@ -306,7 +306,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 0.375rem;
+  border-radius: 6px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   opacity: 0.6;
 }
@@ -354,7 +354,7 @@ onUnmounted(() => {
 .button {
   padding: 0.5rem 1rem;
   border: none;
-  border-radius: 0.375rem;
+  border-radius: 6px;
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
@@ -405,7 +405,7 @@ onUnmounted(() => {
 
 .modal-body::-webkit-scrollbar-thumb {
   background: var(--color-overlay-subtle);
-  border-radius: 0.125rem;
+  border-radius: 2px;
 }
 
 .modal-body::-webkit-scrollbar-thumb:hover {

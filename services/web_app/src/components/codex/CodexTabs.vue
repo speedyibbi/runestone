@@ -272,7 +272,7 @@ function handleTabClose(event: MouseEvent, tab: Tab) {
   bottom: -1px;
   left: 0;
   right: 0;
-  height: 0.125rem;
+  height: 2px;
   background: var(--color-foreground);
   transform: scaleX(0);
   transition: transform 0.15s ease;
@@ -335,7 +335,7 @@ function handleTabClose(event: MouseEvent, tab: Tab) {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 0.1875rem;
+  border-radius: 3px;
   transition: all 0.15s ease;
   opacity: 0;
   margin-left: 0.25rem;

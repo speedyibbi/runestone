@@ -71,7 +71,7 @@ input {
   font-size: 1.1rem;
   text-align: center;
   border: none;
-  border-bottom: 0.1rem solid var(--color-accent);
+  border-bottom: 2px solid var(--color-accent);
   background-color: transparent;
   transition: border-bottom-color 0.2s ease;
 }

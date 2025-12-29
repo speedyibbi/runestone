@@ -129,7 +129,7 @@ const emit = defineEmits<Emits>()
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 0.375rem;
+  border-radius: 6px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   opacity: 0.6;
 }
@@ -158,7 +158,7 @@ const emit = defineEmits<Emits>()
 
 .sidebar-content::-webkit-scrollbar-thumb {
   background: var(--color-overlay-subtle);
-  border-radius: 0.125rem;
+  border-radius: 2px;
 }
 
 .sidebar-content::-webkit-scrollbar-thumb:hover {
@@ -183,7 +183,7 @@ const emit = defineEmits<Emits>()
   cursor: pointer;
   padding: 0.5rem 0.875rem;
   margin: 0.0625rem 0;
-  border-radius: 0.375rem;
+  border-radius: 6px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   font-size: 0.8125rem;
   line-height: 1.5;

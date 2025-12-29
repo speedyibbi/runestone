@@ -199,7 +199,7 @@ function togglePanel(panel: 'files' | 'search' | 'graph') {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 0.5rem;
+  border-radius: 8px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   opacity: 0.7;
   width: 2.25rem;

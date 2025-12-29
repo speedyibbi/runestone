@@ -232,7 +232,7 @@ function handleInput(event: Event) {
   gap: 0.625rem;
   padding: 0.625rem 0.875rem;
   margin: 0.0625rem 0;
-  border-radius: 0.5rem;
+  border-radius: 8px;
   cursor: pointer;
   transition:
     background-color 0.15s ease,
@@ -343,7 +343,7 @@ function handleInput(event: Event) {
   width: 100%;
   background: var(--color-overlay-light);
   border: 1px solid var(--color-accent);
-  border-radius: 0.25rem;
+  border-radius: 4px;
   padding: 0.25rem 0.5rem;
   color: var(--color-foreground);
   font-size: 0.8125rem;
@@ -374,10 +374,10 @@ function handleInput(event: Event) {
 .rune-item.editing .rune-input:focus {
   background: var(--color-overlay-light);
   border: 1px solid var(--color-accent);
-  border-radius: 0.25rem;
+  border-radius: 4px;
   padding: 0.25rem 0.5rem;
   margin: 0;
-  box-shadow: 0 0 0 0.125rem var(--color-selection);
+  box-shadow: 0 0 0 2px var(--color-selection);
   transition: all 0.15s ease;
 }
 
@@ -387,6 +387,6 @@ function handleInput(event: Event) {
 }
 
 .rune-input:focus {
-  box-shadow: 0 0 0 0.125rem var(--color-selection);
+  box-shadow: 0 0 0 2px var(--color-selection);
 }
 </style>

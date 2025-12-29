@@ -95,7 +95,7 @@ const emit = defineEmits<Emits>()
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 0.375rem;
+  border-radius: 6px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   opacity: 0.6;
 }

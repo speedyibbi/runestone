@@ -84,8 +84,8 @@ onUnmounted(() => {
   z-index: 1000;
   background: var(--color-background);
   border: 1px solid var(--color-overlay-subtle);
-  border-radius: 0.5rem;
-  box-shadow: 0 0.625rem 0.9375rem -0.1875rem var(--color-modal-shadow);
+  border-radius: 8px;
+  box-shadow: 0 1px 4px -1px var(--color-modal-shadow);
   padding: 0.25rem;
   min-width: 11.25rem;
 }
@@ -98,7 +98,7 @@ onUnmounted(() => {
   padding: 0.5rem 0.75rem;
   background: transparent;
   border: none;
-  border-radius: 0.25rem;
+  border-radius: 4px;
   color: var(--color-foreground);
   font-size: 0.875rem;
   cursor: pointer;

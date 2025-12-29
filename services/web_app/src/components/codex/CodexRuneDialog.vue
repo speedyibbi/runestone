@@ -118,10 +118,10 @@ function handleKeydown(event: KeyboardEvent) {
 .dialog-container {
   background: var(--color-background);
   border: 1px solid var(--color-overlay-subtle);
-  border-radius: 0.75rem;
+  border-radius: 12px;
   width: 90%;
   max-width: 25rem;
-  box-shadow: 0 1.25rem 1.5625rem -0.3125rem var(--color-modal-shadow);
+  box-shadow: 0 2px 6px -1px var(--color-modal-shadow);
 }
 
 .dialog-header {
@@ -148,7 +148,7 @@ function handleKeydown(event: KeyboardEvent) {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 0.25rem;
+  border-radius: 4px;
   transition: all 0.2s;
 }
 
@@ -174,7 +174,7 @@ function handleKeydown(event: KeyboardEvent) {
   padding: 0.625rem 0.875rem;
   background: var(--color-background);
   border: 1px solid var(--color-overlay-subtle);
-  border-radius: 0.375rem;
+  border-radius: 6px;
   color: var(--color-foreground);
   font-size: 0.9375rem;
   font-family: var(--font-primary);
@@ -184,7 +184,7 @@ function handleKeydown(event: KeyboardEvent) {
 .dialog-input:focus {
   outline: none;
   border-color: var(--color-accent);
-  box-shadow: 0 0 0 0.1875rem var(--color-selection);
+  box-shadow: 0 0 0 3px var(--color-selection);
 }
 
 .dialog-footer {
@@ -199,7 +199,7 @@ function handleKeydown(event: KeyboardEvent) {
 .button {
   padding: 0.5rem 1rem;
   border: none;
-  border-radius: 0.375rem;
+  border-radius: 6px;
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;

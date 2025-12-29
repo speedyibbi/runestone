@@ -260,7 +260,7 @@ h1 {
   padding: 1.25rem;
   background: transparent;
   border: none;
-  border-bottom: 0.0625rem solid var(--color-accent);
+  border-bottom: 1px solid var(--color-accent);
   color: var(--color-foreground);
   text-align: left;
   cursor: pointer;
@@ -399,7 +399,7 @@ h1 {
   padding: 0.75rem 0;
   background: transparent;
   border: none;
-  border-bottom: 0.0625rem solid var(--color-accent);
+  border-bottom: 1px solid var(--color-accent);
   color: var(--color-accent);
   font-size: 0.9rem;
   cursor: pointer;

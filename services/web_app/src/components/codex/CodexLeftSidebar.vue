@@ -218,7 +218,7 @@ function handleKeydown(event: KeyboardEvent) {
   width: 0.125rem;
   height: 0;
   background: var(--color-accent);
-  border-radius: 0.0625rem;
+  border-radius: 1px;
   transition: height 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   opacity: 0;
 }
@@ -263,7 +263,7 @@ function handleKeydown(event: KeyboardEvent) {
   width: 100%;
   background: transparent;
   border: none;
-  border-radius: 0.25rem;
+  border-radius: 4px;
   padding: 0.25rem 0.5rem;
   color: var(--color-foreground);
   font-size: 1rem;
@@ -289,10 +289,10 @@ function handleKeydown(event: KeyboardEvent) {
 .sidebar-title.editing .codex-title-input:focus {
   background: var(--color-overlay-light);
   border: 1px solid var(--color-accent);
-  border-radius: 0.25rem;
+  border-radius: 4px;
   padding: 0.25rem 0.5rem;
   margin: 0;
-  box-shadow: 0 0 0 0.125rem var(--color-selection);
+  box-shadow: 0 0 0 2px var(--color-selection);
 }
 
 .sidebar-toggle {
@@ -304,7 +304,7 @@ function handleKeydown(event: KeyboardEvent) {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 0.375rem;
+  border-radius: 6px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   opacity: 0.6;
 }
@@ -333,7 +333,7 @@ function handleKeydown(event: KeyboardEvent) {
 
 .sidebar-content::-webkit-scrollbar-thumb {
   background: var(--color-overlay-subtle);
-  border-radius: 0.125rem;
+  border-radius: 2px;
 }
 
 .sidebar-content::-webkit-scrollbar-thumb:hover {

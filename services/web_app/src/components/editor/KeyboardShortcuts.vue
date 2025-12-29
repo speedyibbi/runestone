@@ -130,7 +130,7 @@ defineExpose({
   justify-content: space-between;
   gap: 1rem;
   padding: 0.5rem 0.75rem;
-  border-radius: 0.375rem;
+  border-radius: 6px;
 }
 
 .shortcut-keys {
@@ -139,7 +139,7 @@ defineExpose({
   padding: 0.375rem 0.625rem;
   background-color: var(--color-overlay-light);
   border: 1px solid var(--color-overlay-border);
-  border-radius: 0.375rem;
+  border-radius: 6px;
   color: var(--color-foreground);
   white-space: nowrap;
   min-width: 7.5rem;
@@ -181,7 +181,7 @@ defineExpose({
   padding: 0.25rem 0.5rem;
   background-color: var(--color-overlay-light);
   border: 1px solid var(--color-overlay-border);
-  border-radius: 0.375rem;
+  border-radius: 6px;
   color: var(--color-foreground);
   margin: 0 0.25rem;
   font-weight: 500;
@@ -199,7 +199,7 @@ defineExpose({
 
 .shortcuts-content::-webkit-scrollbar-thumb {
   background: var(--color-overlay-subtle);
-  border-radius: 0.125rem;
+  border-radius: 2px;
 }
 
 .shortcuts-content::-webkit-scrollbar-thumb:hover {

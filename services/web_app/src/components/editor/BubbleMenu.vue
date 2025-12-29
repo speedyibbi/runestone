@@ -630,7 +630,7 @@ onUnmounted(() => {
   border: 1px solid var(--color-overlay-border);
   border-radius: 8px;
   padding: 0.25rem;
-  box-shadow: 0 20px 60px var(--color-modal-shadow);
+  box-shadow: 0 2px 6px -1px var(--color-modal-shadow);
   display: flex;
   gap: 0.125rem;
   align-items: center;
