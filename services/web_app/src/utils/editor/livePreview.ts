@@ -18,7 +18,7 @@
 import { ViewPlugin, Decoration, EditorView } from '@codemirror/view'
 import type { DecorationSet, ViewUpdate } from '@codemirror/view'
 import type { Range, Extension } from '@codemirror/state'
-import { StateField, StateEffect } from '@codemirror/state'
+import { StateField, StateEffect, Facet } from '@codemirror/state'
 import { syntaxTree } from '@codemirror/language'
 
 // Import widgets
@@ -31,10 +31,18 @@ import {
   HorizontalRuleWidget,
   ReferenceDefinitionWidget,
   BulletWidget,
+  type SigilUrlResolver,
 } from './widgets'
 
 // Import utilities
 import { getChildText, getLinkAtPos, parseTable } from './utils'
+
+/**
+ * Facet to provide sigil URL resolver function
+ */
+export const sigilResolverFacet = Facet.define<SigilUrlResolver | null, SigilUrlResolver | null>({
+  combine: (values) => values[values.length - 1] ?? null,
+})
 
 /**
  * State field to track preview mode
@@ -59,6 +67,9 @@ export const previewModeField = StateField.define<boolean>({
 function buildDecorations(view: EditorView, isPreviewMode = false): DecorationSet {
   const decorations: Range<Decoration>[] = []
   const checkboxDecorations: Range<Decoration>[] = []
+
+  // Get sigil resolver from facet
+  const sigilResolver = view.state.facet(sigilResolverFacet)
 
   // Get the line number where the cursor is
   // In preview mode, set cursorLine to -1 so all syntax is hidden
@@ -232,11 +243,14 @@ function buildDecorations(view: EditorView, isPreviewMode = false): DecorationSe
           const url = getChildText(imageNode, 'URL', view).replace(/^\(|\)$/g, '')
 
           if (url) {
+            // Create ImageWidget with sigil resolver if available
+            const imageWidget = new ImageWidget(url, alt, sigilResolver || undefined)
+
             if (onCursorLine && onImageLine) {
               // On cursor line: show markdown AND image below it
               decorations.push(
                 Decoration.widget({
-                  widget: new ImageWidget(url, alt),
+                  widget: imageWidget,
                   side: 1,
                 }).range(node.to),
               )
@@ -244,7 +258,7 @@ function buildDecorations(view: EditorView, isPreviewMode = false): DecorationSe
               // Off cursor line: replace markdown with image
               decorations.push(
                 Decoration.replace({
-                  widget: new ImageWidget(url, alt),
+                  widget: imageWidget,
                 }).range(node.from, node.to),
               )
             }

@@ -15,6 +15,7 @@ import {
   togglePreviewMode,
   previewModeTheme,
   previewModeExtension,
+  sigilResolverFacet,
 } from '@/utils/editor/livePreview'
 import {
   markdownHeadingFolding,
@@ -22,10 +23,12 @@ import {
   activeLineFoldGutter,
 } from '@/utils/editor/folding'
 import { createKeyboardShortcuts } from '@/utils/editor/keyboardShortcuts'
+import type { SigilUrlResolver } from '@/utils/editor/widgets'
 
 export function useEditor(
   editorElement: Ref<HTMLElement | undefined>,
   onUpdate?: (update: ViewUpdate) => void,
+  sigilResolver?: SigilUrlResolver,
 ) {
   const editorView = ref<EditorView | null>(null)
   const isPreviewMode = ref(false)
@@ -55,6 +58,9 @@ export function useEditor(
         previewModeField,
         previewModeTheme,
         previewModeExtension,
+
+        // Sigil resolver facet - provide the resolver for encrypted images
+        sigilResolverFacet.of(sigilResolver || null),
 
         // Use tabs instead of spaces
         indentUnit.of('\t'),

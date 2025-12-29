@@ -6,6 +6,7 @@ import { syntaxTree } from '@codemirror/language'
 import { useEditor } from '@/composables/useEditor'
 import { useCodex, type RuneInfo } from '@/composables/useCodex'
 import { useSessionStore } from '@/stores/session'
+import { useImageUpload } from '@/composables/useImageUpload'
 import KeyboardShortcuts from '@/components/editor/KeyboardShortcuts.vue'
 import BubbleMenu from '@/components/editor/BubbleMenu.vue'
 import CodexRibbon from '@/components/codex/CodexRibbon.vue'
@@ -41,17 +42,56 @@ const {
   deleteRune,
   duplicateRune,
   closeRune,
+  getSigilUrl,
 } = useCodex(editorViewRef, { autoSave: true })
 
 const autoSaveCallback = createAutoSaveCallback()
-const editorComposable = useEditor(editorElement, autoSaveCallback)
+
+// Create sigil resolver function
+const sigilResolver = async (sigilId: string): Promise<string> => {
+  return await getSigilUrl(sigilId)
+}
+
+// Initialize editor with sigil resolver
+const editorComposable = useEditor(editorElement, autoSaveCallback, sigilResolver)
 const { editorView, isPreviewMode, togglePreview } = editorComposable
+
+// Image upload handler
+const imageUploadHandler = useImageUpload({
+  editorView: editorViewRef,
+  showNotifications: false, // Status shown in status bar instead
+})
 
 watch(hasOpenRune, (isOpen) => {
   if (!isOpen) {
     editorElement.value = undefined
   }
 })
+
+// Track cleanup functions for upload handlers
+let dragDropCleanup: (() => void) | null = null
+let pasteCleanup: (() => void) | null = null
+
+/**
+ * Setup upload handlers when both editor element and view are ready
+ */
+function setupUploadHandlers() {
+  // Cleanup old handlers first
+  if (dragDropCleanup) {
+    dragDropCleanup()
+    dragDropCleanup = null
+  }
+  if (pasteCleanup) {
+    pasteCleanup()
+    pasteCleanup = null
+  }
+
+  // Only setup if editor view is available
+  if (editorView.value) {
+    dragDropCleanup = imageUploadHandler.setupDragAndDrop()
+    pasteCleanup = imageUploadHandler.setupPasteHandler()
+  }
+}
 
 watch(
   editorElement,
@@ -65,10 +105,37 @@ watch(
         if (element && !editorView.value && editorComposable.initializeEditor) {
           editorComposable.initializeEditor()
         }
+        // Setup handlers after editor is initialized
+        nextTick(() => {
+          setupUploadHandlers()
+        })
       })
     }
   },
   { immediate: true },
+)
+
+// Setup upload handlers when editor view becomes available
+watch(
+  editorView,
+  (view) => {
+    if (view) {
+      // Wait a tick to ensure DOM is ready
+      nextTick(() => {
+        setupUploadHandlers()
+      })
+    } else {
+      // Cleanup when view is destroyed
+      if (dragDropCleanup) {
+        dragDropCleanup()
+        dragDropCleanup = null
+      }
+      if (pasteCleanup) {
+        pasteCleanup()
+        pasteCleanup = null
+      }
+    }
+  },
 )
 
 const statusBarUpdateTrigger = ref(0)
@@ -899,6 +966,14 @@ onUnmounted(() => {
     currentObserver.disconnect()
   }
 
+  // Cleanup upload handlers
+  if (dragDropCleanup) {
+    dragDropCleanup()
+  }
+  if (pasteCleanup) {
+    pasteCleanup()
+  }
+
   editorComposable.destroy()
 })
 </script>
@@ -1016,5 +1091,12 @@ onUnmounted(() => {
   overflow: hidden;
   min-width: 0;
   background: transparent;
+}
+
+/* Drag and drop styles for image upload */
+:deep(.cm-editor.drag-over) {
+  outline: 2px dashed var(--color-accent);
+  outline-offset: -2px;
+  background: var(--color-overlay-light);
 }
 </style>

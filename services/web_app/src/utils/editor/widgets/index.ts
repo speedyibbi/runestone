@@ -2,7 +2,7 @@
  * Widgets Index - Central export point for all editor widgets
  */
 
-export { ImageWidget } from './ImageWidget'
+export { ImageWidget, type SigilUrlResolver } from './ImageWidget'
 export { CheckboxWidget } from './CheckboxWidget'
 export { TableWidget, type TableData } from './TableWidget'
 export { InlineMathWidget, BlockMathWidget } from './MathWidget'

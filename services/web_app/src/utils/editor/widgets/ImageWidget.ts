@@ -1,14 +1,21 @@
 /**
  * ImageWidget - Renders images inline in the editor
  * Displays actual images in place of markdown syntax
+ * Supports sigil:// URLs for encrypted images
  */
 
 import { WidgetType } from '@codemirror/view'
+
+/**
+ * Function type to resolve sigil IDs to blob URLs
+ */
+export type SigilUrlResolver = (sigilId: string) => Promise<string>
 
 export class ImageWidget extends WidgetType {
   constructor(
     readonly src: string,
     readonly alt: string,
+    readonly sigilResolver?: SigilUrlResolver,
   ) {
     super()
   }
@@ -22,7 +29,6 @@ export class ImageWidget extends WidgetType {
     container.className = 'cm-image-widget'
 
     const img = document.createElement('img')
-    img.src = this.src
     img.alt = this.alt
     img.className = 'cm-image'
 
@@ -50,6 +56,30 @@ export class ImageWidget extends WidgetType {
     // Start with slightly transparent while loading
     img.style.opacity = '0.5'
     img.style.transition = 'opacity 0.2s'
+
+    // Handle sigil:// URLs
+    if (this.src.startsWith('sigil://') || this.src.startsWith('sigil:')) {
+      // Extract sigil UUID from URL
+      const sigilId = this.src.replace(/^sigil:\/\//, '').replace(/^sigil:/, '')
+
+      if (this.sigilResolver) {
+        // Resolve sigil ID to blob URL asynchronously
+        this.sigilResolver(sigilId)
+          .then((blobUrl) => {
+            img.src = blobUrl
+          })
+          .catch((error) => {
+            console.error('Failed to resolve sigil:', error)
+            img.onerror?.(new Event('error'))
+          })
+      } else {
+        // No resolver provided - show error
+        img.onerror?.(new Event('error'))
+      }
+    } else {
+      // Regular URL - set directly
+      img.src = this.src
+    }
 
     container.appendChild(img)
 
