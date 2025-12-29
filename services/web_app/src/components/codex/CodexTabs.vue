@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 
 export interface Tab {
   id: string
@@ -26,6 +26,46 @@ const draggedTabId = ref<string | null>(null)
 const draggedOverTabId = ref<string | null>(null)
 const isDragging = ref(false)
 const isDraggingAfterLast = ref(false)
+const tabsContainerRef = ref<HTMLElement | null>(null)
+const showFadeRight = ref(false)
+let resizeObserver: ResizeObserver | null = null
+
+function checkScrollable() {
+  if (tabsContainerRef.value) {
+    const container = tabsContainerRef.value
+    showFadeRight.value = container.scrollWidth > container.clientWidth
+  }
+}
+
+onMounted(() => {
+  checkScrollable()
+  if (tabsContainerRef.value) {
+    tabsContainerRef.value.addEventListener('scroll', checkScrollable)
+    // Watch for resize
+    resizeObserver = new ResizeObserver(checkScrollable)
+    resizeObserver.observe(tabsContainerRef.value)
+  }
+})
+
+onUnmounted(() => {
+  if (tabsContainerRef.value) {
+    tabsContainerRef.value.removeEventListener('scroll', checkScrollable)
+  }
+  if (resizeObserver) {
+    resizeObserver.disconnect()
+  }
+})
+
+// Watch for tabs changes to update scrollable state
+watch(
+  () => props.tabs,
+  () => {
+    nextTick(() => {
+      checkScrollable()
+    })
+  },
+  { deep: true },
+)
 
 function handleTabDragStart(event: DragEvent, tabId: string) {
   isDragging.value = true
@@ -177,7 +217,12 @@ function handleTabClose(event: MouseEvent, tab: Tab) {
 </script>
 
 <template>
-  <div class="document-tabs" @dragover="handleContainerDragOver" @drop="handleContainerDrop">
+  <div
+    ref="tabsContainerRef"
+    class="document-tabs"
+    @dragover="handleContainerDragOver"
+    @drop="handleContainerDrop"
+  >
     <TransitionGroup name="tab" tag="div" class="tabs-container">
       <div
         v-for="tab in tabs"
@@ -214,6 +259,7 @@ function handleTabClose(event: MouseEvent, tab: Tab) {
         </button>
       </div>
     </TransitionGroup>
+    <div v-if="showFadeRight" class="tabs-fade-right"></div>
   </div>
 </template>
 
@@ -230,6 +276,23 @@ function handleTabClose(event: MouseEvent, tab: Tab) {
   flex: 1;
   min-width: 0;
   position: relative;
+  scroll-behavior: smooth;
+}
+
+.document-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.tabs-fade-right {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 2rem;
+  background: linear-gradient(to right, transparent, var(--color-background));
+  pointer-events: none;
+  opacity: 0.8;
+  z-index: 1;
 }
 
 .tabs-container {
@@ -238,7 +301,8 @@ function handleTabClose(event: MouseEvent, tab: Tab) {
   gap: 0;
   height: 100%;
   position: relative;
-  width: 100%;
+  width: max-content;
+  min-width: 100%;
 }
 
 .document-tabs::-webkit-scrollbar {

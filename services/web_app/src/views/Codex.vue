@@ -233,6 +233,7 @@ const currentRuneId = computed(() => currentRune.value?.uuid ?? null)
 const leftSidebarCollapsed = ref(false)
 const activeLeftPanel = ref<'files' | 'search' | 'graph'>('files')
 const rightSidebarCollapsed = ref(true)
+const showCommandPalette = ref(false)
 
 const expandedDirectories = ref<Set<string>>(new Set())
 
@@ -961,6 +962,28 @@ async function handleManualSave() {
 }
 
 function handleKeydown(event: KeyboardEvent) {
+  // Command palette shortcut (Ctrl+P / Cmd+P)
+  if ((event.metaKey || event.ctrlKey) && event.key === 'p') {
+    const target = event.target as HTMLElement
+    const isInputField =
+      target.tagName === 'INPUT' ||
+      target.tagName === 'TEXTAREA' ||
+      target.isContentEditable ||
+      target.closest('input') ||
+      target.closest('textarea')
+
+    // Don't open command palette if user is typing in an input
+    if (isInputField) {
+      return
+    }
+
+    event.preventDefault()
+    event.stopPropagation()
+    showCommandPalette.value = !showCommandPalette.value
+    return
+  }
+
+  // Save shortcut (Ctrl+S / Cmd+S)
   if ((event.metaKey || event.ctrlKey) && event.key === 's') {
     const target = event.target as HTMLElement
     const isInputField =
@@ -1102,15 +1125,20 @@ onUnmounted(() => {
     <div class="main-content">
       <!-- Top Bar -->
       <CodexTopBar
+        v-model="showCommandPalette"
         :tabs="tabs"
         :active-tab-id="activeTabId"
         :is-preview-mode="isPreviewMode"
         :right-sidebar-collapsed="rightSidebarCollapsed"
+        :runes="runes"
+        :is-directory="isDirectory"
+        :codex-title="currentCodex?.title || null"
         @tab-click="handleTabClick"
         @tab-close="handleTabClose"
         @update:tabs="tabs = $event"
         @toggle-preview="togglePreview"
         @toggle-right-sidebar="rightSidebarCollapsed = !rightSidebarCollapsed"
+        @open-rune="openRune"
       />
 
       <!-- Editor Area -->
