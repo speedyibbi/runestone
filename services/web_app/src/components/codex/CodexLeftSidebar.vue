@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { ref, watch, nextTick } from 'vue'
 import FadeTransition from '@/components/base/FadeTransition.vue'
 import CodexRuneList from './CodexRuneList.vue'
 import CodexSearchPanel from './CodexSearchPanel.vue'
@@ -28,6 +29,7 @@ interface Props {
   selectedDirectory: string
   isDirectory: (title: string) => boolean
   editingState: EditingState
+  isRenamingCodex?: boolean
 }
 
 interface Emits {
@@ -42,17 +44,80 @@ interface Emits {
   (e: 'sort'): void
   (e: 'edit-submit', value: string): void
   (e: 'edit-cancel'): void
+  (e: 'codexTitleContextMenu', event: MouseEvent): void
+  (e: 'codex-title-edit-submit', value: string): void
+  (e: 'codex-title-edit-cancel'): void
 }
 
-defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  isRenamingCodex: false,
+})
+
 const emit = defineEmits<Emits>()
+
+const inputValue = ref('')
+const inputRef = ref<HTMLInputElement>()
+
+watch(
+  () => props.isRenamingCodex,
+  (isRenaming) => {
+    if (isRenaming) {
+      inputValue.value = props.codexTitle || ''
+      nextTick(() => {
+        inputRef.value?.focus()
+        inputRef.value?.select()
+      })
+    }
+  },
+)
+
+function handleSubmit() {
+  const value = inputValue.value.trim()
+  if (value) {
+    emit('codex-title-edit-submit', value)
+  } else {
+    emit('codex-title-edit-cancel')
+  }
+}
+
+function handleCancel() {
+  emit('codex-title-edit-cancel')
+}
+
+function handleBlur() {
+  handleSubmit()
+}
+
+function handleKeydown(event: KeyboardEvent) {
+  if (event.key === 'Enter') {
+    event.preventDefault()
+    handleSubmit()
+  } else if (event.key === 'Escape') {
+    event.preventDefault()
+    handleCancel()
+  }
+}
 </script>
 
 <template>
   <aside class="left-sidebar" :class="{ collapsed }">
     <div class="sidebar-header">
-      <div class="sidebar-title">
-        <h2>{{ codexTitle || 'Codex' }}</h2>
+      <div
+        class="sidebar-title"
+        :class="{ editing: isRenamingCodex }"
+        @contextmenu.prevent="emit('codexTitleContextMenu', $event)"
+      >
+        <h2 v-if="!isRenamingCodex">{{ codexTitle || 'Codex' }}</h2>
+        <div v-else class="codex-title-input-wrapper">
+          <input
+            ref="inputRef"
+            v-model="inputValue"
+            type="text"
+            class="codex-title-input"
+            @keydown="handleKeydown"
+            @blur="handleBlur"
+          />
+        </div>
       </div>
       <button class="sidebar-toggle" @click="emit('update:collapsed', !collapsed)">
         <svg
@@ -137,6 +202,36 @@ const emit = defineEmits<Emits>()
 .sidebar-title {
   flex: 1;
   min-width: 0;
+  cursor: pointer;
+  position: relative;
+  padding-left: 0.5rem;
+  margin-left: -0.5rem;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-title::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0.125rem;
+  height: 0;
+  background: var(--color-accent);
+  border-radius: 0.0625rem;
+  transition: height 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 0;
+}
+
+.sidebar-title:hover:not(.editing)::before {
+  height: 60%;
+  opacity: 1;
+}
+
+.sidebar-title:hover:not(.editing) h2 {
+  opacity: 1;
+  color: var(--color-foreground);
+  transform: translateX(0.125rem);
 }
 
 .sidebar-title h2 {
@@ -149,6 +244,55 @@ const emit = defineEmits<Emits>()
   text-overflow: ellipsis;
   white-space: nowrap;
   opacity: 0.9;
+  padding: 0.25rem 0;
+  transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.codex-title-input-wrapper {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  height: 1.5em;
+}
+
+.codex-title-input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-radius: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  color: var(--color-foreground);
+  font-size: 1rem;
+  font-family: inherit;
+  font-weight: 400;
+  outline: none;
+  line-height: 1.5;
+  box-sizing: border-box;
+  height: 1.5em;
+  letter-spacing: -0.015em;
+  transition: all 0.15s ease;
+}
+
+.sidebar-title.editing .codex-title-input {
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.sidebar-title.editing .codex-title-input:focus {
+  background: var(--color-overlay-light);
+  border: 1px solid var(--color-accent);
+  border-radius: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  margin: 0;
+  box-shadow: 0 0 0 0.125rem var(--color-selection);
 }
 
 .sidebar-toggle {

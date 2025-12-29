@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { EditorView } from '@codemirror/view'
 import { syntaxTree } from '@codemirror/language'
 import { useEditor } from '@/composables/useEditor'
@@ -16,9 +16,11 @@ import CodexEditorArea from '@/components/codex/CodexEditorArea.vue'
 import CodexStatusBar from '@/components/codex/CodexStatusBar.vue'
 import CodexRightSidebar, { type Heading } from '@/components/codex/CodexRightSidebar.vue'
 import CodexContextMenu, { type MenuItem } from '@/components/codex/CodexContextMenu.vue'
+import Modal from '@/components/base/Modal.vue'
 import type { Tab } from '@/components/codex/CodexTabs.vue'
 
 const route = useRoute()
+const router = useRouter()
 
 const editorElement = ref<HTMLElement>()
 const editorViewRef = ref<EditorView | null>(null) as import('vue').Ref<EditorView | null>
@@ -43,6 +45,8 @@ const {
   duplicateRune,
   closeRune,
   getSigilUrl,
+  renameCodex,
+  deleteCodex,
 } = useCodex(editorViewRef, { autoSave: true })
 
 const autoSaveCallback = createAutoSaveCallback()
@@ -482,11 +486,17 @@ type EditingState =
 
 const editingState = ref<EditingState>(null)
 const selectedRuneForAction = ref<RuneInfo | null>(null)
+const isRenamingCodex = ref(false)
 
 const showContextMenu = ref(false)
 const contextMenuX = ref(0)
 const contextMenuY = ref(0)
 const contextMenuItems = ref<MenuItem[]>([])
+
+const showConfirmDialog = ref(false)
+const confirmDialogTitle = ref('')
+const confirmDialogMessage = ref('')
+const confirmDialogAction = ref<(() => void) | null>(null)
 
 function handleCreateRune() {
   const targetDir = createInDirectory.value || selectedDirectory.value
@@ -756,6 +766,76 @@ function handleCollapseAll() {
   expandedDirectories.value = new Set()
 }
 
+function handleCodexTitleContextMenu(event: MouseEvent) {
+  if (!currentCodex.value) return
+
+  contextMenuX.value = event.clientX
+  contextMenuY.value = event.clientY
+
+  const items: MenuItem[] = [
+    {
+      label: 'Rename',
+      action: () => {
+        isRenamingCodex.value = true
+      },
+    },
+    {
+      label: 'Delete',
+      action: () => {
+        if (currentCodex.value) {
+          confirmDialogTitle.value = 'Delete Codex'
+          confirmDialogMessage.value = `Are you sure you want to delete "${currentCodex.value.title}"? This action cannot be undone.`
+          confirmDialogAction.value = async () => {
+            try {
+              await deleteCodex()
+              // Navigate back to codex selection after deletion
+              router.push('/select-codex')
+              setStatusMessage('Codex deleted', 'success')
+            } catch (err) {
+              console.error('Error deleting codex:', err)
+              setStatusMessage(
+                err instanceof Error ? err.message : 'Error deleting codex',
+                'error',
+                5000,
+              )
+            }
+          }
+          showConfirmDialog.value = true
+        }
+      },
+      destructive: true,
+    },
+  ]
+
+  contextMenuItems.value = items
+  showContextMenu.value = true
+}
+
+async function handleCodexTitleEditSubmit(newTitle: string) {
+  if (!currentCodex.value || newTitle.trim() === currentCodex.value.title) {
+    isRenamingCodex.value = false
+    return
+  }
+
+  try {
+    await renameCodex(newTitle.trim())
+    setStatusMessage('Codex renamed', 'success')
+    isRenamingCodex.value = false
+  } catch (err) {
+    console.error('Error renaming codex:', err)
+    setStatusMessage(
+      err instanceof Error ? err.message : 'Error renaming codex',
+      'error',
+      5000,
+    )
+    isRenamingCodex.value = false
+  }
+}
+
+function handleCodexTitleEditCancel() {
+  isRenamingCodex.value = false
+}
+
 const headings = computed<Heading[]>(() => {
   statusBarUpdateTrigger.value
 
@@ -1012,6 +1092,10 @@ onUnmounted(() => {
       @sort="handleSort"
       @edit-submit="handleEditSubmit"
       @edit-cancel="handleEditCancel"
+      @codex-title-context-menu="handleCodexTitleContextMenu"
+      :is-renaming-codex="isRenamingCodex"
+      @codex-title-edit-submit="handleCodexTitleEditSubmit"
+      @codex-title-edit-cancel="handleCodexTitleEditCancel"
     />
 
     <!-- Main Content Area -->
@@ -1070,6 +1154,17 @@ onUnmounted(() => {
       :x="contextMenuX"
       :y="contextMenuY"
       :items="contextMenuItems"
+    />
+
+    <!-- Confirmation Dialog -->
+    <Modal
+      v-model:show="showConfirmDialog"
+      :title="confirmDialogTitle"
+      :message="confirmDialogMessage"
+      confirm-text="Delete"
+      cancel-text="Cancel"
+      :destructive="true"
+      @confirm="confirmDialogAction?.()"
     />
   </main>
 </template>
