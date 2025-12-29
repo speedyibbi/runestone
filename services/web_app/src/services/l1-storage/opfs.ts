@@ -106,4 +106,44 @@ export default class OPFSService {
       return false
     }
   }
+
+  /**
+   * Delete a directory from OPFS (recursively)
+   * Removes all files and subdirectories within the directory, then removes the directory itself
+   */
+  static async deleteDirectory(path: string[]): Promise<boolean> {
+    try {
+      const dirPath = path.slice(0, -1)
+      const dirName = path[path.length - 1]
+
+      // Get the parent directory
+      const parentDir = await this.getDirectoryHandle(dirPath, false)
+      
+      // Get the directory to delete
+      const dirToDelete = await parentDir.getDirectoryHandle(dirName, { create: false })
+      
+      // Collect all entries first to avoid modifying while iterating
+      const entries: Array<{ name: string; kind: 'file' | 'directory' }> = []
+      // @ts-expect-error - FileSystemDirectoryHandle supports async iteration at runtime
+      for await (const [name, handle] of dirToDelete.entries()) {
+        entries.push({ name, kind: handle.kind })
+      }
+      
+      // Recursively delete all entries in the directory
+      for (const entry of entries) {
+        if (entry.kind === 'file') {
+          await dirToDelete.removeEntry(entry.name)
+        } else if (entry.kind === 'directory') {
+          // Recursively delete subdirectories
+          await this.deleteDirectory([...path, entry.name])
+        }
+      }
+      
+      // Remove the directory itself
+      await parentDir.removeEntry(dirName, { recursive: true })
+      return true
+    } catch {
+      return false
+    }
+  }
 }

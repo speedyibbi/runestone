@@ -517,9 +517,10 @@ export default class OrchestrationService {
     // Step 4: Delete all files from cache and update map in parallel
     await Promise.all([
       // Delete from cache
-      CacheService.deleteNotebookMeta(lookupHash, notebookId),
-      CacheService.deleteManifest(lookupHash, notebookId),
-      ...blobUuids.map((uuid) => CacheService.deleteBlob(lookupHash, notebookId, uuid)),
+      // CacheService.deleteNotebookMeta(lookupHash, notebookId),
+      // CacheService.deleteManifest(lookupHash, notebookId),
+      // ...blobUuids.map((uuid) => CacheService.deleteBlob(lookupHash, notebookId, uuid)),
+      CacheService.deleteNotebookDirectory(lookupHash, notebookId),
       // Update map in cache
       CacheService.upsertMap(lookupHash, encryptedMap),
     ])

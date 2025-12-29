@@ -213,4 +213,14 @@ export default class CacheService {
     const path = this.buildPath(lookupHash, { type: 'blob', notebookId, uuid })
     return await OPFSService.deleteFile(path)
   }
+
+  /**
+   * Delete entire notebook directory from cache
+   * Removes the notebook directory and all its contents
+   */
+  static async deleteNotebookDirectory(lookupHash: string, notebookId: string): Promise<boolean> {
+    const opfsRoot = this.computeOPFSRoot(lookupHash)
+    const path = [opfsRoot, notebookId]
+    return await OPFSService.deleteDirectory(path)
+  }
 }
