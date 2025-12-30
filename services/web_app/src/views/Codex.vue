@@ -1056,21 +1056,24 @@ async function handleManualSave() {
 function handleKeydown(event: KeyboardEvent) {
   // Command palette shortcut (Ctrl+P / Cmd+P)
   if ((event.metaKey || event.ctrlKey) && event.key === 'p') {
+    // ALWAYS prevent default FIRST to stop browser default
+    event.preventDefault()
+    event.stopPropagation()
+    
     const target = event.target as HTMLElement
-    const isInputField =
+    // Only skip opening command palette if user is typing in a regular input/textarea
+    // (Allow it for contentEditable editor elements)
+    const isRegularInputField =
       target.tagName === 'INPUT' ||
       target.tagName === 'TEXTAREA' ||
-      target.isContentEditable ||
       target.closest('input') ||
       target.closest('textarea')
 
-    // Don't open command palette if user is typing in an input
-    if (isInputField) {
+    // Don't open command palette if user is typing in a regular input/textarea
+    if (isRegularInputField) {
       return
     }
 
-    event.preventDefault()
-    event.stopPropagation()
     showCommandPalette.value = !showCommandPalette.value
     return
   }
