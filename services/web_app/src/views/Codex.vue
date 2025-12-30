@@ -245,6 +245,11 @@ const sortOrder = ref<'asc' | 'desc'>('asc')
 const tabs = ref<Tab[]>([])
 const activeTabId = ref<string | null>(null)
 
+// Tab history tracking for back/forward navigation
+const tabHistory = ref<string[]>([]) // Array of tab IDs in order visited
+const historyIndex = ref<number>(-1) // Current position in history (-1 means no history)
+const isNavigatingHistory = ref(false) // Flag to prevent adding to history during navigation
+
 const statusMessage = ref<string | null>(null)
 const statusType = ref<'info' | 'success' | 'warning' | 'error' | null>(null)
 let statusTimeout: ReturnType<typeof setTimeout> | null = null
@@ -281,6 +286,10 @@ watch(
     if (rune) {
       const existingTab = tabs.value.find((t) => t.runeId === rune.uuid)
       if (existingTab) {
+        // Only add to history if we're not navigating via history buttons
+        if (!isNavigatingHistory.value && activeTabId.value !== existingTab.id) {
+          addToHistory(existingTab.id)
+        }
         activeTabId.value = existingTab.id
         existingTab.title = getBaseName(rune.title)
         existingTab.hasUnsavedChanges = hasUnsavedChanges.value
@@ -292,6 +301,9 @@ watch(
           hasUnsavedChanges: hasUnsavedChanges.value,
         }
         tabs.value.push(newTab)
+        if (!isNavigatingHistory.value) {
+          addToHistory(newTab.id)
+        }
         activeTabId.value = newTab.id
       }
       if (!oldRune || oldRune.uuid !== rune.uuid) {
@@ -325,16 +337,94 @@ watch(
 )
 
 function handleTabClick(tab: Tab) {
+  if (!isNavigatingHistory.value) {
+    addToHistory(tab.id)
+  }
   activeTabId.value = tab.id
   if (tab.runeId) {
     openRune(tab.runeId)
   }
 }
 
+function addToHistory(tabId: string) {
+  // Don't add if we're navigating via history buttons
+  if (isNavigatingHistory.value) {
+    return
+  }
+  
+  // Remove any future history if we're not at the end
+  if (historyIndex.value < tabHistory.value.length - 1) {
+    tabHistory.value = tabHistory.value.slice(0, historyIndex.value + 1)
+  }
+  
+  // Don't add if it's the same as the current tab
+  if (tabHistory.value.length > 0 && tabHistory.value[tabHistory.value.length - 1] === tabId) {
+    return
+  }
+  
+  // Add to history
+  tabHistory.value.push(tabId)
+  historyIndex.value = tabHistory.value.length - 1
+}
+
+function navigateHistoryBack() {
+  if (historyIndex.value > 0) {
+    historyIndex.value--
+    const tabId = tabHistory.value[historyIndex.value]
+    const tab = tabs.value.find((t) => t.id === tabId)
+    if (tab) {
+      isNavigatingHistory.value = true
+      activeTabId.value = tab.id
+      if (tab.runeId) {
+        openRune(tab.runeId)
+      }
+      // Reset flag after navigation completes
+      nextTick(() => {
+        isNavigatingHistory.value = false
+      })
+    }
+  }
+}
+
+function navigateHistoryForward() {
+  if (historyIndex.value < tabHistory.value.length - 1) {
+    historyIndex.value++
+    const tabId = tabHistory.value[historyIndex.value]
+    const tab = tabs.value.find((t) => t.id === tabId)
+    if (tab) {
+      isNavigatingHistory.value = true
+      activeTabId.value = tab.id
+      if (tab.runeId) {
+        openRune(tab.runeId)
+      }
+      // Reset flag after navigation completes
+      nextTick(() => {
+        isNavigatingHistory.value = false
+      })
+    }
+  }
+}
+
+const canNavigateBack = computed(() => historyIndex.value > 0)
+const canNavigateForward = computed(() => historyIndex.value < tabHistory.value.length - 1)
+
 function handleTabClose(tab: Tab) {
   const index = tabs.value.findIndex((t) => t.id === tab.id)
   if (index !== -1) {
     tabs.value.splice(index, 1)
+    
+    // Remove from history
+    const historyTabIndex = tabHistory.value.findIndex((id) => id === tab.id)
+    if (historyTabIndex !== -1) {
+      tabHistory.value.splice(historyTabIndex, 1)
+      // Adjust history index if needed
+      if (historyIndex.value > historyTabIndex) {
+        historyIndex.value--
+      } else if (historyIndex.value >= tabHistory.value.length) {
+        historyIndex.value = Math.max(0, tabHistory.value.length - 1)
+      }
+    }
+    
     if (tab.id === activeTabId.value) {
       if (tabs.value.length > 0) {
         const nextTab = tabs.value[Math.min(index, tabs.value.length - 1)]
@@ -344,6 +434,8 @@ function handleTabClose(tab: Tab) {
         }
       } else {
         activeTabId.value = null
+        tabHistory.value = []
+        historyIndex.value = -1
         closeRune()
       }
     }
@@ -1133,12 +1225,16 @@ onUnmounted(() => {
         :runes="runes"
         :is-directory="isDirectory"
         :codex-title="currentCodex?.title || null"
+        :can-navigate-back="canNavigateBack"
+        :can-navigate-forward="canNavigateForward"
         @tab-click="handleTabClick"
         @tab-close="handleTabClose"
         @update:tabs="tabs = $event"
         @toggle-preview="togglePreview"
         @toggle-right-sidebar="rightSidebarCollapsed = !rightSidebarCollapsed"
         @open-rune="openRune"
+        @navigate-back="navigateHistoryBack"
+        @navigate-forward="navigateHistoryForward"
       />
 
       <!-- Editor Area -->

@@ -13,6 +13,8 @@ interface Props {
   isDirectory: (runeTitle: string) => boolean
   codexTitle: string | null
   modelValue?: boolean
+  canNavigateBack: boolean
+  canNavigateForward: boolean
 }
 
 interface Emits {
@@ -23,6 +25,8 @@ interface Emits {
   (e: 'toggleRightSidebar'): void
   (e: 'openRune', runeId: string): void
   (e: 'update:modelValue', value: boolean): void
+  (e: 'navigateBack'): void
+  (e: 'navigateForward'): void
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -62,6 +66,50 @@ function handleCommandPaletteSelect(runeId: string) {
       />
     </div>
     <div class="top-bar-center">
+      <div class="history-buttons">
+        <button
+          class="history-button"
+          :class="{ disabled: !canNavigateBack }"
+          :disabled="!canNavigateBack"
+          @click="emit('navigateBack')"
+          title="Go back"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="m15 18-6-6 6-6" />
+          </svg>
+        </button>
+        <button
+          class="history-button"
+          :class="{ disabled: !canNavigateForward }"
+          :disabled="!canNavigateForward"
+          @click="emit('navigateForward')"
+          title="Go forward"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="m9 18 6-6-6-6" />
+          </svg>
+        </button>
+      </div>
       <button
         class="command-palette-trigger"
         @click="showCommandPalette = true"
@@ -190,6 +238,38 @@ function handleCommandPaletteSelect(runeId: string) {
   padding: 0 1rem;
   position: relative;
   z-index: 1;
+  gap: 0.5rem;
+}
+
+.history-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.history-button {
+  background: transparent;
+  border: none;
+  color: var(--color-muted);
+  cursor: pointer;
+  padding: 0.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+  opacity: 0.6;
+}
+
+.history-button:hover:not(.disabled) {
+  background: var(--color-overlay-subtle);
+  color: var(--color-foreground);
+  opacity: 1;
+}
+
+.history-button.disabled {
+  opacity: 0.2;
+  cursor: not-allowed;
 }
 
 .command-palette-trigger {
