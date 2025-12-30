@@ -1135,6 +1135,12 @@ watch(
   { immediate: true },
 )
 
+function handleExit() {
+  const sessionStore = useSessionStore()
+  sessionStore.teardown()
+  router.push('/auth')
+}
+
 onMounted(() => {
   refreshRuneList()
 
@@ -1182,7 +1188,7 @@ onUnmounted(() => {
       @update:collapsed="leftSidebarCollapsed = $event"
       @update:active-panel="activeLeftPanel = $event"
       @settings="console.log('Settings clicked')"
-      @exit="console.log('Exit clicked')"
+      @exit="handleExit"
     />
 
     <!-- Left Sidebar -->
