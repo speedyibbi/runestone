@@ -113,7 +113,7 @@ onUnmounted(() => {
       @click.stop
     >
       <!-- Hidden element to receive initial focus, preventing close button from being auto-focused -->
-      <button class="hidden-focus" tabindex="0" aria-hidden="true"></button>
+      <button class="hidden-focus" tabindex="-1"></button>
       <div class="modal-header">
         <h3>{{ title }}</h3>
         <button class="close-button" @click="handleCancel" aria-label="Close">
@@ -241,6 +241,8 @@ onUnmounted(() => {
   pointer-events: none;
   overflow: hidden;
   clip: rect(0, 0, 0, 0);
+  /* Visually hidden but accessible to screen readers when focused */
+  clip-path: inset(50%);
 }
 
 .hidden-focus:focus {
