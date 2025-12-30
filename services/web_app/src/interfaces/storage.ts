@@ -1,7 +1,7 @@
 /**
  * File type identifiers for storage operations
  */
-export type FileType = 'rootMeta' | 'map' | 'notebookMeta' | 'manifest' | 'blob'
+export type FileType = 'rootMeta' | 'map' | 'notebookMeta' | 'manifest' | 'blob' | 'searchIndex'
 
 /**
  * Path parameters for building file paths

@@ -46,6 +46,8 @@ export default class CacheService {
         return [opfsRoot, notebookId!, 'manifest.json.enc']
       case 'blob':
         return [opfsRoot, notebookId!, 'blobs', `${uuid}.enc`]
+      case 'searchIndex':
+        return [opfsRoot, notebookId!, 'search.db.enc']
     }
   }
 
@@ -211,6 +213,37 @@ export default class CacheService {
    */
   static async deleteBlob(lookupHash: string, notebookId: string, uuid: string): Promise<boolean> {
     const path = this.buildPath(lookupHash, { type: 'blob', notebookId, uuid })
+    return await OPFSService.deleteFile(path)
+  }
+
+  /**
+   * Get encrypted search index from cache
+   */
+  static async getSearchIndex(
+    lookupHash: string,
+    notebookId: string,
+  ): Promise<ArrayBuffer | null> {
+    const path = this.buildPath(lookupHash, { type: 'searchIndex', notebookId })
+    return await OPFSService.getFile(path)
+  }
+
+  /**
+   * Upsert encrypted search index to cache
+   */
+  static async upsertSearchIndex(
+    lookupHash: string,
+    notebookId: string,
+    encryptedDb: ArrayBuffer | Uint8Array,
+  ): Promise<void> {
+    const path = this.buildPath(lookupHash, { type: 'searchIndex', notebookId })
+    await OPFSService.upsertFile(path, encryptedDb)
+  }
+
+  /**
+   * Delete search index from cache
+   */
+  static async deleteSearchIndex(lookupHash: string, notebookId: string): Promise<boolean> {
+    const path = this.buildPath(lookupHash, { type: 'searchIndex', notebookId })
     return await OPFSService.deleteFile(path)
   }
 

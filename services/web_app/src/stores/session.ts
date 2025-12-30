@@ -4,6 +4,7 @@ import OrchestrationService from '@/services/orchestration/orchestrator'
 import type { Map } from '@/interfaces/map'
 import type { Manifest } from '@/interfaces/manifest'
 import type { SyncProgress, SyncResult } from '@/interfaces/sync'
+import type { SearchServiceResult, SearchOptions } from '@/interfaces/search'
 
 /**
  * Session store for managing user session state
@@ -24,9 +25,11 @@ export const useSessionStore = defineStore('session', () => {
   const notebook = ref<{
     fek: CryptoKey | null
     manifest: Manifest | null
+    searchDb: any | null
   }>({
     fek: null,
     manifest: null,
+    searchDb: null,
   })
 
   // Track blob URLs for automatic cleanup
@@ -186,6 +189,19 @@ export const useSessionStore = defineStore('session', () => {
     // Update session state
     notebook.value.fek = result.fek
     notebook.value.manifest = result.manifest
+
+    // Initialize search index
+    try {
+      notebook.value.searchDb = await OrchestrationService.initializeSearchIndex(
+        result.notebookId,
+        lookupHash.value,
+        result.fek,
+      )
+    } catch (error) {
+      // Log but don't fail codex open if search init fails
+      console.warn('Failed to initialize search index:', error)
+      notebook.value.searchDb = null
+    }
   }
 
   /**
@@ -292,12 +308,28 @@ export const useSessionStore = defineStore('session', () => {
   /**
    * Close the currently open codex (unload from memory)
    */
-  function closeCodex(): void {
+  async function closeCodex(): Promise<void> {
     // Revoke all blob URLs for this codex
     revokeAllSigilUrls()
 
+    // Save and close search index if open
+    if (notebook.value.searchDb && notebook.value.manifest && notebook.value.fek && lookupHash.value) {
+      try {
+        await OrchestrationService.saveSearchIndex(
+          notebook.value.searchDb!,
+          notebook.value.manifest!.notebook_id,
+          lookupHash.value,
+          notebook.value.fek,
+        )
+        notebook.value.searchDb.close()
+      } catch (error) {
+        console.warn('Failed to save search index before closing:', error)
+      }
+    }
+
     notebook.value.fek = null
     notebook.value.manifest = null
+    notebook.value.searchDb = null
   }
 
   /**
@@ -409,6 +441,7 @@ export const useSessionStore = defineStore('session', () => {
       lookupHash.value!,
       notebook.value.fek,
       notebook.value.manifest,
+      notebook.value.searchDb,
     )
 
     // Update manifest in session state
@@ -477,6 +510,7 @@ export const useSessionStore = defineStore('session', () => {
       lookupHash.value!,
       notebook.value.fek,
       notebook.value.manifest,
+      notebook.value.searchDb,
     )
 
     // Update manifest in session state
@@ -518,6 +552,7 @@ export const useSessionStore = defineStore('session', () => {
       lookupHash.value!,
       notebook.value.fek,
       notebook.value.manifest,
+      notebook.value.searchDb,
     )
 
     // Update manifest in session state
@@ -866,6 +901,19 @@ export const useSessionStore = defineStore('session', () => {
     return notebook.value.manifest.last_updated
   }
 
+  // ==================== Search Operations ====================
+
+  /**
+   * Search notes in the currently open codex
+   */
+  function searchNotes(query: string, options?: SearchOptions): SearchServiceResult {
+    if (!hasOpenCodex.value) {
+      throw new Error('No codex is currently open')
+    }
+
+    return OrchestrationService.searchNotes(notebook.value.searchDb, query, options)
+  }
+
   return {
     // Computed
     isActive,
@@ -905,5 +953,8 @@ export const useSessionStore = defineStore('session', () => {
     syncCurrentCodex,
     syncAllCodexes,
     getLastSyncTime,
+
+    // Search Operations
+    searchNotes,
   }
 })
