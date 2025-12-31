@@ -3,6 +3,7 @@ import { useSessionStore } from '@/stores/session'
 import { useToast } from '@/composables/useToast'
 import { EditorView, type ViewUpdate } from '@codemirror/view'
 import type { SyncProgress, SyncResult } from '@/interfaces/sync'
+import type { SearchServiceResult, SearchOptions } from '@/interfaces/search'
 
 // ==================== Interfaces ====================
 
@@ -70,6 +71,7 @@ export interface UseCodexReturn {
   deleteRune: (runeId: string) => Promise<void>
   duplicateRune: (runeId: string) => Promise<string>
   closeRune: () => void
+  searchRunes: (query: string, options?: SearchOptions) => Promise<SearchServiceResult>
 
   // Sigil operations
   refreshSigilList: () => void
@@ -778,6 +780,35 @@ export function useCodex(
     lastSavedContent = ''
   }
 
+  /**
+   * Search runes by title and content
+   */
+  async function searchRunes(query: string, options?: SearchOptions): Promise<SearchServiceResult> {
+    clearError()
+
+    try {
+      if (!currentCodex.value) {
+        throw new Error('No codex is currently open')
+      }
+
+      if (!query.trim()) {
+        // Return empty results for empty query
+        return {
+          results: [],
+          total: 0,
+          query: '',
+        }
+      }
+
+      const result = await sessionStore.searchRunes(query.trim(), options)
+
+      return result
+    } catch (err) {
+      setError(err as Error)
+      throw err
+    }
+  }
+
   // ==================== Sigil (Image) Operations ====================
 
   /**
@@ -1020,6 +1051,7 @@ export function useCodex(
     deleteRune,
     duplicateRune,
     closeRune,
+    searchRunes,
 
     // Sigil operations
     refreshSigilList,

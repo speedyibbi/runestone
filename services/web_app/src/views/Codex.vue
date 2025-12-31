@@ -47,6 +47,7 @@ const {
   getSigilUrl,
   renameCodex,
   deleteCodex,
+  searchRunes,
 } = useCodex(editorViewRef, { autoSave: true })
 
 const autoSaveCallback = createAutoSaveCallback()
@@ -1231,11 +1232,12 @@ onUnmounted(() => {
         :active-tab-id="activeTabId"
         :is-preview-mode="isPreviewMode"
         :right-sidebar-collapsed="rightSidebarCollapsed"
-        :runes="runes"
-        :is-directory="isDirectory"
         :codex-title="currentCodex?.title || null"
         :can-navigate-back="canNavigateBack"
         :can-navigate-forward="canNavigateForward"
+        :runes="runes"
+        :is-directory="isDirectory"
+        :search-runes="searchRunes"
         @tab-click="handleTabClick"
         @tab-close="handleTabClose"
         @update:tabs="tabs = $event"

@@ -3,18 +3,20 @@ import { computed } from 'vue'
 import CodexTabs, { type Tab } from './CodexTabs.vue'
 import CommandPalette from './CommandPalette.vue'
 import type { RuneInfo } from '@/composables/useCodex'
+import type { SearchServiceResult, SearchOptions } from '@/interfaces/search'
 
 interface Props {
   tabs: Tab[]
   activeTabId: string | null
   isPreviewMode: boolean
   rightSidebarCollapsed: boolean
-  runes: RuneInfo[]
-  isDirectory: (runeTitle: string) => boolean
   codexTitle: string | null
   modelValue?: boolean
   canNavigateBack: boolean
   canNavigateForward: boolean
+  runes: RuneInfo[]
+  isDirectory: (runeTitle: string) => boolean
+  searchRunes: (query: string, options?: SearchOptions) => Promise<SearchServiceResult>
 }
 
 interface Emits {
@@ -199,9 +201,10 @@ function handleCommandPaletteSelect(runeId: string) {
     </div>
     <CommandPalette
       v-model:show="showCommandPalette"
+      :codex-title="codexTitle"
       :runes="runes"
       :is-directory="isDirectory"
-      :codex-title="codexTitle"
+      :search-runes="searchRunes"
       @select="handleCommandPaletteSelect"
     />
   </header>

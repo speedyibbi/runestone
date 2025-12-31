@@ -1,13 +1,16 @@
 <script lang="ts" setup>
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import Modal from '@/components/base/Modal.vue'
+import Loader from '@/components/base/Loader.vue'
 import type { RuneInfo } from '@/composables/useCodex'
+import type { SearchResult, SearchServiceResult, SearchOptions } from '@/interfaces/search'
 
 interface Props {
   show: boolean
   runes: RuneInfo[]
   isDirectory: (runeTitle: string) => boolean
   codexTitle?: string | null
+  searchRunes: (query: string, options?: SearchOptions) => Promise<SearchServiceResult>
 }
 
 interface Emits {
@@ -18,13 +21,24 @@ interface Emits {
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
+const inputRef = ref<HTMLInputElement>()
 const searchQuery = ref('')
 const selectedIndex = ref(0)
-const inputRef = ref<HTMLInputElement>()
+const searchResults = ref<SearchResult[]>([])
+const isSearching = ref(false)
+const searchDebounceTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 
-const filteredRunes = computed(() => {
+const isFtsEnabled = __APP_CONFIG__.global.featureFlags.ftsSearch
+
+// When no search query, show recent runes (non-directories)
+const recentRunes = computed(() => {
+  return props.runes.filter((rune) => !props.isDirectory(rune.title)).slice(0, 10)
+})
+
+// Fuzzy search for when FTS is disabled
+const fuzzySearchResults = computed(() => {
   if (!searchQuery.value.trim()) {
-    return props.runes.filter((rune) => !props.isDirectory(rune.title)).slice(0, 10)
+    return []
   }
 
   const query = searchQuery.value.toLowerCase().trim()
@@ -79,7 +93,12 @@ const filteredRunes = computed(() => {
       return a.rune.title.localeCompare(b.rune.title)
     })
     .slice(0, 10)
-    .map((r) => r.rune)
+    .map((r) => ({
+      uuid: r.rune.uuid,
+      title: r.rune.title,
+      snippet: '',
+      rank: r.score,
+    }))
 })
 
 function isFuzzyMatch(query: string, text: string): boolean {
@@ -92,7 +111,109 @@ function isFuzzyMatch(query: string, text: string): boolean {
   return queryIndex === query.length
 }
 
-const displayRunes = computed(() => filteredRunes.value)
+const displayResults = computed(() => {
+  if (!searchQuery.value.trim()) {
+    return recentRunes.value.map((rune) => ({
+      uuid: rune.uuid,
+      title: rune.title,
+      snippet: '',
+      rank: 0,
+    }))
+  }
+  
+  // Use FTS results if enabled, otherwise use fuzzy search
+  if (isFtsEnabled) {
+    return searchResults.value
+  } else {
+    return fuzzySearchResults.value
+  }
+})
+
+/**
+ * Format search query to support prefix matching
+ * Adds * to each term for partial word matching in SQLite FTS5
+ */
+function formatQueryForPrefixMatching(query: string): string {
+  // Split by spaces and filter empty terms
+  const terms = query.trim().split(/\s+/).filter((t) => t.length > 0)
+  if (terms.length === 0) return ''
+
+  // Add * to each term for prefix matching, but preserve quoted phrases
+  return terms
+    .map((term) => {
+      // If term is already quoted, don't modify it
+      if ((term.startsWith('"') && term.endsWith('"')) || term.includes('*')) {
+        return term
+      }
+      // Add * for prefix matching
+      return term + '*'
+    })
+    .join(' ')
+}
+
+async function performSearch(query: string) {
+  if (!query.trim()) {
+    searchResults.value = []
+    return
+  }
+
+  // Only use FTS search if enabled
+  if (!isFtsEnabled) {
+    // Fuzzy search is computed, no async operation needed
+    isSearching.value = false
+    return
+  }
+
+  isSearching.value = true
+  try {
+    // Format query for prefix matching to support partial words
+    const formattedQuery = formatQueryForPrefixMatching(query)
+    
+    const result = await props.searchRunes(formattedQuery, {
+      limit: 20,
+      highlight: true,
+    })
+    searchResults.value = result.results
+  } catch (error) {
+    console.error('Search failed:', error)
+    searchResults.value = []
+  } finally {
+    isSearching.value = false
+  }
+}
+
+watch(searchQuery, (newQuery) => {
+  // Clear existing timer
+  if (searchDebounceTimer.value) {
+    clearTimeout(searchDebounceTimer.value)
+  }
+
+  // Reset selected index when query changes
+  selectedIndex.value = 0
+
+  // If query is empty, clear results and stop searching
+  if (!newQuery.trim()) {
+    searchResults.value = []
+    isSearching.value = false
+    return
+  }
+
+  // Only set searching state for FTS search (async)
+  if (isFtsEnabled) {
+    // Set searching state immediately when user types
+    isSearching.value = true
+    // Clear previous results while searching
+    searchResults.value = []
+
+    // Debounce search
+    searchDebounceTimer.value = setTimeout(() => {
+      performSearch(newQuery)
+    }, 300)
+  } else {
+    // Fuzzy search is synchronous, no loading state needed
+    isSearching.value = false
+  }
+})
 
 watch(
   () => props.show,
@@ -100,6 +221,7 @@ watch(
     if (show) {
       searchQuery.value = ''
       selectedIndex.value = 0
+      searchResults.value = []
       // Wait for modal to fully open, then focus input
       nextTick(() => {
         requestAnimationFrame(() => {
@@ -112,13 +234,13 @@ watch(
   },
 )
 
-watch(displayRunes, (newRunes, oldRunes) => {
+watch(displayResults, (newResults, oldResults) => {
   // Only adjust index if list actually changed and index is out of bounds
-  if (newRunes.length !== oldRunes?.length || selectedIndex.value >= newRunes.length) {
-    if (newRunes.length === 0) {
+  if (newResults.length !== oldResults?.length || selectedIndex.value >= newResults.length) {
+    if (newResults.length === 0) {
       selectedIndex.value = 0
-    } else if (selectedIndex.value >= newRunes.length) {
-      selectedIndex.value = Math.max(0, newRunes.length - 1)
+    } else if (selectedIndex.value >= newResults.length) {
+      selectedIndex.value = Math.max(0, newResults.length - 1)
     }
   }
 })
@@ -132,7 +254,7 @@ function handleKeydown(event: KeyboardEvent) {
     event.preventDefault()
     event.stopPropagation()
 
-    const currentLength = displayRunes.value.length
+    const currentLength = displayResults.value.length
     if (currentLength === 0) return
 
     // Ensure selectedIndex is within valid bounds
@@ -156,8 +278,8 @@ function handleKeydown(event: KeyboardEvent) {
     } else if (event.key === 'Enter') {
       // Clamp index to valid range before selecting
       const clampedIndex = Math.max(0, Math.min(selectedIndex.value, currentLength - 1))
-      if (displayRunes.value[clampedIndex]) {
-        handleSelect(displayRunes.value[clampedIndex].uuid)
+      if (displayResults.value[clampedIndex]) {
+        handleSelect(displayResults.value[clampedIndex].uuid)
       }
     }
     return
@@ -177,24 +299,12 @@ function handleModalCancel() {
   close()
 }
 
-function highlightMatch(text: string, query: string): string {
-  if (!query.trim()) return text
-
-  const lowerText = text.toLowerCase()
-  const lowerQuery = query.toLowerCase()
-  const index = lowerText.indexOf(lowerQuery)
-
-  if (index === -1) {
-    // Try fuzzy highlighting
-    return text
+// Clean up debounce timer on unmount
+onUnmounted(() => {
+  if (searchDebounceTimer.value) {
+    clearTimeout(searchDebounceTimer.value)
   }
-
-  const before = text.substring(0, index)
-  const match = text.substring(index, index + query.length)
-  const after = text.substring(index + query.length)
-
-  return `${before}<mark>${match}</mark>${after}`
-}
+})
 
 function getDisplayTitle(title: string): { path: string; name: string } {
   if (!title.includes('/')) {
@@ -241,26 +351,36 @@ onUnmounted(() => {
             @keydown="handleKeydown"
           />
         </div>
-        <div v-if="displayRunes.length > 0" class="command-palette-results">
+        <div v-if="displayResults.length > 0" class="command-palette-results">
           <button
-            v-for="(rune, index) in displayRunes"
-            :key="rune.uuid"
+            v-for="(result, index) in displayResults"
+            :key="result.uuid"
             :class="['command-palette-item', { selected: index === selectedIndex }]"
-            @click="handleSelect(rune.uuid)"
+            @click="handleSelect(result.uuid)"
             @mouseenter="selectedIndex = index"
           >
             <div class="command-palette-item-content">
-              <span
-                v-if="getDisplayTitle(rune.title).path"
-                class="command-palette-item-path"
-                v-html="highlightMatch(getDisplayTitle(rune.title).path, searchQuery)"
-              />
-              <span
-                class="command-palette-item-filename"
-                v-html="highlightMatch(getDisplayTitle(rune.title).name, searchQuery)"
+              <div class="command-palette-item-header">
+                <span
+                  v-if="getDisplayTitle(result.title).path"
+                  class="command-palette-item-path"
+                  v-html="getDisplayTitle(result.title).path"
+                />
+                <span
+                  class="command-palette-item-filename"
+                  v-html="getDisplayTitle(result.title).name"
+                />
+              </div>
+              <div
+                v-if="result.snippet"
+                class="command-palette-item-snippet"
+                v-html="result.snippet"
               />
             </div>
           </button>
+        </div>
+        <div v-else-if="isSearching && searchQuery.trim()" class="command-palette-empty">
+          <Loader message="Searching..." width="12rem" />
         </div>
         <div v-else-if="searchQuery.trim()" class="command-palette-empty">
           <span>No match</span>
@@ -382,10 +502,16 @@ onUnmounted(() => {
 
 .command-palette-item-content {
   display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
+  flex-direction: column;
+  gap: 0.375rem;
   flex: 1;
   min-width: 0;
+}
+
+.command-palette-item-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
   font-size: 0.9375rem;
   line-height: 1.4;
 }
@@ -410,11 +536,32 @@ onUnmounted(() => {
   font-weight: 400;
 }
 
+.command-palette-item-snippet {
+  color: var(--color-muted);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  opacity: 0.7;
+}
+
 .command-palette-item-content :deep(mark) {
   background: transparent;
   color: var(--color-foreground);
   padding: 0;
   font-weight: 500;
+}
+
+.command-palette-item-snippet :deep(mark) {
+  background: transparent;
+  color: var(--color-foreground);
+  padding: 0;
+  font-weight: 500;
+  opacity: 1;
 }
 
 .command-palette-empty {

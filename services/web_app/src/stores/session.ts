@@ -915,9 +915,9 @@ export const useSessionStore = defineStore('session', () => {
   // ==================== Search Operations ====================
 
   /**
-   * Search notes in the currently open codex
+   * Search runes in the currently open codex
    */
-  async function searchNotes(query: string, options?: SearchOptions): Promise<SearchServiceResult> {
+  async function searchRunes(query: string, options?: SearchOptions): Promise<SearchServiceResult> {
     if (!hasOpenCodex.value) {
       throw new Error('No codex is currently open')
     }
@@ -966,6 +966,6 @@ export const useSessionStore = defineStore('session', () => {
     getLastSyncTime,
 
     // Search Operations
-    searchNotes,
+    searchRunes,
   }
 })
