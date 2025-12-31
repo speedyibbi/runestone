@@ -250,6 +250,7 @@ const activeTabId = ref<string | null>(null)
 const tabHistory = ref<string[]>([]) // Array of tab IDs in order visited
 const historyIndex = ref<number>(-1) // Current position in history (-1 means no history)
 const isNavigatingHistory = ref(false) // Flag to prevent adding to history during navigation
+const closedTabs = ref<Map<string, string>>(new Map()) // Map of closed tab IDs to their runeIds
 
 const statusMessage = ref<string | null>(null)
 const statusType = ref<'info' | 'success' | 'warning' | 'error' | null>(null)
@@ -373,7 +374,9 @@ function navigateHistoryBack() {
     historyIndex.value--
     const tabId = tabHistory.value[historyIndex.value]
     const tab = tabs.value.find((t) => t.id === tabId)
+    
     if (tab) {
+      // Tab is still open, navigate to it
       isNavigatingHistory.value = true
       activeTabId.value = tab.id
       if (tab.runeId) {
@@ -383,6 +386,37 @@ function navigateHistoryBack() {
       nextTick(() => {
         isNavigatingHistory.value = false
       })
+    } else {
+      // Tab is closed, check if we have its runeId and reopen it
+      const runeId = closedTabs.value.get(tabId)
+      if (runeId) {
+        isNavigatingHistory.value = true
+        // openRune will create a new tab, which will be added to tabs.value
+        // The watch on currentRune will handle setting activeTabId
+        openRune(runeId)
+          .then(() => {
+            // After the rune is opened, find the new tab and update history
+            nextTick(() => {
+              const newTab = tabs.value.find((t) => t.runeId === runeId)
+              if (newTab) {
+                // Update history to use the new tab ID
+                tabHistory.value[historyIndex.value] = newTab.id
+                // Remove from closed tabs since it's now open
+                closedTabs.value.delete(tabId)
+              }
+              isNavigatingHistory.value = false
+            })
+          })
+          .catch(() => {
+            // If opening the rune fails, restore history index and reset flag
+            historyIndex.value++
+            isNavigatingHistory.value = false
+          })
+      } else {
+        // Tab is closed but we don't have its runeId, can't reopen
+        // Restore history index
+        historyIndex.value++
+      }
     }
   }
 }
@@ -392,7 +426,9 @@ function navigateHistoryForward() {
     historyIndex.value++
     const tabId = tabHistory.value[historyIndex.value]
     const tab = tabs.value.find((t) => t.id === tabId)
+    
     if (tab) {
+      // Tab is still open, navigate to it
       isNavigatingHistory.value = true
       activeTabId.value = tab.id
       if (tab.runeId) {
@@ -402,6 +438,37 @@ function navigateHistoryForward() {
       nextTick(() => {
         isNavigatingHistory.value = false
       })
+    } else {
+      // Tab is closed, check if we have its runeId and reopen it
+      const runeId = closedTabs.value.get(tabId)
+      if (runeId) {
+        isNavigatingHistory.value = true
+        // openRune will create a new tab, which will be added to tabs.value
+        // The watch on currentRune will handle setting activeTabId
+        openRune(runeId)
+          .then(() => {
+            // After the rune is opened, find the new tab and update history
+            nextTick(() => {
+              const newTab = tabs.value.find((t) => t.runeId === runeId)
+              if (newTab) {
+                // Update history to use the new tab ID
+                tabHistory.value[historyIndex.value] = newTab.id
+                // Remove from closed tabs since it's now open
+                closedTabs.value.delete(tabId)
+              }
+              isNavigatingHistory.value = false
+            })
+          })
+          .catch(() => {
+            // If opening the rune fails, restore history index and reset flag
+            historyIndex.value--
+            isNavigatingHistory.value = false
+          })
+      } else {
+        // Tab is closed but we don't have its runeId, can't reopen
+        // Restore history index
+        historyIndex.value--
+      }
     }
   }
 }
@@ -412,18 +479,30 @@ const canNavigateForward = computed(() => historyIndex.value < tabHistory.value.
 function handleTabClose(tab: Tab) {
   const index = tabs.value.findIndex((t) => t.id === tab.id)
   if (index !== -1) {
+    // Store the runeId for this closed tab so we can reopen it via history
+    if (tab.runeId) {
+      closedTabs.value.set(tab.id, tab.runeId)
+    }
+    
     tabs.value.splice(index, 1)
     
-    // Remove from history
+    // Don't remove from history - keep it so we can navigate back to closed tabs
+    // Just adjust history index if needed
     const historyTabIndex = tabHistory.value.findIndex((id) => id === tab.id)
     if (historyTabIndex !== -1) {
-      tabHistory.value.splice(historyTabIndex, 1)
-      // Adjust history index if needed
+      // Adjust history index if we're closing a tab that's ahead of current position
       if (historyIndex.value > historyTabIndex) {
-        historyIndex.value--
-      } else if (historyIndex.value >= tabHistory.value.length) {
-        historyIndex.value = Math.max(0, tabHistory.value.length - 1)
+        // We're closing a tab in the past, no adjustment needed
+      } else if (historyIndex.value === historyTabIndex) {
+        // We're closing the current tab, move to previous if available
+        if (historyIndex.value > 0) {
+          historyIndex.value--
+        } else if (historyIndex.value < tabHistory.value.length - 1) {
+          // If we're at the start, move forward if possible
+          historyIndex.value++
+        }
       }
+      // If historyIndex is after the closed tab, no adjustment needed
     }
     
     if (tab.id === activeTabId.value) {
@@ -435,8 +514,7 @@ function handleTabClose(tab: Tab) {
         }
       } else {
         activeTabId.value = null
-        tabHistory.value = []
-        historyIndex.value = -1
+        // Don't clear history - keep it for navigation
         closeRune()
       }
     }
