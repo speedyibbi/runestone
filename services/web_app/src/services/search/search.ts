@@ -1,4 +1,4 @@
-import { initializeSQLite, getSQLiteModule, createDatabase } from './sqlite-setup'
+import { initializeSQLite, openDatabase, exportDatabase, closeDatabase, getPromiser } from '@/services/search/sqlite-setup'
 import type { SearchResult, SearchOptions, SearchServiceResult } from '@/interfaces/search'
 
 /**
@@ -6,17 +6,18 @@ import type { SearchResult, SearchOptions, SearchServiceResult } from '@/interfa
  */
 export default class SearchService {
   private static initialized = false
+  private static readonly FEATURE_FTS_SEARCH = __APP_CONFIG__.global.featureFlags.ftsSearch
 
   /**
    * Initialize SQLite WASM module
    * Should be called once at application startup
    */
   static async initialize(): Promise<void> {
-    if (this.initialized) {
+    if (!this.FEATURE_FTS_SEARCH) {
       return
     }
 
-    if (!__APP_CONFIG__.global.featureFlags.ftsSearch) {
+    if (this.initialized) {
       return
     }
 
@@ -32,9 +33,10 @@ export default class SearchService {
 
   /**
    * Create a new search database
+   * If existingDbBytes is provided, restores the database from those bytes
    */
-  static create(existingDbBytes?: Uint8Array): any {
-    if (!__APP_CONFIG__.global.featureFlags.ftsSearch) {
+  static async create(existingDbBytes?: Uint8Array): Promise<string> {
+    if (!this.FEATURE_FTS_SEARCH) {
       throw new Error('FTS search is disabled')
     }
 
@@ -42,86 +44,122 @@ export default class SearchService {
       throw new Error('SearchService not initialized. Call initialize() first.')
     }
 
-    let db: any
-
-    if (existingDbBytes) {
-      // Load database from bytes
-      const sqlite3 = getSQLiteModule()
-      db = new sqlite3.oo1.DB(existingDbBytes)
-    } else {
-      // Create new database
-      db = createDatabase(':memory:')
-    }
+    // Open database, optionally restoring from bytes
+    const dbId = await openDatabase(existingDbBytes)
 
     // Create FTS5 table if it doesn't exist
-    // UUID is stored as a regular column (not UNINDEXED so we can query by it)
-    db.exec(`
-      CREATE VIRTUAL TABLE IF NOT EXISTS note_search USING fts5(
-        uuid,
-        title,
-        content,
-        tokenize = 'unicode61'
-      );
-    `)
+    if (!existingDbBytes || existingDbBytes.length === 0) {
+      const promiser = getPromiser()
 
-    return db
+      try {
+        await promiser('exec', {
+          dbId,
+          sql: `
+            CREATE VIRTUAL TABLE IF NOT EXISTS note_search USING fts5(
+              uuid,
+              title,
+              content,
+              tokenize = 'unicode61'
+            );
+          `,
+        })
+      } catch (error) {
+        console.error('Error creating FTS5 table:', error)
+        throw error
+      }
+    }
+
+    return dbId
   }
 
   /**
    * Index a note
    * Updates existing note if UUID already exists, otherwise inserts new one
    */
-  static indexNote(db: any, uuid: string, title: string, content: string): void {
-    if (!__APP_CONFIG__.global.featureFlags.ftsSearch) {
+  static async indexNote(
+    dbId: string,
+    uuid: string,
+    title: string,
+    content: string,
+  ): Promise<void> {
+    if (!this.FEATURE_FTS_SEARCH) {
       return
     }
 
-    // Check if note already exists by querying for the UUID
-    const checkStmt = db.prepare('SELECT rowid FROM note_search WHERE uuid = ?')
-    checkStmt.bind([uuid])
-    const existing = checkStmt.step() ? checkStmt.get({}) : null
-    checkStmt.finalize()
+    try {
+      const promiser = getPromiser()
 
-    if (existing) {
-      // Update existing note
-      // FTS5 UPDATE requires using rowid
-      const rowid = existing.rowid
-      const updateStmt = db.prepare(`
-        UPDATE note_search SET uuid = ?, title = ?, content = ? WHERE rowid = ?
-      `)
-      updateStmt.bind([uuid, title, content, rowid]).step()
-      updateStmt.finalize()
-    } else {
-      // Insert new note
-      const insertStmt = db.prepare(`
-        INSERT INTO note_search(uuid, title, content)
-        VALUES (?, ?, ?)
-      `)
-      insertStmt.bind([uuid, title, content]).step()
-      insertStmt.finalize()
+      // Escape single quotes for SQL (basic protection)
+      const escapeSql = (str: string) => str.replace(/'/g, "''")
+      const escapedUuid = escapeSql(uuid)
+      const escapedTitle = escapeSql(title)
+      const escapedContent = escapeSql(content)
+
+      // Check if note already exists by querying for the UUID
+      const checkResponse = await promiser('exec', {
+        dbId,
+        sql: `SELECT rowid FROM note_search WHERE uuid = '${escapedUuid}'`,
+        returnValue: 'resultRows',
+      })
+
+      const existing = checkResponse.result?.resultRows?.[0] ?? checkResponse.resultRows?.[0]
+
+      if (existing) {
+        // Update existing note
+        // FTS5 UPDATE requires using rowid
+        const rowid = existing.rowid ?? existing[0]
+        await promiser('exec', {
+          dbId,
+          sql: `UPDATE note_search SET uuid = '${escapedUuid}', title = '${escapedTitle}', content = '${escapedContent}' WHERE rowid = ${rowid}`,
+        })
+      } else {
+        // Insert new note
+        await promiser('exec', {
+          dbId,
+          sql: `INSERT INTO note_search(uuid, title, content) VALUES ('${escapedUuid}', '${escapedTitle}', '${escapedContent}')`,
+        })
+      }
+    } catch (error) {
+      console.error('Error indexing note:', error, { uuid, title, dbId })
+      throw error
     }
   }
 
   /**
    * Remove note from index
    */
-  static removeNote(db: any, uuid: string): void {
-    if (!__APP_CONFIG__.global.featureFlags.ftsSearch) {
+  static async removeNote(dbId: string, uuid: string): Promise<void> {
+    if (!this.FEATURE_FTS_SEARCH) {
       return
     }
 
-    // Get rowid for the UUID
-    const findStmt = db.prepare('SELECT rowid FROM note_search WHERE uuid = ?')
-    findStmt.bind([uuid])
-    const result = findStmt.step() ? findStmt.get({}) : null
-    findStmt.finalize()
+    try {
+      const promiser = getPromiser()
 
-    if (result) {
-      const rowid = result.rowid
-      // Delete from FTS5 table using rowid
-      const deleteStmt = db.prepare('DELETE FROM note_search WHERE rowid = ?')
-      deleteStmt.bind([rowid]).step()
-      deleteStmt.finalize()
+      // Escape single quotes for SQL
+      const escapeSql = (str: string) => str.replace(/'/g, "''")
+      const escapedUuid = escapeSql(uuid)
+
+      // Get rowid for the UUID
+      const findResponse = await promiser('exec', {
+        dbId,
+        sql: `SELECT rowid FROM note_search WHERE uuid = '${escapedUuid}'`,
+        returnValue: 'resultRows',
+      })
+
+      const result = findResponse.result?.resultRows?.[0] ?? findResponse.resultRows?.[0]
+
+      if (result) {
+        const rowid = result.rowid ?? result[0]
+        // Delete from FTS5 table using rowid
+        await promiser('exec', {
+          dbId,
+          sql: `DELETE FROM note_search WHERE rowid = ${rowid}`,
+        })
+      }
+    } catch (error) {
+      console.error('Error removing note from index:', error, { uuid })
+      throw error
     }
   }
 
@@ -130,12 +168,12 @@ export default class SearchService {
    * Supports different search modes: normal, phrase, boolean
    * Uses BM25 ranking for better relevance scoring
    */
-  static search(
-    db: any,
+  static async search(
+    dbId: string,
     query: string,
     options: SearchOptions = {},
-  ): SearchServiceResult {
-    if (!__APP_CONFIG__.global.featureFlags.ftsSearch) {
+  ): Promise<SearchServiceResult> {
+    if (!this.FEATURE_FTS_SEARCH) {
       return { results: [], total: 0, query }
     }
 
@@ -164,63 +202,95 @@ export default class SearchService {
         break
     }
 
-    // Execute search with BM25 ranking (for better relevance)
-    // BM25 considers term frequency, inverse document frequency, and document length
-    const stmt = db.prepare(`
-      SELECT 
-        uuid,
-        title,
-        snippet(note_search, 2, '<mark>', '</mark>', '...', 32) as snippet,
-        bm25(note_search) as rank
-      FROM note_search
-      WHERE note_search MATCH ?
-      ORDER BY bm25(note_search)
-      LIMIT ? OFFSET ?;
-    `)
+    try {
+      const promiser = getPromiser()
 
-    const results: SearchResult[] = []
-    stmt.bind([formattedQuery, limit, offset])
+      // Escape single quotes for SQL
+      const escapeSql = (str: string) => str.replace(/'/g, "''")
+      const escapedQuery = escapeSql(formattedQuery)
 
-    while (stmt.step()) {
-      const row = stmt.get({})
-      results.push({
-        uuid: row.uuid,
-        title: row.title,
-        snippet: row.snippet || '',
-        rank: row.rank || 0,
+      // Execute search with BM25 ranking (for better relevance)
+      // BM25 considers term frequency, inverse document frequency, and document length
+      const searchResponse = await promiser('exec', {
+        dbId,
+        sql: `
+          SELECT 
+            uuid,
+            title,
+            snippet(note_search, 2, '<mark>', '</mark>', '...', 32) as snippet,
+            bm25(note_search) as rank
+          FROM note_search
+          WHERE note_search MATCH '${escapedQuery}'
+          ORDER BY bm25(note_search)
+          LIMIT ${limit} OFFSET ${offset};
+        `,
+        returnValue: 'resultRows',
       })
-    }
 
-    stmt.finalize()
+      const rows = searchResponse.result?.resultRows ?? searchResponse.resultRows ?? []
+      const results: SearchResult[] = rows.map((row: any) => ({
+        uuid: row.uuid ?? row[0],
+        title: row.title ?? row[1],
+        snippet: row.snippet ?? row[2] ?? '',
+        rank: row.rank ?? row[3] ?? 0,
+      }))
 
-    // Get total count
-    const countStmt = db.prepare(`
-      SELECT COUNT(*) as count
-      FROM note_search
-      WHERE note_search MATCH ?;
-    `)
+      // Get total count
+      const countResponse = await promiser('exec', {
+        dbId,
+        sql: `SELECT COUNT(*) as count FROM note_search WHERE note_search MATCH '${escapedQuery}';`,
+        returnValue: 'resultRows',
+      })
 
-    countStmt.bind([formattedQuery])
-    countStmt.step()
-    const total = countStmt.get({}).count || 0
-    countStmt.finalize()
+      const total = countResponse.result?.resultRows?.[0]?.count ?? countResponse.resultRows?.[0]?.count ?? 0
 
-    return {
-      results,
-      total,
-      query,
+      return {
+        results,
+        total,
+        query,
+      }
+    } catch (error) {
+      console.error('Error searching notes:', error, { query, options })
+      throw error
     }
   }
 
   /**
    * Clear entire search index
    */
-  static clear(db: any): void {
-    if (!__APP_CONFIG__.global.featureFlags.ftsSearch) {
+  static async clear(dbId: string): Promise<void> {
+    if (!this.FEATURE_FTS_SEARCH) {
       return
     }
 
+    const promiser = getPromiser()
+
     // Clear existing index
-    db.exec('DELETE FROM note_search;')
+    await promiser('exec', {
+      dbId,
+      sql: 'DELETE FROM note_search;',
+    })
+  }
+
+  /**
+   * Export search index bytes
+   */
+  static async export(dbId: string): Promise<Uint8Array> {
+    if (!this.FEATURE_FTS_SEARCH) {
+      throw new Error('FTS search is disabled')
+    }
+
+    return await exportDatabase(dbId)
+  }
+
+  /**
+   * Close search index
+   */
+  static async close(dbId: string): Promise<void> {
+    if (!this.FEATURE_FTS_SEARCH) {
+      return
+    }
+
+    await closeDatabase(dbId)
   }
 }

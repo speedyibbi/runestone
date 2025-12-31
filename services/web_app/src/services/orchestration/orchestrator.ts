@@ -536,12 +536,15 @@ export default class OrchestrationService {
   /**
    * Get a blob from a notebook
    * Retrieves and decrypts the blob from cache
+   * Optionally indexes the note for search if it's a note and searchDbId is provided
    */
   static async getBlob(
     notebookId: string,
     uuid: string,
     lookupHash: string,
     fek: CryptoKey,
+    manifest?: Manifest,
+    searchDbId?: string | null,
   ): Promise<GetBlobResult> {
     // Step 1: Get encrypted blob from cache
     const encryptedBlob = await CacheService.getBlob(lookupHash, notebookId, uuid)
@@ -558,6 +561,17 @@ export default class OrchestrationService {
       throw new Error(
         `Failed to decrypt blob: ${error instanceof Error ? error.message : String(error)}`,
       )
+    }
+
+    // Step 3: Index note for search if it's a note (non-blocking)
+    if (searchDbId && manifest) {
+      const entry = ManifestService.findEntry(manifest, uuid)
+      if (entry && entry.type === 'note') {
+        const content = new TextDecoder().decode(data)
+        SearchService.indexNote(searchDbId, uuid, entry.title, content).catch((error) => {
+          console.warn('Failed to index note for search:', error)
+        })
+      }
     }
 
     return {
@@ -577,7 +591,7 @@ export default class OrchestrationService {
     lookupHash: string,
     fek: CryptoKey,
     manifest: Manifest,
-    searchDb?: any,
+    searchDbId?: string | null,
   ): Promise<CreateBlobResult> {
     // Step 1: Compute hash and size of data
     const dataBuffer =
@@ -612,15 +626,12 @@ export default class OrchestrationService {
       CacheService.upsertManifest(lookupHash, notebookId, encryptedManifest),
     ])
 
-    // Step 6: Index note for search (if it's a note and searchDb is provided)
-    if (metadata.type === 'note' && searchDb) {
-      try {
-        const content = new TextDecoder().decode(dataBuffer)
-        SearchService.indexNote(searchDb, uuid, metadata.title, content)
-      } catch (error) {
-        // Log but don't fail blob creation if search indexing fails
+    // Step 6: Index note for search (non-blocking)
+    if (metadata.type === 'note' && searchDbId) {
+      const content = new TextDecoder().decode(dataBuffer)
+      SearchService.indexNote(searchDbId, uuid, metadata.title, content).catch((error) => {
         console.warn('Failed to index note for search:', error)
-      }
+      })
     }
 
     return {
@@ -641,7 +652,7 @@ export default class OrchestrationService {
     lookupHash: string,
     fek: CryptoKey,
     manifest: Manifest,
-    searchDb?: any,
+    searchDbId?: string | null,
   ): Promise<UpdateBlobResult> {
     // Step 1: Verify blob exists in manifest
     const existingEntry = ManifestService.findEntry(manifest, uuid)
@@ -681,15 +692,12 @@ export default class OrchestrationService {
       CacheService.upsertManifest(lookupHash, notebookId, encryptedManifest),
     ])
 
-    // Step 7: Index note for search (if it's a note and searchDb is provided)
-    if (metadata.type === 'note' && searchDb) {
-      try {
-        const content = new TextDecoder().decode(dataBuffer)
-        SearchService.indexNote(searchDb, uuid, metadata.title, content)
-      } catch (error) {
-        // Log but don't fail blob update if search indexing fails
+    // Step 7: Index note for search (non-blocking)
+    if (metadata.type === 'note' && searchDbId) {
+      const content = new TextDecoder().decode(dataBuffer)
+      SearchService.indexNote(searchDbId, uuid, metadata.title, content).catch((error) => {
         console.warn('Failed to index note for search:', error)
-      }
+      })
     }
 
     return {
@@ -708,7 +716,7 @@ export default class OrchestrationService {
     lookupHash: string,
     fek: CryptoKey,
     manifest: Manifest,
-    searchDb?: any,
+    searchDbId?: string | null,
   ): Promise<DeleteBlobResult> {
     // Step 1: Verify blob exists in manifest
     const existingEntry = ManifestService.findEntry(manifest, uuid)
@@ -730,14 +738,11 @@ export default class OrchestrationService {
       CacheService.upsertManifest(lookupHash, notebookId, encryptedManifest),
     ])
 
-    // Step 5: Remove note from search index (if it's a note and searchDb is provided)
-    if (existingEntry.type === 'note' && searchDb) {
-      try {
-        SearchService.removeNote(searchDb, uuid)
-      } catch (error) {
-        // Log but don't fail blob deletion if search removal fails
+    // Step 5: Remove note from search index (non-blocking)
+    if (existingEntry.type === 'note' && searchDbId) {
+      SearchService.removeNote(searchDbId, uuid).catch((error) => {
         console.warn('Failed to remove note from search index:', error)
-      }
+      })
     }
 
     return {
@@ -754,50 +759,59 @@ export default class OrchestrationService {
     notebookId: string,
     lookupHash: string,
     fek: CryptoKey,
-  ): Promise<any> {
+    manifest?: Manifest,
+  ): Promise<string> {
     try {
       await SearchService.initialize()
 
       // Try to load existing encrypted index
       const encryptedDb = await CacheService.getSearchIndex(lookupHash, notebookId)
-
+      
       let dbBytes: Uint8Array | undefined
-
       if (encryptedDb) {
-        // Decrypt database
-        const decryptedDb = await CryptoService.unpackAndDecrypt(encryptedDb, fek)
-        dbBytes = new Uint8Array(decryptedDb)
+        try {
+          // Decrypt database bytes
+          const decryptedDb = await CryptoService.unpackAndDecrypt(encryptedDb, fek)
+          dbBytes = new Uint8Array(decryptedDb)
+        } catch (error) {
+          console.warn('Failed to decrypt search index, creating fresh:', error)
+          // Continue with fresh database
+        }
       }
 
-      // Create database instance (loads from bytes if available)
-      return SearchService.create(dbBytes)
+      // Create database (will import bytes if available)
+      const dbId = await SearchService.create(dbBytes)
+      
+      // If import failed or no existing index, trigger background rebuild if manifest is available
+      if ((!encryptedDb || !dbBytes) && manifest) {
+        // Trigger background rebuild (non-blocking)
+        this.rebuildSearchIndexIntoDb(dbId, notebookId, manifest, lookupHash, fek)
+          .catch((error) => {
+            console.warn('Background search index rebuild failed:', error)
+            // Index will rebuild naturally as notes are accessed
+          })
+      }
+      
+      return dbId
     } catch (error) {
-      // If loading fails, create fresh database
-      console.warn('Failed to load search index, creating fresh:', error)
-      return SearchService.create()
+      console.warn('Failed to initialize search index, creating fresh:', error)
+      return await SearchService.create()
     }
   }
 
   /**
    * Save search database to encrypted storage
-   * Exports database, encrypts, and saves to OPFS
+   * Exports database, encrypts, and saves to cache
    */
   static async saveSearchIndex(
-    db: any,
+    searchDbId: string,
     notebookId: string,
     lookupHash: string,
     fek: CryptoKey,
   ): Promise<void> {
     try {
-      // Export database to Uint8Array
-      let dbBytes: Uint8Array
-      if (typeof db.export === 'function') {
-        dbBytes = db.export()
-      } else if (typeof db.exportToJs === 'function') {
-        dbBytes = db.exportToJs()
-      } else {
-        throw new Error('Database export not supported - OPFS VFS implementation needed')
-      }
+      // Export database bytes from worker
+      const dbBytes = await SearchService.export(searchDbId)
 
       // Encrypt database bytes
       const encryptedDb = await CryptoService.encryptAndPack(dbBytes, fek)
@@ -812,20 +826,34 @@ export default class OrchestrationService {
   }
 
   /**
+   * Close search database in the worker
+   * Cleans up temporary files and closes the database connection
+   */
+  static async closeSearchIndex(searchDbId: string): Promise<void> {
+    try {
+      await SearchService.close(searchDbId)
+    } catch (error) {
+      throw new Error(
+        `Failed to close search index: ${error instanceof Error ? error.message : String(error)}`,
+      )
+    }
+  }
+
+  /**
    * Search notes in a notebook
    * Supports different search modes: normal, phrase, boolean
    */
-  static searchNotes(
-    searchDb: any,
+  static async searchNotes(
+    searchDbId: string | null,
     query: string,
     options: SearchOptions = {},
-  ): SearchServiceResult {
-    if (!searchDb) {
+  ): Promise<SearchServiceResult> {
+    if (!searchDbId) {
       return { results: [], total: 0, query }
     }
 
     try {
-      return SearchService.search(searchDb, query, options)
+      return await SearchService.search(searchDbId, query, options)
     } catch (error) {
       throw new Error(
         `Search failed: ${error instanceof Error ? error.message : String(error)}`,
@@ -834,23 +862,19 @@ export default class OrchestrationService {
   }
 
   /**
-   * Rebuild search index from manifest
+   * Rebuild search index from manifest into an existing database
    * Fetches all notes and reindexes them
    */
-  static async rebuildSearchIndex(
+  static async rebuildSearchIndexIntoDb(
+    dbId: string,
     notebookId: string,
     manifest: Manifest,
     lookupHash: string,
     fek: CryptoKey,
-  ): Promise<any> {
+  ): Promise<void> {
     try {
-      await SearchService.initialize()
-
-      // Create new database
-      const db = SearchService.create()
-
-      // Rebuild index
-      SearchService.clear(db)
+      // Clear existing index
+      await SearchService.clear(dbId)
 
       // Get all note entries from manifest
       const noteEntries = manifest.entries.filter((e) => e.type === 'note')
@@ -863,13 +887,40 @@ export default class OrchestrationService {
           const content = new TextDecoder().decode(blobResult.data)
 
           // Index note
-          SearchService.indexNote(db, entry.uuid, entry.title, content)
+          await SearchService.indexNote(dbId, entry.uuid, entry.title, content)
         } catch (error) {
           console.warn(`Failed to index note ${entry.uuid} during rebuild:`, error)
         }
       }
+    } catch (error) {
+      throw new Error(
+        `Failed to rebuild search index: ${error instanceof Error ? error.message : String(error)}`,
+      )
+    }
+  }
 
-      return db
+  /**
+   * Rebuild search index from manifest
+   * Fetches all notes and reindexes them
+   * Creates a new database and returns its dbId
+   * For manual rebuilds - for automatic rebuilds, use rebuildSearchIndexIntoDb
+   */
+  static async rebuildSearchIndex(
+    notebookId: string,
+    manifest: Manifest,
+    lookupHash: string,
+    fek: CryptoKey,
+  ): Promise<string> {
+    try {
+      await SearchService.initialize()
+
+      // Create new database
+      const dbId = await SearchService.create()
+
+      // Rebuild into the new database
+      await this.rebuildSearchIndexIntoDb(dbId, notebookId, manifest, lookupHash, fek)
+
+      return dbId
     } catch (error) {
       throw new Error(
         `Failed to rebuild search index: ${error instanceof Error ? error.message : String(error)}`,

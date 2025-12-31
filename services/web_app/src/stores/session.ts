@@ -25,7 +25,7 @@ export const useSessionStore = defineStore('session', () => {
   const notebook = ref<{
     fek: CryptoKey | null
     manifest: Manifest | null
-    searchDb: any | null
+    searchDb: string | null
   }>({
     fek: null,
     manifest: null,
@@ -123,14 +123,20 @@ export const useSessionStore = defineStore('session', () => {
    * Clear all session state and logout
    */
   function teardown(): void {
-    // Revoke all blob URLs before clearing state
-    revokeAllSigilUrls()
+    if (hasOpenCodex.value) {
+      closeCodex()
+    }
 
     lookupHash.value = null
-    root.value.mek = null
-    root.value.map = null
-    notebook.value.fek = null
-    notebook.value.manifest = null
+    root.value = {
+      mek: null,
+      map: null,
+    }
+    notebook.value = {
+      fek: null,
+      manifest: null,
+      searchDb: null,
+    }
   }
 
   /**
@@ -196,6 +202,7 @@ export const useSessionStore = defineStore('session', () => {
         result.notebookId,
         lookupHash.value,
         result.fek,
+        result.manifest, // Pass manifest for background rebuild if needed
       )
     } catch (error) {
       // Log but don't fail codex open if search init fails
@@ -321,7 +328,7 @@ export const useSessionStore = defineStore('session', () => {
           lookupHash.value,
           notebook.value.fek,
         )
-        notebook.value.searchDb.close()
+        await OrchestrationService.closeSearchIndex(notebook.value.searchDb!)
       } catch (error) {
         console.warn('Failed to save search index before closing:', error)
       }
@@ -404,6 +411,8 @@ export const useSessionStore = defineStore('session', () => {
       runeId,
       lookupHash.value!,
       notebook.value.fek,
+      notebook.value.manifest,
+      notebook.value.searchDb,
     )
 
     // Convert ArrayBuffer to string (markdown)
@@ -494,6 +503,8 @@ export const useSessionStore = defineStore('session', () => {
         runeId,
         lookupHash.value!,
         notebook.value.fek,
+        notebook.value.manifest,
+        notebook.value.searchDb,
       )
       data = new Uint8Array(result.data)
     }
@@ -906,12 +917,12 @@ export const useSessionStore = defineStore('session', () => {
   /**
    * Search notes in the currently open codex
    */
-  function searchNotes(query: string, options?: SearchOptions): SearchServiceResult {
+  async function searchNotes(query: string, options?: SearchOptions): Promise<SearchServiceResult> {
     if (!hasOpenCodex.value) {
       throw new Error('No codex is currently open')
     }
 
-    return OrchestrationService.searchNotes(notebook.value.searchDb, query, options)
+    return await OrchestrationService.searchNotes(notebook.value.searchDb, query, options)
   }
 
   return {
