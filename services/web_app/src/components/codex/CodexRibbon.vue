@@ -16,6 +16,8 @@ interface Emits {
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
+const isFtsEnabled = __APP_CONFIG__.global.featureFlags.ftsSearch
+
 function togglePanel(panel: 'files' | 'search' | 'graph') {
   emit('update:activePanel', panel)
   emit('update:collapsed', false)
@@ -72,6 +74,7 @@ function togglePanel(panel: 'files' | 'search' | 'graph') {
         </svg>
       </button>
       <button
+        v-if="isFtsEnabled"
         class="ribbon-icon"
         :class="{ active: !collapsed && activePanel === 'search' }"
         @click="togglePanel('search')"
