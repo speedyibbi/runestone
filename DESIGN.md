@@ -28,7 +28,6 @@ The following technical terms are presented to users with different names:
 - **meta.json** _(unencrypted)_: contains KDF parameters + encrypted FEK.
 - **manifest.json.enc** _(encrypted with FEK)_: maps blob UUIDs → titles, types, metadata.
 - **blobs/**: every note/image stored as `<uuid>.enc`.
-- **search.db.enc** _(optional)_: encrypted SQLite database for FTS indexing.
 
 ## 4. Cryptography
 
@@ -49,7 +48,7 @@ The following technical terms are presented to users with different names:
 
 - **FEK** (File Encryption Key): random 256-bit key, stored encrypted in notebook's `meta.json`.
   - Decrypted using FKEK.
-  - Used to encrypt/decrypt notebook content (manifest, blobs, search index).
+  - Used to encrypt/decrypt notebook content (manifest, blobs).
   - Each notebook has independent FEK for isolation.
 
 - **Cipher**: AES-256-GCM for all encryption operations.
@@ -63,7 +62,7 @@ lookup_hash + root_salt → [PBKDF2] → MKEK → decrypt encrypted_mek → MEK 
 
 lookup_hash + notebook_salt → [Argon2id] → FKEK → decrypt encrypted_fek → FEK
 
-FEK → decrypt manifest.json.enc, blobs, search.db.enc
+FEK → decrypt manifest.json.enc, blobs
 ```
 
 **Note**: The lookup_hash is computed once from the passphrase using SHA256, then used for all key derivations. Each notebook's encryption is independent due to unique salts and KDF parameters.
@@ -177,7 +176,6 @@ FEK → decrypt manifest.json.enc, blobs, search.db.enc
   <lookup_hash>/<notebook_id>/meta.json
   <lookup_hash>/<notebook_id>/manifest.json.enc
   <lookup_hash>/<notebook_id>/blobs/<uuid>.enc
-  <lookup_hash>/<notebook_id>/search.db.enc (optional)
   ```
 
 ## 6. Client Workflow
@@ -207,7 +205,7 @@ FEK → decrypt manifest.json.enc, blobs, search.db.enc
 - **Map.json.enc** cached in OPFS (encrypted).
 - **Encrypted blobs** stored in OPFS (so persistence doesn't leak plaintext).
 - **Decrypted blobs** only in memory.
-- **Local search index** in OPFS, encrypted with FEK.
+- **Search index** only in memory, rebuilt in background when notebook opens.
 
 ### Periodic sync:
 
@@ -250,14 +248,14 @@ opfs/
       blobs/
         <uuid>.enc        # encrypted blob
       manifest.json.enc   # latest manifest
-      search.db.enc       # local FTS index, encrypted with FEK
 ```
 
 ## 9. Search (FTS)
 
-- Client uses **SQLite WASM** to maintain a search index (`search.db.enc`).
+- Client uses **SQLite WASM** to maintain a search index in memory only.
 - Contains decrypted content of notes (plaintext only while running).
-- DB encrypted with FEK when stored in OPFS.
+- Index is rebuilt in the background every time a notebook is opened.
+- Search index is never persisted to disk (OPFS or remote storage).
 - Search queries run locally, results map back to blob UUIDs.
 - Each notebook has its own independent search index.
 
@@ -297,9 +295,9 @@ This section documents all configurable feature flags for controlling system beh
 #### **FEATURE_FTS_SEARCH**
 - **Type**: `boolean`
 - **Default**: `true`
-- **Description**: Enable full-text search using SQLite WASM with encrypted `search.db.enc`.
-- **Impact**: Heavy feature; disabling reduces client-side storage and processing.
-- **Dependencies**: Requires `FEATURE_OPFS_CACHE` or alternative storage backend.
+- **Description**: Enable full-text search using SQLite WASM with in-memory index.
+- **Impact**: Search index is rebuilt in background when notebook opens; no persistent storage required.
+- **Dependencies**: None (uses in-memory SQLite WASM).
 - **Use Cases**:
   - Gradual rollout of search functionality
   - Low-powered device optimization
