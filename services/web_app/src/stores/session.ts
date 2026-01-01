@@ -319,18 +319,11 @@ export const useSessionStore = defineStore('session', () => {
     // Revoke all blob URLs for this codex
     revokeAllSigilUrls()
 
-    // Save and close search index if open
-    if (notebook.value.searchDb && notebook.value.manifest && notebook.value.fek && lookupHash.value) {
+    if (notebook.value.searchDb) {
       try {
-        await OrchestrationService.saveSearchIndex(
-          notebook.value.searchDb!,
-          notebook.value.manifest!.notebook_id,
-          lookupHash.value,
-          notebook.value.fek,
-        )
         await OrchestrationService.closeSearchIndex(notebook.value.searchDb!)
       } catch (error) {
-        console.warn('Failed to save search index before closing:', error)
+        console.warn('Failed to close search index:', error)
       }
     }
 

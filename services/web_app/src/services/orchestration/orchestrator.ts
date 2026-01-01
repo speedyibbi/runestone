@@ -753,7 +753,7 @@ export default class OrchestrationService {
 
   /**
    * Initialize search index for a notebook
-   * Loads encrypted database from cache or creates new one
+   * Always creates a fresh in-memory database and rebuilds in background
    */
   static async initializeSearchIndex(
     notebookId: string,
@@ -764,26 +764,10 @@ export default class OrchestrationService {
     try {
       await SearchService.initialize()
 
-      // Try to load existing encrypted index
-      const encryptedDb = await CacheService.getSearchIndex(lookupHash, notebookId)
+      const dbId = await SearchService.create()
       
-      let dbBytes: Uint8Array | undefined
-      if (encryptedDb) {
-        try {
-          // Decrypt database bytes
-          const decryptedDb = await CryptoService.unpackAndDecrypt(encryptedDb, fek)
-          dbBytes = new Uint8Array(decryptedDb)
-        } catch (error) {
-          console.warn('Failed to decrypt search index, creating fresh:', error)
-          // Continue with fresh database
-        }
-      }
-
-      // Create database (will import bytes if available)
-      const dbId = await SearchService.create(dbBytes)
-      
-      // If import failed or no existing index, trigger background rebuild if manifest is available
-      if ((!encryptedDb || !dbBytes) && manifest) {
+      // Always trigger background rebuild if manifest is available
+      if (manifest) {
         // Trigger background rebuild (non-blocking)
         this.rebuildSearchIndexIntoDb(dbId, notebookId, manifest, lookupHash, fek)
           .catch((error) => {
@@ -796,32 +780,6 @@ export default class OrchestrationService {
     } catch (error) {
       console.warn('Failed to initialize search index, creating fresh:', error)
       return await SearchService.create()
-    }
-  }
-
-  /**
-   * Save search database to encrypted storage
-   * Exports database, encrypts, and saves to cache
-   */
-  static async saveSearchIndex(
-    searchDbId: string,
-    notebookId: string,
-    lookupHash: string,
-    fek: CryptoKey,
-  ): Promise<void> {
-    try {
-      // Export database bytes from worker
-      const dbBytes = await SearchService.export(searchDbId)
-
-      // Encrypt database bytes
-      const encryptedDb = await CryptoService.encryptAndPack(dbBytes, fek)
-
-      // Save to cache
-      await CacheService.upsertSearchIndex(lookupHash, notebookId, encryptedDb)
-    } catch (error) {
-      throw new Error(
-        `Failed to save search index: ${error instanceof Error ? error.message : String(error)}`,
-      )
     }
   }
 

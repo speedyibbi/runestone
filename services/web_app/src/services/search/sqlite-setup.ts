@@ -54,16 +54,12 @@ export function getPromiser(): Promiser {
 
 /**
  * Open a database in the worker
- * Creates a new empty database, or restores from bytes if provided
+ * Creates a new empty in-memory database
  */
-export async function openDatabase(existingBytes?: Uint8Array): Promise<string> {
+export async function openDatabase(): Promise<string> {
   const promiser = getPromiser()
 
-  // Open database, optionally restoring from bytes
-  const openArgs: { filename: string; byteArray?: Uint8Array } = { filename: ':memory:' }
-  if (existingBytes && existingBytes.length > 0) {
-    openArgs.byteArray = existingBytes
-  }
+  const openArgs: { filename: string } = { filename: ':memory:' }
 
   const openResponse = await promiser('open', openArgs)
   const dbId = openResponse.dbId ?? openResponse.result?.dbId

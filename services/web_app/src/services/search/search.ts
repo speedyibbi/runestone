@@ -33,9 +33,8 @@ export default class SearchService {
 
   /**
    * Create a new search database
-   * If existingDbBytes is provided, restores the database from those bytes
    */
-  static async create(existingDbBytes?: Uint8Array): Promise<string> {
+  static async create(): Promise<string> {
     if (!this.FEATURE_FTS_SEARCH) {
       throw new Error('FTS search is disabled')
     }
@@ -44,29 +43,26 @@ export default class SearchService {
       throw new Error('SearchService not initialized. Call initialize() first.')
     }
 
-    // Open database, optionally restoring from bytes
-    const dbId = await openDatabase(existingDbBytes)
+    const dbId = await openDatabase()
 
-    // Create FTS5 table if it doesn't exist
-    if (!existingDbBytes || existingDbBytes.length === 0) {
-      const promiser = getPromiser()
+    // Always create FTS5 table if it doesn't exist
+    const promiser = getPromiser()
 
-      try {
-        await promiser('exec', {
-          dbId,
-          sql: `
-            CREATE VIRTUAL TABLE IF NOT EXISTS note_search USING fts5(
-              uuid,
-              title,
-              content,
-              tokenize = 'unicode61'
-            );
-          `,
-        })
-      } catch (error) {
-        console.error('Error creating FTS5 table:', error)
-        throw error
-      }
+    try {
+      await promiser('exec', {
+        dbId,
+        sql: `
+          CREATE VIRTUAL TABLE IF NOT EXISTS note_search USING fts5(
+            uuid,
+            title,
+            content,
+            tokenize = 'unicode61'
+          );
+        `,
+      })
+    } catch (error) {
+      console.error('Error creating FTS5 table:', error)
+      throw error
     }
 
     return dbId
@@ -270,17 +266,6 @@ export default class SearchService {
       dbId,
       sql: 'DELETE FROM note_search;',
     })
-  }
-
-  /**
-   * Export search index bytes
-   */
-  static async export(dbId: string): Promise<Uint8Array> {
-    if (!this.FEATURE_FTS_SEARCH) {
-      throw new Error('FTS search is disabled')
-    }
-
-    return await exportDatabase(dbId)
   }
 
   /**
