@@ -14,6 +14,12 @@ export interface SearchResult {
 export type SearchMode = 'normal' | 'phrase' | 'boolean'
 
 /**
+ * Ranking algorithm type
+ * Currently only 'bm25' is supported (FTS5 native)
+ */
+export type RankingAlgorithm = 'bm25'
+
+/**
  * Search configuration options
  */
 export interface SearchOptions {
@@ -21,6 +27,18 @@ export interface SearchOptions {
   offset?: number
   highlight?: boolean
   mode?: SearchMode
+  // Phrase search options
+  exact?: boolean // For phrase mode: require exact phrase match
+  // Boolean search options
+  operators?: 'AND' | 'OR' | 'NOT' // Preferred operator for boolean mode
+  // Ranking options
+  ranking?: {
+    algorithm?: RankingAlgorithm
+    weights?: {
+      title?: number // Weight for title matches
+      content?: number // Weight for content matches
+    }
+  }
 }
 
 /**
@@ -40,29 +58,4 @@ export interface IndexUpdateOptions {
   uuid: string
   title: string
   content: string
-}
-
-/**
- * Placeholder interface for future phrase search
- */
-export interface PhraseSearchOptions extends SearchOptions {
-  exact?: boolean
-}
-
-/**
- * Placeholder interface for future boolean search
- */
-export interface BooleanSearchOptions extends SearchOptions {
-  operators?: 'AND' | 'OR' | 'NOT'
-}
-
-/**
- * Placeholder interface for future ranking options
- */
-export interface RankingOptions {
-  algorithm?: 'bm25' | 'rank' | 'custom'
-  weights?: {
-    title?: number
-    content?: number
-  }
 }

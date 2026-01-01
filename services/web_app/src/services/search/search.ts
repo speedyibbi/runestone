@@ -162,7 +162,6 @@ export default class SearchService {
   /**
    * Execute search query
    * Supports different search modes: normal, phrase, boolean
-   * Uses BM25 ranking for better relevance scoring
    */
   static async search(
     dbId: string,
@@ -173,23 +172,46 @@ export default class SearchService {
       return { results: [], total: 0, query }
     }
 
-    const { limit = 50, offset = 0, mode = 'normal' } = options
+    const {
+      limit = 50,
+      offset = 0,
+      mode = 'normal',
+      exact,
+      operators,
+      ranking,
+    } = options
 
     // Format query based on search mode
     let formattedQuery: string
     switch (mode) {
       case 'phrase':
         // Wrap in quotes for exact phrase matching
+        // FTS5 quotes provide exact phrase matching (no partial word matches)
         const escapedPhrase = query.replace(/"/g, '""')
         formattedQuery = `"${escapedPhrase}"`
         break
       case 'boolean':
         // Normalize boolean operators to uppercase for FTS5
-        formattedQuery = query
+        let booleanQuery = query.trim()
+        
+        // If operators option is specified and query doesn't contain explicit operators,
+        // use the specified operator as default between terms
+        if (operators && !/\b(AND|OR|NOT)\b/i.test(booleanQuery)) {
+          // Split by spaces and join with the specified operator
+          const terms = booleanQuery.split(/\s+/).filter(t => t.length > 0)
+          if (terms.length > 1) {
+            booleanQuery = terms.join(` ${operators} `)
+          }
+        }
+        
+        // Normalize any existing operators to uppercase for FTS5
+        booleanQuery = booleanQuery
           .replace(/\b(and|AND)\b/g, 'AND')
           .replace(/\b(or|OR)\b/g, 'OR')
           .replace(/\b(not|NOT)\b/g, 'NOT')
           .replace(/"/g, '""')
+        
+        formattedQuery = booleanQuery
         break
       case 'normal':
       default:
@@ -198,6 +220,20 @@ export default class SearchService {
         break
     }
 
+    // Determine ranking algorithm (defaults to BM25)
+    const rankingAlgorithm = ranking?.algorithm ?? 'bm25'
+    
+    // Get ranking weights (defaults: title=1.0, content=1.0)
+    // FTS5 bm25() function signature: bm25(table, weight1, weight2, weight3, ...)
+    // Our table columns: uuid, title, content
+    // We use 0 for uuid (don't weight it), then title weight, then content weight
+    const titleWeight = ranking?.weights?.title ?? 1.0
+    const contentWeight = ranking?.weights?.content ?? 1.0
+    
+    // Build BM25 function call with weights
+    // bm25(note_search, uuid_weight, title_weight, content_weight)
+    const bm25Function = `bm25(note_search, 0, ${titleWeight}, ${contentWeight})`
+
     try {
       const promiser = getPromiser()
 
@@ -205,8 +241,10 @@ export default class SearchService {
       const escapeSql = (str: string) => str.replace(/'/g, "''")
       const escapedQuery = escapeSql(formattedQuery)
 
-      // Execute search with BM25 ranking (for better relevance)
+      // Execute search with BM25 ranking
       // BM25 considers term frequency, inverse document frequency, and document length
+      // Custom weights allow prioritizing title matches over content matches
+
       const searchResponse = await promiser('exec', {
         dbId,
         sql: `
@@ -214,10 +252,10 @@ export default class SearchService {
             uuid,
             title,
             snippet(note_search, 2, '<mark>', '</mark>', '...', 32) as snippet,
-            bm25(note_search) as rank
+            ${bm25Function} as rank
           FROM note_search
           WHERE note_search MATCH '${escapedQuery}'
-          ORDER BY bm25(note_search)
+          ORDER BY ${bm25Function}
           LIMIT ${limit} OFFSET ${offset};
         `,
         returnValue: 'resultRows',
