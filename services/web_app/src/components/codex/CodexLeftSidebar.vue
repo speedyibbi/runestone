@@ -5,6 +5,7 @@ import CodexRuneList from './CodexRuneList.vue'
 import CodexSearchPanel from './CodexSearchPanel.vue'
 import CodexGraphPanel from './CodexGraphPanel.vue'
 import type { RuneInfo } from '@/composables/useCodex'
+import type { SearchServiceResult, SearchOptions } from '@/interfaces/search'
 
 export interface TreeNode {
   rune: RuneInfo
@@ -30,6 +31,7 @@ interface Props {
   isDirectory: (title: string) => boolean
   editingState: EditingState
   isRenamingCodex?: boolean
+  searchRunes?: (query: string, options?: SearchOptions) => Promise<SearchServiceResult>
 }
 
 interface Emits {
@@ -156,7 +158,13 @@ function handleKeydown(event: KeyboardEvent) {
           @edit-submit="emit('edit-submit', $event)"
           @edit-cancel="emit('edit-cancel')"
         />
-        <CodexSearchPanel v-else-if="activePanel === 'search'" />
+        <CodexSearchPanel
+          v-else-if="activePanel === 'search'"
+          :search-runes="searchRunes"
+          :is-directory="isDirectory"
+          :codex-title="codexTitle"
+          @rune-click="(rune: RuneInfo) => emit('runeClick', rune)"
+        />
         <CodexGraphPanel v-else-if="activePanel === 'graph'" />
       </div>
     </FadeTransition>

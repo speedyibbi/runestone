@@ -1284,6 +1284,7 @@ onUnmounted(() => {
       :selected-directory="selectedDirectory"
       :is-directory="isDirectory"
       :editing-state="editingState"
+      :search-runes="searchRunes"
       @update:collapsed="leftSidebarCollapsed = $event"
       @rune-click="handleRuneClick"
       @rune-double-click="handleRuneDoubleClick"
