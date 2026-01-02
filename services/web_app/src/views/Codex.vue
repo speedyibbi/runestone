@@ -121,27 +121,24 @@ watch(
 )
 
 // Setup upload handlers when editor view becomes available
-watch(
-  editorView,
-  (view) => {
-    if (view) {
-      // Wait a tick to ensure DOM is ready
-      nextTick(() => {
-        setupUploadHandlers()
-      })
-    } else {
-      // Cleanup when view is destroyed
-      if (dragDropCleanup) {
-        dragDropCleanup()
-        dragDropCleanup = null
-      }
-      if (pasteCleanup) {
-        pasteCleanup()
-        pasteCleanup = null
-      }
+watch(editorView, (view) => {
+  if (view) {
+    // Wait a tick to ensure DOM is ready
+    nextTick(() => {
+      setupUploadHandlers()
+    })
+  } else {
+    // Cleanup when view is destroyed
+    if (dragDropCleanup) {
+      dragDropCleanup()
+      dragDropCleanup = null
     }
-  },
-)
+    if (pasteCleanup) {
+      pasteCleanup()
+      pasteCleanup = null
+    }
+  }
+})
 
 const statusBarUpdateTrigger = ref(0)
 
@@ -353,17 +350,17 @@ function addToHistory(tabId: string) {
   if (isNavigatingHistory.value) {
     return
   }
-  
+
   // Remove any future history if we're not at the end
   if (historyIndex.value < tabHistory.value.length - 1) {
     tabHistory.value = tabHistory.value.slice(0, historyIndex.value + 1)
   }
-  
+
   // Don't add if it's the same as the current tab
   if (tabHistory.value.length > 0 && tabHistory.value[tabHistory.value.length - 1] === tabId) {
     return
   }
-  
+
   // Add to history
   tabHistory.value.push(tabId)
   historyIndex.value = tabHistory.value.length - 1
@@ -374,7 +371,7 @@ function navigateHistoryBack() {
     historyIndex.value--
     const tabId = tabHistory.value[historyIndex.value]
     const tab = tabs.value.find((t) => t.id === tabId)
-    
+
     if (tab) {
       // Tab is still open, navigate to it
       isNavigatingHistory.value = true
@@ -426,7 +423,7 @@ function navigateHistoryForward() {
     historyIndex.value++
     const tabId = tabHistory.value[historyIndex.value]
     const tab = tabs.value.find((t) => t.id === tabId)
-    
+
     if (tab) {
       // Tab is still open, navigate to it
       isNavigatingHistory.value = true
@@ -483,9 +480,9 @@ function handleTabClose(tab: Tab) {
     if (tab.runeId) {
       closedTabs.value.set(tab.id, tab.runeId)
     }
-    
+
     tabs.value.splice(index, 1)
-    
+
     // Don't remove from history - keep it so we can navigate back to closed tabs
     // Just adjust history index if needed
     const historyTabIndex = tabHistory.value.findIndex((id) => id === tab.id)
@@ -504,7 +501,7 @@ function handleTabClose(tab: Tab) {
       }
       // If historyIndex is after the closed tab, no adjustment needed
     }
-    
+
     if (tab.id === activeTabId.value) {
       if (tabs.value.length > 0) {
         const nextTab = tabs.value[Math.min(index, tabs.value.length - 1)]
@@ -995,11 +992,7 @@ async function handleCodexTitleEditSubmit(newTitle: string) {
     isRenamingCodex.value = false
   } catch (err) {
     console.error('Error renaming codex:', err)
-    setStatusMessage(
-      err instanceof Error ? err.message : 'Error renaming codex',
-      'error',
-      5000,
-    )
+    setStatusMessage(err instanceof Error ? err.message : 'Error renaming codex', 'error', 5000)
     isRenamingCodex.value = false
   }
 }
@@ -1138,7 +1131,7 @@ function handleKeydown(event: KeyboardEvent) {
     // ALWAYS prevent default FIRST to stop browser default
     event.preventDefault()
     event.stopPropagation()
-    
+
     const target = event.target as HTMLElement
     // Only skip opening command palette if user is typing in a regular input/textarea
     // (Allow it for contentEditable editor elements)

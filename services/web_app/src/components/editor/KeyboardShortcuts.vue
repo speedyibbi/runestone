@@ -73,7 +73,11 @@ defineExpose({
       >
         <h3>{{ category }}</h3>
         <div class="shortcuts-list">
-          <div v-for="shortcut in shortcuts" :key="`${category}-${shortcut.keys}`" class="shortcut-item">
+          <div
+            v-for="shortcut in shortcuts"
+            :key="`${category}-${shortcut.keys}`"
+            class="shortcut-item"
+          >
             <kbd class="shortcut-keys">{{ shortcut.keys }}</kbd>
             <span class="shortcut-description">{{ shortcut.description }}</span>
           </div>
@@ -90,7 +94,6 @@ defineExpose({
 </template>
 
 <style scoped>
-
 .shortcuts-content {
   overflow-y: auto;
   overflow-x: hidden;

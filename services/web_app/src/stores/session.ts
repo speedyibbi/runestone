@@ -301,7 +301,7 @@ export const useSessionStore = defineStore('session', () => {
   async function closeCodex(): Promise<void> {
     // Unload notebook
     await OrchestrationService.unloadNotebook()
-    
+
     // Revoke all blob URLs for this codex
     revokeAllSigilUrls()
 

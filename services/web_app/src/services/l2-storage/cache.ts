@@ -219,10 +219,7 @@ export default class CacheService {
   /**
    * Get encrypted search index from cache
    */
-  static async getSearchIndex(
-    lookupHash: string,
-    notebookId: string,
-  ): Promise<ArrayBuffer | null> {
+  static async getSearchIndex(lookupHash: string, notebookId: string): Promise<ArrayBuffer | null> {
     const path = this.buildPath(lookupHash, { type: 'searchIndex', notebookId })
     return await OPFSService.getFile(path)
   }

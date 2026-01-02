@@ -32,7 +32,7 @@ export default class SearchService {
 
     // Format query based on search mode
     let formattedQuery: string
-    
+
     // If exact is enabled, wrap the entire query in quotes for exact phrase matching
     if (exact) {
       // FTS5 quotes provide exact phrase matching (no partial word matches)
@@ -50,24 +50,24 @@ export default class SearchService {
         case 'boolean':
           // Normalize boolean operators to uppercase for FTS5
           let booleanQuery = query.trim()
-          
+
           // If operators option is specified and query doesn't contain explicit operators,
           // use the specified operator as default between terms
           if (operators && !/\b(AND|OR|NOT)\b/i.test(booleanQuery)) {
             // Split by spaces and join with the specified operator
-            const terms = booleanQuery.split(/\s+/).filter(t => t.length > 0)
+            const terms = booleanQuery.split(/\s+/).filter((t) => t.length > 0)
             if (terms.length > 1) {
               booleanQuery = terms.join(` ${operators} `)
             }
           }
-          
+
           // Normalize any existing operators to uppercase for FTS5
           booleanQuery = booleanQuery
             .replace(/\b(and|AND)\b/g, 'AND')
             .replace(/\b(or|OR)\b/g, 'OR')
             .replace(/\b(not|NOT)\b/g, 'NOT')
             .replace(/"/g, '""')
-          
+
           formattedQuery = booleanQuery
           break
         case 'normal':
@@ -80,14 +80,14 @@ export default class SearchService {
 
     // Determine ranking algorithm (defaults to BM25)
     const rankingAlgorithm = ranking?.algorithm ?? 'bm25'
-    
+
     // Get ranking weights (defaults: title=1.0, content=1.0)
     // FTS5 bm25() function signature: bm25(table, weight1, weight2, weight3, weight4, weight5, ...)
     // blob_index table columns: id, type, title, content, metadata
     // We use 0 for id, 0 for type, title weight, content weight, 0 for metadata
     const titleWeight = ranking?.weights?.title ?? 1.0
     const contentWeight = ranking?.weights?.content ?? 1.0
-    
+
     // Build BM25 function call with weights
     // bm25(blob_index, id_weight, type_weight, title_weight, content_weight, metadata_weight)
     const bm25Function = `bm25(blob_index, 0, 0, ${titleWeight}, ${contentWeight}, 0)`
@@ -133,7 +133,7 @@ export default class SearchService {
         // Handle quoted phrases and individual terms
         const originalQuery = query.trim()
         const searchTerms: string[] = []
-        
+
         // Extract quoted phrases first
         const quotedPhrases = originalQuery.match(/"([^"]+)"/g)
         if (quotedPhrases) {
@@ -144,7 +144,7 @@ export default class SearchService {
             }
           })
         }
-        
+
         // Extract remaining terms (remove quotes, operators, and asterisks)
         const remainingQuery = originalQuery
           .replace(/"[^"]+"/g, '') // Remove quoted phrases
@@ -152,7 +152,7 @@ export default class SearchService {
           .split(/\s+/)
           .map((term) => term.replace(/\*$/, '')) // Remove trailing asterisks
           .filter((term) => term.length > 0 && !term.includes('*'))
-        
+
         searchTerms.push(...remainingQuery)
 
         // Filter results to only include those where all terms match case-sensitively
@@ -176,7 +176,8 @@ export default class SearchService {
           sql: `SELECT COUNT(*) as count FROM blob_index WHERE type = 'note' AND blob_index MATCH '${escapedQuery}';`,
           returnValue: 'resultRows',
         })
-        total = countResponse.result?.resultRows?.[0]?.count ?? countResponse.resultRows?.[0]?.count ?? 0
+        total =
+          countResponse.result?.resultRows?.[0]?.count ?? countResponse.resultRows?.[0]?.count ?? 0
       }
 
       return {

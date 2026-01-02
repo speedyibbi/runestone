@@ -39,8 +39,11 @@ function formatQueryForPrefixMatching(query: string): string {
   if (exactPhrase.value) {
     return query
   }
-  
-  const terms = query.trim().split(/\s+/).filter((t) => t.length > 0)
+
+  const terms = query
+    .trim()
+    .split(/\s+/)
+    .filter((t) => t.length > 0)
   if (terms.length === 0) return ''
 
   return terms
@@ -261,7 +264,9 @@ onUnmounted(() => {
         />
         <button
           :class="['case-sensitive-button', { active: caseSensitive }]"
-          :title="caseSensitive ? 'Case-sensitive matching enabled' : 'Case-sensitive matching disabled'"
+          :title="
+            caseSensitive ? 'Case-sensitive matching enabled' : 'Case-sensitive matching disabled'
+          "
           @click="caseSensitive = !caseSensitive"
         >
           <svg
@@ -271,7 +276,17 @@ onUnmounted(() => {
             viewBox="0 0 20 20"
             fill="currentColor"
           >
-            <text x="2" y="14" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="600" fill="currentColor" text-rendering="optimizeLegibility">Aa</text>
+            <text
+              x="2"
+              y="14"
+              font-family="system-ui, -apple-system, sans-serif"
+              font-size="14"
+              font-weight="600"
+              fill="currentColor"
+              text-rendering="optimizeLegibility"
+            >
+              Aa
+            </text>
           </svg>
         </button>
         <button
@@ -290,8 +305,12 @@ onUnmounted(() => {
             stroke-linecap="round"
             stroke-linejoin="round"
           >
-            <path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z" />
-            <path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z" />
+            <path
+              d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"
+            />
+            <path
+              d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"
+            />
           </svg>
         </button>
       </div>
@@ -312,16 +331,9 @@ onUnmounted(() => {
               class="search-result-path"
               v-html="getDisplayTitle(result.title).path"
             />
-            <span
-              class="search-result-filename"
-              v-html="getDisplayTitle(result.title).name"
-            />
+            <span class="search-result-filename" v-html="getDisplayTitle(result.title).name" />
           </div>
-          <div
-            v-if="result.snippet"
-            class="search-result-snippet"
-            v-html="result.snippet"
-          />
+          <div v-if="result.snippet" class="search-result-snippet" v-html="result.snippet" />
         </div>
       </button>
     </div>

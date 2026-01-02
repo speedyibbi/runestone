@@ -138,7 +138,7 @@ onUnmounted(() => {
         <slot />
       </div>
 
-      <div v-if="(confirmText || cancelText) || $slots.footer" class="modal-footer">
+      <div v-if="confirmText || cancelText || $slots.footer" class="modal-footer">
         <slot name="footer">
           <template v-if="confirmText || cancelText">
             <button v-if="cancelText" class="button button-secondary" @click="handleCancel">

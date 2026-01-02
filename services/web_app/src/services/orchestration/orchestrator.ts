@@ -859,7 +859,7 @@ export default class OrchestrationService {
     try {
       // Create all registered indexes
       await IndexerService.createIndexes()
-      
+
       // Always trigger background build if manifest is available
       if (manifest) {
         // Trigger background build (non-blocking)
@@ -877,13 +877,14 @@ export default class OrchestrationService {
    * Search notes in a notebook
    * Supports different search modes: normal, phrase, boolean
    */
-  static async searchNotes(query: string, options: SearchOptions = {}): Promise<SearchServiceResult> {
+  static async searchNotes(
+    query: string,
+    options: SearchOptions = {},
+  ): Promise<SearchServiceResult> {
     try {
       return await SearchService.search(query, options)
     } catch (error) {
-      throw new Error(
-        `Search failed: ${error instanceof Error ? error.message : String(error)}`,
-      )
+      throw new Error(`Search failed: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 

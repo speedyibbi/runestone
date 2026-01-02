@@ -149,7 +149,9 @@ function handleKeydown(event: KeyboardEvent) {
           :editing-state="editingState"
           @rune-click="(rune: RuneInfo, event?: MouseEvent) => emit('runeClick', rune, event)"
           @rune-double-click="emit('runeDoubleClick', $event)"
-          @rune-context-menu="(event: MouseEvent, rune: RuneInfo) => emit('runeContextMenu', event, rune)"
+          @rune-context-menu="
+            (event: MouseEvent, rune: RuneInfo) => emit('runeContextMenu', event, rune)
+          "
           @create-rune="emit('createRune')"
           @create-directory="emit('createDirectory')"
           @clear-selection="emit('clearSelection')"
@@ -253,7 +255,8 @@ function handleKeydown(event: KeyboardEvent) {
   white-space: nowrap;
   opacity: 0.9;
   padding: 0.25rem 0;
-  transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+  transition:
+    opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
     transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 

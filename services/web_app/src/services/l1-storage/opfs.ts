@@ -118,17 +118,17 @@ export default class OPFSService {
 
       // Get the parent directory
       const parentDir = await this.getDirectoryHandle(dirPath, false)
-      
+
       // Get the directory to delete
       const dirToDelete = await parentDir.getDirectoryHandle(dirName, { create: false })
-      
+
       // Collect all entries first to avoid modifying while iterating
       const entries: Array<{ name: string; kind: 'file' | 'directory' }> = []
       // @ts-expect-error - FileSystemDirectoryHandle supports async iteration at runtime
       for await (const [name, handle] of dirToDelete.entries()) {
         entries.push({ name, kind: handle.kind })
       }
-      
+
       // Recursively delete all entries in the directory
       for (const entry of entries) {
         if (entry.kind === 'file') {
@@ -138,7 +138,7 @@ export default class OPFSService {
           await this.deleteDirectory([...path, entry.name])
         }
       }
-      
+
       // Remove the directory itself
       await parentDir.removeEntry(dirName, { recursive: true })
       return true

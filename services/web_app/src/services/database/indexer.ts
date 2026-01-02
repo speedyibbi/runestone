@@ -193,9 +193,7 @@ export default class IndexerService {
 
       if (rowid !== null) {
         // Update existing record
-        const setClause = columns
-          .map((col, idx) => `${col} = ${values[idx]}`)
-          .join(', ')
+        const setClause = columns.map((col, idx) => `${col} = ${values[idx]}`).join(', ')
         await promiser('exec', {
           sql: `UPDATE ${indexName} SET ${setClause} WHERE rowid = ${rowid}`,
         })

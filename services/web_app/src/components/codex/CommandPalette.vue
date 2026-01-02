@@ -120,7 +120,7 @@ const displayResults = computed(() => {
       rank: 0,
     }))
   }
-  
+
   // Use FTS results if enabled, otherwise use fuzzy search
   if (isFtsEnabled) {
     return searchResults.value
@@ -135,7 +135,10 @@ const displayResults = computed(() => {
  */
 function formatQueryForPrefixMatching(query: string): string {
   // Split by spaces and filter empty terms
-  const terms = query.trim().split(/\s+/).filter((t) => t.length > 0)
+  const terms = query
+    .trim()
+    .split(/\s+/)
+    .filter((t) => t.length > 0)
   if (terms.length === 0) return ''
 
   // Add * to each term for prefix matching, but preserve quoted phrases
@@ -168,7 +171,7 @@ async function performSearch(query: string) {
   try {
     // Format query for prefix matching to support partial words
     const formattedQuery = formatQueryForPrefixMatching(query)
-    
+
     const result = await props.searchRunes(formattedQuery, {
       limit: 20,
       highlight: true,
