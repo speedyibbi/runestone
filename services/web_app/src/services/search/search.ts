@@ -24,7 +24,7 @@ export default class SearchService {
       limit = 50,
       offset = 0,
       mode = 'normal',
-      exact,
+      exact = false,
       operators,
       ranking,
       caseSensitive = false,
@@ -32,41 +32,50 @@ export default class SearchService {
 
     // Format query based on search mode
     let formattedQuery: string
-    switch (mode) {
-      case 'phrase':
-        // Wrap in quotes for exact phrase matching
-        // FTS5 quotes provide exact phrase matching (no partial word matches)
-        const escapedPhrase = query.replace(/"/g, '""')
-        formattedQuery = `"${escapedPhrase}"`
-        break
-      case 'boolean':
-        // Normalize boolean operators to uppercase for FTS5
-        let booleanQuery = query.trim()
-        
-        // If operators option is specified and query doesn't contain explicit operators,
-        // use the specified operator as default between terms
-        if (operators && !/\b(AND|OR|NOT)\b/i.test(booleanQuery)) {
-          // Split by spaces and join with the specified operator
-          const terms = booleanQuery.split(/\s+/).filter(t => t.length > 0)
-          if (terms.length > 1) {
-            booleanQuery = terms.join(` ${operators} `)
+    
+    // If exact is enabled, wrap the entire query in quotes for exact phrase matching
+    if (exact) {
+      // FTS5 quotes provide exact phrase matching (no partial word matches)
+      const escapedPhrase = query.replace(/"/g, '""')
+      formattedQuery = `"${escapedPhrase}"`
+    } else {
+      // Otherwise, format based on search mode
+      switch (mode) {
+        case 'phrase':
+          // Wrap in quotes for exact phrase matching
+          // FTS5 quotes provide exact phrase matching (no partial word matches)
+          const escapedPhrase = query.replace(/"/g, '""')
+          formattedQuery = `"${escapedPhrase}"`
+          break
+        case 'boolean':
+          // Normalize boolean operators to uppercase for FTS5
+          let booleanQuery = query.trim()
+          
+          // If operators option is specified and query doesn't contain explicit operators,
+          // use the specified operator as default between terms
+          if (operators && !/\b(AND|OR|NOT)\b/i.test(booleanQuery)) {
+            // Split by spaces and join with the specified operator
+            const terms = booleanQuery.split(/\s+/).filter(t => t.length > 0)
+            if (terms.length > 1) {
+              booleanQuery = terms.join(` ${operators} `)
+            }
           }
-        }
-        
-        // Normalize any existing operators to uppercase for FTS5
-        booleanQuery = booleanQuery
-          .replace(/\b(and|AND)\b/g, 'AND')
-          .replace(/\b(or|OR)\b/g, 'OR')
-          .replace(/\b(not|NOT)\b/g, 'NOT')
-          .replace(/"/g, '""')
-        
-        formattedQuery = booleanQuery
-        break
-      case 'normal':
-      default:
-        // Normal search: escape quotes, spaces treated as implicit AND
-        formattedQuery = query.replace(/"/g, '""')
-        break
+          
+          // Normalize any existing operators to uppercase for FTS5
+          booleanQuery = booleanQuery
+            .replace(/\b(and|AND)\b/g, 'AND')
+            .replace(/\b(or|OR)\b/g, 'OR')
+            .replace(/\b(not|NOT)\b/g, 'NOT')
+            .replace(/"/g, '""')
+          
+          formattedQuery = booleanQuery
+          break
+        case 'normal':
+        default:
+          // Normal search: escape quotes, spaces treated as implicit AND
+          formattedQuery = query.replace(/"/g, '""')
+          break
+      }
     }
 
     // Determine ranking algorithm (defaults to BM25)

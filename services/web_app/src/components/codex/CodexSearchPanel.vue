@@ -24,6 +24,7 @@ const searchResults = ref<SearchResult[]>([])
 const isSearching = ref(false)
 const searchDebounceTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 const caseSensitive = ref(false)
+const exactPhrase = ref(false)
 
 const isFtsEnabled = __APP_CONFIG__.global.featureFlags.ftsSearch
 
@@ -32,8 +33,13 @@ const displayResults = computed(() => {
   return searchResults.value.filter((result) => !props.isDirectory(result.title))
 })
 
-// Format search query to support prefix matching
+// Format search query to support prefix matching (only if exact phrase is not enabled)
 function formatQueryForPrefixMatching(query: string): string {
+  // If exact phrase matching is enabled, don't modify the query
+  if (exactPhrase.value) {
+    return query
+  }
+  
   const terms = query.trim().split(/\s+/).filter((t) => t.length > 0)
   if (terms.length === 0) return ''
 
@@ -65,6 +71,7 @@ async function performSearch(query: string) {
       limit: 50,
       highlight: true,
       caseSensitive: caseSensitive.value,
+      exact: exactPhrase.value,
     })
     searchResults.value = result.results
   } catch (error) {
@@ -112,6 +119,18 @@ watch(displayResults, (newResults, oldResults) => {
 
 watch(caseSensitive, () => {
   // Retrigger search when case sensitivity changes
+  if (searchQuery.value.trim() && props.searchRunes) {
+    if (searchDebounceTimer.value) {
+      clearTimeout(searchDebounceTimer.value)
+    }
+    searchDebounceTimer.value = setTimeout(() => {
+      performSearch(searchQuery.value)
+    }, 100)
+  }
+})
+
+watch(exactPhrase, () => {
+  // Retrigger search when exact phrase matching changes
   if (searchQuery.value.trim() && props.searchRunes) {
     if (searchDebounceTimer.value) {
       clearTimeout(searchDebounceTimer.value)
@@ -249,6 +268,21 @@ onUnmounted(() => {
             xmlns="http://www.w3.org/2000/svg"
             width="16"
             height="16"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <text x="2" y="14" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="600" fill="currentColor" text-rendering="optimizeLegibility">Aa</text>
+          </svg>
+        </button>
+        <button
+          :class="['exact-phrase-button', { active: exactPhrase }]"
+          :title="exactPhrase ? 'Exact phrase matching enabled' : 'Exact phrase matching disabled'"
+          @click="exactPhrase = !exactPhrase"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -256,8 +290,8 @@ onUnmounted(() => {
             stroke-linecap="round"
             stroke-linejoin="round"
           >
-            <path d="M4 20h4M4 4h4M6 4v16M14 20h4M14 4h4M16 4v16" />
-            <path d="M4 12h16" />
+            <path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z" />
+            <path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z" />
           </svg>
         </button>
       </div>
@@ -320,7 +354,7 @@ onUnmounted(() => {
 .search-input-container {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.25rem;
   min-width: 0;
   width: 100%;
 }
@@ -356,17 +390,17 @@ onUnmounted(() => {
   border: none;
   color: var(--color-muted);
   cursor: pointer;
-  padding: 0.5rem;
+  padding: 0.375rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+  border-radius: 4px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   opacity: 0.6;
   flex-shrink: 0;
-  width: 2rem;
-  height: 2rem;
-  min-width: 2rem;
+  width: 1.75rem;
+  height: 1.75rem;
+  min-width: 1.75rem;
 }
 
 .case-sensitive-button:hover {
@@ -382,8 +416,43 @@ onUnmounted(() => {
 }
 
 .case-sensitive-button svg {
-  width: 1rem;
-  height: 1rem;
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.exact-phrase-button {
+  background: transparent;
+  border: none;
+  color: var(--color-muted);
+  cursor: pointer;
+  padding: 0.375rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 0.6;
+  flex-shrink: 0;
+  width: 1.75rem;
+  height: 1.75rem;
+  min-width: 1.75rem;
+}
+
+.exact-phrase-button:hover {
+  background: var(--color-overlay-subtle);
+  color: var(--color-foreground);
+  opacity: 1;
+}
+
+.exact-phrase-button.active {
+  background: var(--color-overlay-light);
+  color: var(--color-accent);
+  opacity: 1;
+}
+
+.exact-phrase-button svg {
+  width: 0.875rem;
+  height: 0.875rem;
 }
 
 .search-results {
