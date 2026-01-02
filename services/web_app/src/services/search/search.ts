@@ -27,6 +27,7 @@ export default class SearchService {
       exact,
       operators,
       ranking,
+      caseSensitive = false,
     } = options
 
     // Format query based on search mode
@@ -110,20 +111,64 @@ export default class SearchService {
       })
 
       const rows = searchResponse.result?.resultRows ?? searchResponse.resultRows ?? []
-      const results: SearchResult[] = rows.map((row: any) => ({
+      let results: SearchResult[] = rows.map((row: any) => ({
         uuid: row.uuid ?? row[0],
         title: row.title ?? row[1],
         snippet: row.snippet ?? row[2] ?? '',
         rank: row.rank ?? row[3] ?? 0,
       }))
 
-      // Get total count
-      const countResponse = await promiser('exec', {
-        sql: `SELECT COUNT(*) as count FROM blob_index WHERE type = 'note' AND blob_index MATCH '${escapedQuery}';`,
-        returnValue: 'resultRows',
-      })
+      // Filter results for case-sensitive matching if enabled
+      if (caseSensitive) {
+        // Extract search terms from the original query
+        // Handle quoted phrases and individual terms
+        const originalQuery = query.trim()
+        const searchTerms: string[] = []
+        
+        // Extract quoted phrases first
+        const quotedPhrases = originalQuery.match(/"([^"]+)"/g)
+        if (quotedPhrases) {
+          quotedPhrases.forEach((phrase) => {
+            const cleanPhrase = phrase.replace(/"/g, '')
+            if (cleanPhrase.length > 0) {
+              searchTerms.push(cleanPhrase)
+            }
+          })
+        }
+        
+        // Extract remaining terms (remove quotes, operators, and asterisks)
+        const remainingQuery = originalQuery
+          .replace(/"[^"]+"/g, '') // Remove quoted phrases
+          .replace(/\b(AND|OR|NOT)\b/gi, '') // Remove boolean operators
+          .split(/\s+/)
+          .map((term) => term.replace(/\*$/, '')) // Remove trailing asterisks
+          .filter((term) => term.length > 0 && !term.includes('*'))
+        
+        searchTerms.push(...remainingQuery)
 
-      const total = countResponse.result?.resultRows?.[0]?.count ?? countResponse.resultRows?.[0]?.count ?? 0
+        // Filter results to only include those where all terms match case-sensitively
+        if (searchTerms.length > 0) {
+          results = results.filter((result) => {
+            // Check if all search terms appear case-sensitively in title or snippet
+            return searchTerms.every((term) => {
+              return result.title.includes(term) || result.snippet.includes(term)
+            })
+          })
+        }
+      }
+
+      // Get total count (after case-sensitive filtering if applicable)
+      let total: number
+      if (caseSensitive) {
+        // If case-sensitive, count filtered results
+        total = results.length
+      } else {
+        const countResponse = await promiser('exec', {
+          sql: `SELECT COUNT(*) as count FROM blob_index WHERE type = 'note' AND blob_index MATCH '${escapedQuery}';`,
+          returnValue: 'resultRows',
+        })
+        total = countResponse.result?.resultRows?.[0]?.count ?? countResponse.resultRows?.[0]?.count ?? 0
+      }
 
       return {
         results,

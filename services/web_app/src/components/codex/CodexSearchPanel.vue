@@ -23,6 +23,7 @@ const selectedIndex = ref(0)
 const searchResults = ref<SearchResult[]>([])
 const isSearching = ref(false)
 const searchDebounceTimer = ref<ReturnType<typeof setTimeout> | null>(null)
+const caseSensitive = ref(false)
 
 const isFtsEnabled = __APP_CONFIG__.global.featureFlags.ftsSearch
 
@@ -63,6 +64,7 @@ async function performSearch(query: string) {
     const result = await props.searchRunes(formattedQuery, {
       limit: 50,
       highlight: true,
+      caseSensitive: caseSensitive.value,
     })
     searchResults.value = result.results
   } catch (error) {
@@ -105,6 +107,18 @@ watch(displayResults, (newResults, oldResults) => {
     } else if (selectedIndex.value >= newResults.length) {
       selectedIndex.value = Math.max(0, newResults.length - 1)
     }
+  }
+})
+
+watch(caseSensitive, () => {
+  // Retrigger search when case sensitivity changes
+  if (searchQuery.value.trim() && props.searchRunes) {
+    if (searchDebounceTimer.value) {
+      clearTimeout(searchDebounceTimer.value)
+    }
+    searchDebounceTimer.value = setTimeout(() => {
+      performSearch(searchQuery.value)
+    }, 100)
   }
 })
 
@@ -215,16 +229,38 @@ onUnmounted(() => {
 <template>
   <div class="search-panel">
     <div class="search-input-wrapper">
-      <input
-        ref="inputRef"
-        v-model="searchQuery"
-        type="text"
-        class="search-input"
-        placeholder="Search..."
-        autocomplete="off"
-        spellcheck="false"
-        @keydown="handleKeydown"
-      />
+      <div class="search-input-container">
+        <input
+          ref="inputRef"
+          v-model="searchQuery"
+          type="text"
+          class="search-input"
+          placeholder="Search..."
+          autocomplete="off"
+          spellcheck="false"
+          @keydown="handleKeydown"
+        />
+        <button
+          :class="['case-sensitive-button', { active: caseSensitive }]"
+          :title="caseSensitive ? 'Case-sensitive matching enabled' : 'Case-sensitive matching disabled'"
+          @click="caseSensitive = !caseSensitive"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M4 20h4M4 4h4M6 4v16M14 20h4M14 4h4M16 4v16" />
+            <path d="M4 12h16" />
+          </svg>
+        </button>
+      </div>
     </div>
     <div v-if="displayResults.length > 0" class="search-results">
       <button
@@ -278,10 +314,20 @@ onUnmounted(() => {
 .search-input-wrapper {
   padding: 0.75rem 1rem;
   border-bottom: 1px solid var(--color-overlay-subtle);
+  min-width: 0;
+}
+
+.search-input-container {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  width: 100%;
 }
 
 .search-input {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   background: var(--color-overlay-subtle);
   border: 1px solid transparent;
   border-radius: 6px;
@@ -303,6 +349,41 @@ onUnmounted(() => {
   background: var(--color-overlay-light);
   border-color: var(--color-accent);
   box-shadow: 0 0 0 2px var(--color-selection);
+}
+
+.case-sensitive-button {
+  background: transparent;
+  border: none;
+  color: var(--color-muted);
+  cursor: pointer;
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 0.6;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  min-width: 2rem;
+}
+
+.case-sensitive-button:hover {
+  background: var(--color-overlay-subtle);
+  color: var(--color-foreground);
+  opacity: 1;
+}
+
+.case-sensitive-button.active {
+  background: var(--color-overlay-light);
+  color: var(--color-accent);
+  opacity: 1;
+}
+
+.case-sensitive-button svg {
+  width: 1rem;
+  height: 1rem;
 }
 
 .search-results {

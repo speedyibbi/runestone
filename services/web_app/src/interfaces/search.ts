@@ -31,6 +31,8 @@ export interface SearchOptions {
   exact?: boolean // For phrase mode: require exact phrase match
   // Boolean search options
   operators?: 'AND' | 'OR' | 'NOT' // Preferred operator for boolean mode
+  // Case sensitivity
+  caseSensitive?: boolean // Whether to match case (default: false)
   // Ranking options
   ranking?: {
     algorithm?: RankingAlgorithm
