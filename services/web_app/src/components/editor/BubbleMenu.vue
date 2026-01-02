@@ -2,6 +2,7 @@
 import { ref, watch, onUnmounted, onMounted } from 'vue'
 import type { EditorView } from '@codemirror/view'
 import { EditorSelection } from '@codemirror/state'
+import { previewModeField } from '@/utils/editor/livePreview'
 import {
   toggleWrap,
   setHeading,
@@ -19,6 +20,17 @@ const props = defineProps<{
 // Create a local ref that tracks the editor view
 const editorViewRef = ref<EditorView | null>(props.editorView)
 
+// Check if editor is in preview mode
+function isInPreviewMode(): boolean {
+  const view = editorViewRef.value
+  if (!view) return false
+  try {
+    return view.state.field(previewModeField) || false
+  } catch {
+    return false
+  }
+}
+
 // Watch the prop and update local ref
 watch(
   () => props.editorView,
@@ -35,6 +47,9 @@ watch(
     }
   },
 )
+
+// Note: Preview mode is checked directly in event handlers since
+// CodeMirror state fields aren't reactive in Vue's reactivity system
 
 // Initialize on mount
 onMounted(() => {
@@ -259,6 +274,12 @@ function calculateMenuPosition(targetX: number, targetY: number): { top: number;
 
 // Handle selection changes
 function handleSelectionChange() {
+  // Don't show bubble menu in preview mode
+  if (isInPreviewMode()) {
+    hideBubbleMenu()
+    return
+  }
+
   // Don't interfere with right-click menu
   if (isRightClickMenu) {
     return
@@ -283,6 +304,12 @@ function handleSelectionChange() {
   if (hasSelection) {
     // Set timeout to show menu after 1 second
     selectionTimeout = setTimeout(() => {
+      // Don't show if in preview mode
+      if (isInPreviewMode()) {
+        isVisible.value = false
+        return
+      }
+
       // Double-check selection is still valid
       const currentSelection = view.state.selection.main
       if (currentSelection.empty) {
@@ -321,6 +348,11 @@ function handleSelectionChange() {
 
 // Handle right-click (context menu)
 function handleContextMenu(event: MouseEvent) {
+  // Don't show bubble menu in preview mode
+  if (isInPreviewMode()) {
+    return
+  }
+
   const view = editorViewRef.value
   if (!view) return
 
@@ -437,6 +469,11 @@ function setupBubbleMenu() {
 
   // Hide menu when user starts typing (except for shortcuts)
   const handleInput = () => {
+    // Don't show menu in preview mode
+    if (isInPreviewMode()) {
+      hideBubbleMenu()
+      return
+    }
     if (isVisible.value) {
       hideBubbleMenu()
     }
