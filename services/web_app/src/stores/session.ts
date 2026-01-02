@@ -25,11 +25,9 @@ export const useSessionStore = defineStore('session', () => {
   const notebook = ref<{
     fek: CryptoKey | null
     manifest: Manifest | null
-    searchDb: string | null
   }>({
     fek: null,
     manifest: null,
-    searchDb: null,
   })
 
   // Track blob URLs for automatic cleanup
@@ -135,7 +133,6 @@ export const useSessionStore = defineStore('session', () => {
     notebook.value = {
       fek: null,
       manifest: null,
-      searchDb: null,
     }
   }
 
@@ -195,20 +192,6 @@ export const useSessionStore = defineStore('session', () => {
     // Update session state
     notebook.value.fek = result.fek
     notebook.value.manifest = result.manifest
-
-    // Initialize search index
-    try {
-      notebook.value.searchDb = await OrchestrationService.initializeSearchIndex(
-        result.notebookId,
-        lookupHash.value,
-        result.fek,
-        result.manifest, // Pass manifest for background rebuild if needed
-      )
-    } catch (error) {
-      // Log but don't fail codex open if search init fails
-      console.warn('Failed to initialize search index:', error)
-      notebook.value.searchDb = null
-    }
   }
 
   /**
@@ -316,20 +299,14 @@ export const useSessionStore = defineStore('session', () => {
    * Close the currently open codex (unload from memory)
    */
   async function closeCodex(): Promise<void> {
+    // Unload notebook
+    await OrchestrationService.unloadNotebook()
+    
     // Revoke all blob URLs for this codex
     revokeAllSigilUrls()
 
-    if (notebook.value.searchDb) {
-      try {
-        await OrchestrationService.closeSearchIndex(notebook.value.searchDb!)
-      } catch (error) {
-        console.warn('Failed to close search index:', error)
-      }
-    }
-
     notebook.value.fek = null
     notebook.value.manifest = null
-    notebook.value.searchDb = null
   }
 
   /**
@@ -405,7 +382,6 @@ export const useSessionStore = defineStore('session', () => {
       lookupHash.value!,
       notebook.value.fek,
       notebook.value.manifest,
-      notebook.value.searchDb,
     )
 
     // Convert ArrayBuffer to string (markdown)
@@ -443,7 +419,6 @@ export const useSessionStore = defineStore('session', () => {
       lookupHash.value!,
       notebook.value.fek,
       notebook.value.manifest,
-      notebook.value.searchDb,
     )
 
     // Update manifest in session state
@@ -497,7 +472,6 @@ export const useSessionStore = defineStore('session', () => {
         lookupHash.value!,
         notebook.value.fek,
         notebook.value.manifest,
-        notebook.value.searchDb,
       )
       data = new Uint8Array(result.data)
     }
@@ -514,7 +488,6 @@ export const useSessionStore = defineStore('session', () => {
       lookupHash.value!,
       notebook.value.fek,
       notebook.value.manifest,
-      notebook.value.searchDb,
     )
 
     // Update manifest in session state
@@ -556,7 +529,6 @@ export const useSessionStore = defineStore('session', () => {
       lookupHash.value!,
       notebook.value.fek,
       notebook.value.manifest,
-      notebook.value.searchDb,
     )
 
     // Update manifest in session state
@@ -915,7 +887,7 @@ export const useSessionStore = defineStore('session', () => {
       throw new Error('No codex is currently open')
     }
 
-    return await OrchestrationService.searchNotes(notebook.value.searchDb, query, options)
+    return await OrchestrationService.searchNotes(query, options)
   }
 
   return {
