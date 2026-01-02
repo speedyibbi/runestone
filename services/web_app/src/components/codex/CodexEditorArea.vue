@@ -80,7 +80,7 @@ watch(
         <div
           v-if="previewMode === 'split'"
           ref="previewElement"
-          class="editor preview-pane"
+          class="editor"
           :class="{ 'split-right': previewMode === 'split' }"
         ></div>
       </div>
@@ -161,10 +161,6 @@ watch(
 .editor.split-right {
   max-width: none;
   flex: 1;
-}
-
-.preview-pane {
-  background: var(--color-background);
 }
 
 .editor::-webkit-scrollbar {
