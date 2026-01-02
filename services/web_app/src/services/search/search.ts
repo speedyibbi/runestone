@@ -8,126 +8,6 @@ export default class SearchService {
   private static readonly FEATURE_FTS_SEARCH = __APP_CONFIG__.global.featureFlags.ftsSearch
 
   /**
-   * Create FTS5 search tables in the active database
-   */
-  static async createSearchTables(): Promise<void> {
-    if (!this.FEATURE_FTS_SEARCH) {
-      return
-    }
-
-    if (!DatabaseService.isReady()) {
-      return
-    }
-
-    const promiser = DatabaseService.getPromiser()
-
-    try {
-      await promiser('exec', {
-        sql: `
-          CREATE VIRTUAL TABLE IF NOT EXISTS note_search USING fts5(
-            uuid,
-            title,
-            content,
-            tokenize = 'unicode61'
-          );
-        `,
-      })
-    } catch (error) {
-      console.error('Error creating FTS5 table:', error)
-      throw error
-    }
-  }
-
-  /**
-   * Index a note
-   * Updates existing note if UUID already exists, otherwise inserts new one
-   */
-  static async indexNote(uuid: string, title: string, content: string): Promise<void> {
-    if (!this.FEATURE_FTS_SEARCH) {
-      return
-    }
-
-    if (!DatabaseService.isReady()) {
-      return
-    }
-
-    try {
-      const promiser = DatabaseService.getPromiser()
-
-      // Escape single quotes for SQL (basic protection)
-      const escapeSql = (str: string) => str.replace(/'/g, "''")
-      const escapedUuid = escapeSql(uuid)
-      const escapedTitle = escapeSql(title)
-      const escapedContent = escapeSql(content)
-
-      // Check if note already exists by querying for the UUID
-      const checkResponse = await promiser('exec', {
-        sql: `SELECT rowid FROM note_search WHERE uuid = '${escapedUuid}'`,
-        returnValue: 'resultRows',
-      })
-
-      const existing = checkResponse.result?.resultRows?.[0] ?? checkResponse.resultRows?.[0]
-
-      if (existing) {
-        // Update existing note
-        // FTS5 UPDATE requires using rowid
-        const rowid = existing.rowid ?? existing[0]
-        await promiser('exec', {
-          sql: `UPDATE note_search SET uuid = '${escapedUuid}', title = '${escapedTitle}', content = '${escapedContent}' WHERE rowid = ${rowid}`,
-        })
-      } else {
-        // Insert new note
-        await promiser('exec', {
-          sql: `INSERT INTO note_search(uuid, title, content) VALUES ('${escapedUuid}', '${escapedTitle}', '${escapedContent}')`,
-        })
-      }
-    } catch (error) {
-      console.error('Error indexing note:', error, { uuid, title })
-      throw error
-    }
-  }
-
-  /**
-   * Remove note from index
-   */
-  static async removeNote(uuid: string): Promise<void> {
-    if (!this.FEATURE_FTS_SEARCH) {
-      return
-    }
-
-    if (!DatabaseService.isReady()) {
-      return
-    }
-
-    try {
-      const promiser = DatabaseService.getPromiser()
-
-      // Escape single quotes for SQL
-      const escapeSql = (str: string) => str.replace(/'/g, "''")
-      const escapedUuid = escapeSql(uuid)
-
-      // Get rowid for the UUID
-      const findResponse = await promiser('exec', {
-        sql: `SELECT rowid FROM note_search WHERE uuid = '${escapedUuid}'`,
-        returnValue: 'resultRows',
-      })
-
-      const result = findResponse.result?.resultRows?.[0] ?? findResponse.resultRows?.[0]
-
-      if (result) {
-        const rowid = result.rowid ?? result[0]
-        // Delete from FTS5 table using rowid
-        await promiser('exec', {
-          sql: `DELETE FROM note_search WHERE rowid = ${rowid}`,
-        })
-      }
-    } catch (error) {
-      console.error('Error removing note from index:', error, { uuid })
-      throw error
-    }
-  }
-
-  /**
    * Execute search query
    * Supports different search modes: normal, phrase, boolean
    */
@@ -192,15 +72,15 @@ export default class SearchService {
     const rankingAlgorithm = ranking?.algorithm ?? 'bm25'
     
     // Get ranking weights (defaults: title=1.0, content=1.0)
-    // FTS5 bm25() function signature: bm25(table, weight1, weight2, weight3, ...)
-    // Our table columns: uuid, title, content
-    // We use 0 for uuid (don't weight it), then title weight, then content weight
+    // FTS5 bm25() function signature: bm25(table, weight1, weight2, weight3, weight4, weight5, ...)
+    // blob_index table columns: id, type, title, content, metadata
+    // We use 0 for id, 0 for type, title weight, content weight, 0 for metadata
     const titleWeight = ranking?.weights?.title ?? 1.0
     const contentWeight = ranking?.weights?.content ?? 1.0
     
     // Build BM25 function call with weights
-    // bm25(note_search, uuid_weight, title_weight, content_weight)
-    const bm25Function = `bm25(note_search, 0, ${titleWeight}, ${contentWeight})`
+    // bm25(blob_index, id_weight, type_weight, title_weight, content_weight, metadata_weight)
+    const bm25Function = `bm25(blob_index, 0, 0, ${titleWeight}, ${contentWeight}, 0)`
 
     try {
       const promiser = DatabaseService.getPromiser()
@@ -212,16 +92,17 @@ export default class SearchService {
       // Execute search with BM25 ranking
       // BM25 considers term frequency, inverse document frequency, and document length
       // Custom weights allow prioritizing title matches over content matches
+      // Filter by type = 'note' to search only notes
 
       const searchResponse = await promiser('exec', {
         sql: `
           SELECT 
-            uuid,
+            id as uuid,
             title,
-            snippet(note_search, 2, '<mark>', '</mark>', '...', 32) as snippet,
+            snippet(blob_index, 3, '<mark>', '</mark>', '...', 32) as snippet,
             ${bm25Function} as rank
-          FROM note_search
-          WHERE note_search MATCH '${escapedQuery}'
+          FROM blob_index
+          WHERE type = 'note' AND blob_index MATCH '${escapedQuery}'
           ORDER BY ${bm25Function}
           LIMIT ${limit} OFFSET ${offset};
         `,
@@ -238,7 +119,7 @@ export default class SearchService {
 
       // Get total count
       const countResponse = await promiser('exec', {
-        sql: `SELECT COUNT(*) as count FROM note_search WHERE note_search MATCH '${escapedQuery}';`,
+        sql: `SELECT COUNT(*) as count FROM blob_index WHERE type = 'note' AND blob_index MATCH '${escapedQuery}';`,
         returnValue: 'resultRows',
       })
 
@@ -253,25 +134,5 @@ export default class SearchService {
       console.error('Error searching notes:', error, { query, options })
       throw error
     }
-  }
-
-  /**
-   * Clear entire search index
-   */
-  static async clear(): Promise<void> {
-    if (!this.FEATURE_FTS_SEARCH) {
-      return
-    }
-
-    if (!DatabaseService.isReady()) {
-      return
-    }
-
-    const promiser = DatabaseService.getPromiser()
-
-    // Clear existing index
-    await promiser('exec', {
-      sql: 'DELETE FROM note_search;',
-    })
   }
 }

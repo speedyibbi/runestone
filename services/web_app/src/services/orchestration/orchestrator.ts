@@ -7,6 +7,7 @@ import CacheService from '@/services/l2-storage/cache'
 import RemoteService from '@/services/l2-storage/remote'
 import SyncService from '@/services/orchestration/sync'
 import DatabaseService from '@/services/database/db'
+import IndexerService from '@/services/database/indexer'
 import SearchService from '@/services/search/search'
 import { toBase64 } from '@/utils/helpers'
 import type {
@@ -464,11 +465,11 @@ export default class OrchestrationService {
       throw error
     }
 
-    // Initialize search index
+    // Initialize indexes
     try {
-      await this.initializeSearchIndex(notebookId, lookupHash, result.fek, result.manifest)
+      await this.initializeIndexes(notebookId, lookupHash, result.fek, result.manifest)
     } catch (error) {
-      console.warn('Failed to initialize search index:', error)
+      console.warn('Failed to initialize indexes:', error)
       throw error
     }
 
@@ -594,12 +595,38 @@ export default class OrchestrationService {
       )
     }
 
-    // Step 3: Index note for search if it's a note (non-blocking)
+    // Step 3: Index blob for search (non-blocking)
     if (manifest) {
       const entry = ManifestService.findEntry(manifest, uuid)
-      if (entry && entry.type === 'note') {
-        const content = new TextDecoder().decode(data)
-        SearchService.indexNote(uuid, entry.title, content)
+      if (entry) {
+        if (entry.type === 'note') {
+          const content = new TextDecoder().decode(data)
+          IndexerService.addBlob({
+            id: uuid,
+            type: 'note',
+            title: entry.title,
+            content,
+            metadata: JSON.stringify({
+              hash: entry.hash,
+            }),
+          }).catch((error) => {
+            console.warn('Failed to index note:', error)
+          })
+        } else if (entry.type === 'image') {
+          // Index image metadata (not content)
+          IndexerService.addBlob({
+            id: uuid,
+            type: 'image',
+            title: entry.title,
+            content: '', // Images don't have searchable text content
+            metadata: JSON.stringify({
+              filename: entry.title,
+              hash: entry.hash,
+            }),
+          }).catch((error) => {
+            console.warn('Failed to index image:', error)
+          })
+        }
       }
     }
 
@@ -654,10 +681,34 @@ export default class OrchestrationService {
       CacheService.upsertManifest(lookupHash, notebookId, encryptedManifest),
     ])
 
-    // Step 6: Index note for search (non-blocking)
+    // Step 6: Index blob for search (non-blocking)
     if (metadata.type === 'note') {
       const content = new TextDecoder().decode(dataBuffer)
-      SearchService.indexNote(uuid, metadata.title, content)
+      IndexerService.addBlob({
+        id: uuid,
+        type: 'note',
+        title: metadata.title,
+        content,
+        metadata: JSON.stringify({
+          hash,
+        }),
+      }).catch((error) => {
+        console.warn('Failed to index note:', error)
+      })
+    } else if (metadata.type === 'image') {
+      // Index image metadata (not content)
+      IndexerService.addBlob({
+        id: uuid,
+        type: 'image',
+        title: metadata.title,
+        content: '', // Images don't have searchable text content
+        metadata: JSON.stringify({
+          filename: metadata.title,
+          hash,
+        }),
+      }).catch((error) => {
+        console.warn('Failed to index image:', error)
+      })
     }
 
     return {
@@ -717,10 +768,34 @@ export default class OrchestrationService {
       CacheService.upsertManifest(lookupHash, notebookId, encryptedManifest),
     ])
 
-    // Step 7: Index note for search (non-blocking)
+    // Step 7: Index blob for search (non-blocking)
     if (metadata.type === 'note') {
       const content = new TextDecoder().decode(dataBuffer)
-      SearchService.indexNote(uuid, metadata.title, content)
+      IndexerService.addBlob({
+        id: uuid,
+        type: 'note',
+        title: metadata.title,
+        content,
+        metadata: JSON.stringify({
+          hash,
+        }),
+      }).catch((error) => {
+        console.warn('Failed to index note:', error)
+      })
+    } else if (metadata.type === 'image') {
+      // Index image metadata (not content)
+      IndexerService.addBlob({
+        id: uuid,
+        type: 'image',
+        title: metadata.title,
+        content: '', // Images don't have searchable text content
+        metadata: JSON.stringify({
+          filename: metadata.title,
+          hash,
+        }),
+      }).catch((error) => {
+        console.warn('Failed to index image:', error)
+      })
     }
 
     return {
@@ -760,10 +835,10 @@ export default class OrchestrationService {
       CacheService.upsertManifest(lookupHash, notebookId, encryptedManifest),
     ])
 
-    // Step 5: Remove note from search index (non-blocking)
-    if (existingEntry.type === 'note') {
-      SearchService.removeNote(uuid)
-    }
+    // Step 5: Remove blob from search index (non-blocking)
+    IndexerService.removeBlob(uuid).catch((error) => {
+      console.warn('Failed to remove blob from index:', error)
+    })
 
     return {
       uuid,
@@ -772,26 +847,28 @@ export default class OrchestrationService {
   }
 
   /**
-   * Initialize search index for a notebook
-   * Creates FTS5 tables in the active database and optionally rebuilds index in background
+   * Initialize indexes for a notebook
+   * Creates FTS5 tables in the active database and optionally builds indexes in background
    */
-  static async initializeSearchIndex(
+  static async initializeIndexes(
     notebookId: string,
     lookupHash: string,
     fek: CryptoKey,
     manifest?: Manifest,
   ): Promise<void> {
     try {
-      // Create search tables
-      await SearchService.createSearchTables()
+      // Create all registered indexes
+      await IndexerService.createIndexes()
       
-      // Always trigger background rebuild if manifest is available
+      // Always trigger background build if manifest is available
       if (manifest) {
-        // Trigger background rebuild (non-blocking)
-        this.rebuildSearchIndex(notebookId, manifest, lookupHash, fek)
+        // Trigger background build (non-blocking)
+        this.buildIndexes(notebookId, manifest, lookupHash, fek).catch((error) => {
+          console.warn('Failed to build indexes:', error)
+        })
       }
     } catch (error) {
-      console.warn('Failed to initialize search index:', error)
+      console.warn('Failed to initialize indexes:', error)
       throw error
     }
   }
@@ -811,38 +888,77 @@ export default class OrchestrationService {
   }
 
   /**
-   * Rebuild search index from manifest into the active database
-   * Fetches all notes and reindexes them
+   * Build indexes from manifest into the active database
+   * Fetches all blobs and indexes them
    */
-  static async rebuildSearchIndex(
+  static async buildIndexes(
     notebookId: string,
     manifest: Manifest,
     lookupHash: string,
     fek: CryptoKey,
   ): Promise<void> {
     try {
-      // Clear existing index
-      await SearchService.clear()
+      // Clear all existing indexes
+      await IndexerService.clearAll()
 
-      // Get all note entries from manifest
-      const noteEntries = manifest.entries.filter((e) => e.type === 'note')
+      // Get all entries from manifest
+      const entries = manifest.entries
 
-      // Fetch and index each note
-      for (const entry of noteEntries) {
+      // Prepare blobs for batch indexing
+      const blobsToIndex: Array<{
+        id: string
+        type: string
+        title: string
+        content: string
+        metadata?: string
+      }> = []
+
+      // Fetch and prepare all blobs for indexing
+      // Note: Don't pass manifest to getBlob to avoid duplicate indexing
+      for (const entry of entries) {
         try {
-          // Get blob content
+          // Get blob content (without manifest to skip individual indexing)
           const blobResult = await this.getBlob(notebookId, entry.uuid, lookupHash, fek)
-          const content = new TextDecoder().decode(blobResult.data)
 
-          // Index note
-          await SearchService.indexNote(entry.uuid, entry.title, content)
+          if (entry.type === 'note') {
+            const content = new TextDecoder().decode(blobResult.data)
+            blobsToIndex.push({
+              id: entry.uuid,
+              type: 'note',
+              title: entry.title,
+              content,
+              metadata: JSON.stringify({
+                hash: entry.hash,
+              }),
+            })
+          } else if (entry.type === 'image') {
+            // Index image metadata (not content)
+            blobsToIndex.push({
+              id: entry.uuid,
+              type: 'image',
+              title: entry.title,
+              content: '', // Images don't have searchable text content
+              metadata: JSON.stringify({
+                filename: entry.title,
+                hash: entry.hash,
+              }),
+            })
+          }
         } catch (error) {
-          console.warn(`Failed to index note ${entry.uuid} during rebuild:`, error)
+          console.warn(`Failed to fetch blob ${entry.uuid} during build:`, error)
         }
+      }
+
+      // Batch index all blobs
+      if (blobsToIndex.length > 0) {
+        await IndexerService.addBlobs(blobsToIndex)
+
+        // Optimize index after bulk operation
+        await IndexerService.optimize()
       }
     } catch (error) {
       throw new Error(
-        `Failed to rebuild search index: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to build indexes: ${error instanceof Error ? error.message : String(error)}`,
       )
     }
   }
