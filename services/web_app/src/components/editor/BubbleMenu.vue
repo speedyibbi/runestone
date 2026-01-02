@@ -22,9 +22,15 @@ const editorViewRef = ref<EditorView | null>(props.editorView)
 // Watch the prop and update local ref
 watch(
   () => props.editorView,
-  (newView) => {
+  (newView, oldView) => {
+    // Clean up old listeners if editor view changed
+    if (oldView && cleanupFn) {
+      cleanupFn()
+      cleanupFn = null
+    }
+    
     editorViewRef.value = newView
-    if (newView && !cleanupFn) {
+    if (newView) {
       setupBubbleMenu()
     }
   },
@@ -32,7 +38,7 @@ watch(
 
 // Initialize on mount
 onMounted(() => {
-  if (props.editorView) {
+  if (props.editorView && !cleanupFn) {
     editorViewRef.value = props.editorView
     setupBubbleMenu()
   }
@@ -475,12 +481,14 @@ function setupBubbleMenu() {
 
   // Clean up function
   cleanupFn = () => {
-    view.dom.removeEventListener('mouseup', checkSelection)
-    view.dom.removeEventListener('keyup', checkSelection)
-    view.dom.removeEventListener('keydown', handleKeyDown)
-    view.dom.removeEventListener('input', handleInput)
-    view.dom.removeEventListener('contextmenu', handleContextMenu)
-    view.dom.removeEventListener('blur', hideBubbleMenu)
+    if (view && view.dom) {
+      view.dom.removeEventListener('mouseup', checkSelection)
+      view.dom.removeEventListener('keyup', checkSelection)
+      view.dom.removeEventListener('keydown', handleKeyDown)
+      view.dom.removeEventListener('input', handleInput)
+      view.dom.removeEventListener('contextmenu', handleContextMenu)
+      view.dom.removeEventListener('blur', hideBubbleMenu)
+    }
     document.removeEventListener('mousedown', handleClickOutside)
     document.removeEventListener('mousemove', handleMouseMove)
     window.removeEventListener('scroll', handleScroll, true)
@@ -513,16 +521,17 @@ onUnmounted(() => {
       <div class="bubble-menu-content">
         <!-- Text Formatting -->
         <div class="menu-section">
-          <button @click="applyFormat('bold')" title="Bold (Cmd+B)" class="menu-btn">
+          <button @click="applyFormat('bold')" title="Bold" class="menu-btn">
             <strong>B</strong>
           </button>
-          <button @click="applyFormat('italic')" title="Italic (Cmd+I)" class="menu-btn">
+          <button @click="applyFormat('italic')" title="Italic
+          " class="menu-btn">
             <em>I</em>
           </button>
           <button @click="applyFormat('strikethrough')" title="Strikethrough" class="menu-btn">
             <s>S</s>
           </button>
-          <button @click="applyFormat('code')" title="Inline Code (Cmd+E)" class="menu-btn">
+          <button @click="applyFormat('code')" title="Inline Code" class="menu-btn">
             <code>&lt;/&gt;</code>
           </button>
         </div>
@@ -558,7 +567,7 @@ onUnmounted(() => {
 
         <!-- Links & Media -->
         <div class="menu-section">
-          <button @click="insertLink" title="Link (Cmd+K)" class="menu-btn">
+          <button @click="insertLink" title="Link" class="menu-btn">
             <span class="icon-text">⧉</span>
           </button>
           <button @click="insertImage" title="Image" class="menu-btn">
