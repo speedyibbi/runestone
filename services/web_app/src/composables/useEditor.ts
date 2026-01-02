@@ -25,13 +25,17 @@ import {
 import { createKeyboardShortcuts } from '@/utils/editor/keyboardShortcuts'
 import type { SigilUrlResolver } from '@/utils/editor/widgets'
 
+export type PreviewMode = 'edit' | 'preview' | 'split'
+
 export function useEditor(
   editorElement: Ref<HTMLElement | undefined>,
   onUpdate?: (update: ViewUpdate) => void,
   sigilResolver?: SigilUrlResolver,
+  previewMode?: Ref<PreviewMode>,
 ) {
   const editorView = ref<EditorView | null>(null)
-  const isPreviewMode = ref(false)
+  // Use shared preview mode state if provided, otherwise create local one
+  const previewModeState = previewMode || ref<PreviewMode>('edit')
 
   // Compartment for dynamically reconfiguring read-only state
   const readOnlyCompartment = new Compartment()
@@ -122,6 +126,17 @@ export function useEditor(
       state: startState,
       parent: editorElement.value,
     })
+
+    // Apply initial preview mode state if set
+    if (previewModeState.value !== 'edit' && editorView.value) {
+      const isPreview = previewModeState.value === 'preview'
+      editorView.value.dispatch({
+        effects: [
+          togglePreviewMode.of(isPreview),
+          readOnlyCompartment.reconfigure(EditorState.readOnly.of(isPreview)),
+        ],
+      })
+    }
   }
 
   const getContent = (): string => {
@@ -141,14 +156,31 @@ export function useEditor(
   }
 
   const togglePreview = () => {
+    // Cycle through: edit -> preview -> split -> edit
+    if (previewModeState.value === 'edit') {
+      previewModeState.value = 'preview'
+    } else if (previewModeState.value === 'preview') {
+      previewModeState.value = 'split'
+    } else {
+      previewModeState.value = 'edit'
+    }
+
+    applyPreviewMode()
+  }
+
+  // Function to apply preview mode state to the current editor
+  const applyPreviewMode = () => {
     if (!editorView.value) return
 
-    isPreviewMode.value = !isPreviewMode.value
+    // In split mode, editor stays in edit mode
+    // In preview mode, editor is in preview mode
+    // In edit mode, editor is in edit mode
+    const isPreview = previewModeState.value === 'preview'
 
     editorView.value.dispatch({
       effects: [
-        togglePreviewMode.of(isPreviewMode.value),
-        readOnlyCompartment.reconfigure(EditorState.readOnly.of(isPreviewMode.value)),
+        togglePreviewMode.of(isPreview),
+        readOnlyCompartment.reconfigure(EditorState.readOnly.of(isPreview)),
       ],
     })
   }
@@ -162,10 +194,11 @@ export function useEditor(
 
   return {
     editorView: editorView as Ref<EditorView | null>,
-    isPreviewMode,
+    previewMode: previewModeState,
     getContent,
     setContent,
     togglePreview,
+    applyPreviewMode,
     destroy,
     initializeEditor,
   }

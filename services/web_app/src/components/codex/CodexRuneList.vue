@@ -1,10 +1,10 @@
 <script lang="ts" setup>
 import { ref, computed } from 'vue'
 import type { RuneInfo } from '@/composables/useCodex'
-import type { TreeNode } from './CodexLeftSidebar.vue'
-import CodexRuneActions from './CodexRuneActions.vue'
-import CodexRuneTreeNode from './CodexRuneTreeNode.vue'
-import CodexRuneItem from './CodexRuneItem.vue'
+import type { TreeNode } from '@/components/codex/CodexLeftSidebar.vue'
+import CodexRuneActions from '@/components/codex/CodexRuneActions.vue'
+import CodexRuneTreeNode from '@/components/codex/CodexRuneTreeNode.vue'
+import CodexRuneItem from '@/components/codex/CodexRuneItem.vue'
 
 type EditingState =
   | { type: 'creating-rune'; parentPath: string }

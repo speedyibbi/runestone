@@ -2,25 +2,37 @@
 import { ref, watch } from 'vue'
 import Loader from '@/components/base/Loader.vue'
 import FadeTransition from '@/components/base/FadeTransition.vue'
+import type { PreviewMode } from '@/composables/useEditor'
 
 interface Props {
   hasOpenRune: boolean
   isLoadingRune: boolean
   currentRuneId?: string | null
+  previewMode: PreviewMode
 }
 
 const props = defineProps<Props>()
 
 const editorElement = ref<HTMLElement>()
+const previewElement = ref<HTMLElement>()
 
 const emit = defineEmits<{
   'update:editorElement': [value: HTMLElement | undefined]
+  'update:previewElement': [value: HTMLElement | undefined]
 }>()
 
 watch(
   editorElement,
   (element) => {
     emit('update:editorElement', element)
+  },
+  { immediate: true },
+)
+
+watch(
+  previewElement,
+  (element) => {
+    emit('update:previewElement', element)
   },
   { immediate: true },
 )
@@ -60,8 +72,17 @@ watch(
         v-if="hasOpenRune && !isLoadingRune"
         :key="currentRuneId || 'editor'"
         class="editor-container"
+        :class="{
+          'split-view': previewMode === 'split',
+        }"
       >
-        <div ref="editorElement" class="editor"></div>
+        <div ref="editorElement" class="editor" :class="{ 'split-left': previewMode === 'split' }"></div>
+        <div
+          v-if="previewMode === 'split'"
+          ref="previewElement"
+          class="editor preview-pane"
+          :class="{ 'split-right': previewMode === 'split' }"
+        ></div>
       </div>
     </FadeTransition>
   </div>
@@ -116,6 +137,11 @@ watch(
   overflow: hidden;
 }
 
+.editor-container.split-view {
+  justify-content: stretch;
+  gap: 0;
+}
+
 .editor {
   flex: 1;
   width: 100%;
@@ -124,6 +150,21 @@ watch(
   overflow-x: hidden;
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE and Edge */
+}
+
+.editor.split-left {
+  max-width: none;
+  flex: 1;
+  border-right: 1px solid var(--color-overlay-subtle);
+}
+
+.editor.split-right {
+  max-width: none;
+  flex: 1;
+}
+
+.preview-pane {
+  background: var(--color-background);
 }
 
 .editor::-webkit-scrollbar {

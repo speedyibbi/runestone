@@ -1,9 +1,9 @@
 <script lang="ts" setup>
 import { ref, watch, nextTick } from 'vue'
 import FadeTransition from '@/components/base/FadeTransition.vue'
-import CodexRuneList from './CodexRuneList.vue'
-import CodexSearchPanel from './CodexSearchPanel.vue'
-import CodexGraphPanel from './CodexGraphPanel.vue'
+import CodexRuneList from '@/components/codex/CodexRuneList.vue'
+import CodexSearchPanel from '@/components/codex/CodexSearchPanel.vue'
+import CodexGraphPanel from '@/components/codex/CodexGraphPanel.vue'
 import type { RuneInfo } from '@/composables/useCodex'
 import type { SearchServiceResult, SearchOptions } from '@/interfaces/search'
 

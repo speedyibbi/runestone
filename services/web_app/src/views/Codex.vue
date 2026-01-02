@@ -1,9 +1,9 @@
 <script lang="ts" setup>
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { EditorView } from '@codemirror/view'
+import { EditorView, ViewUpdate } from '@codemirror/view'
 import { syntaxTree } from '@codemirror/language'
-import { useEditor } from '@/composables/useEditor'
+import { useEditor, type PreviewMode } from '@/composables/useEditor'
 import { useCodex, type RuneInfo } from '@/composables/useCodex'
 import { useSessionStore } from '@/stores/session'
 import { useImageUpload } from '@/composables/useImageUpload'
@@ -23,7 +23,9 @@ const route = useRoute()
 const router = useRouter()
 
 const editorElement = ref<HTMLElement>()
+const previewElement = ref<HTMLElement>()
 const editorViewRef = ref<EditorView | null>(null) as import('vue').Ref<EditorView | null>
+const previewViewRef = ref<EditorView | null>(null) as import('vue').Ref<EditorView | null>
 
 const {
   runes,
@@ -57,9 +59,38 @@ const sigilResolver = async (sigilId: string): Promise<string> => {
   return await getSigilUrl(sigilId)
 }
 
+// Shared preview mode state across all tabs
+const previewMode = ref<PreviewMode>('edit')
+
+// Initialize preview editor for split mode (needed for the callback)
+const previewComposable = useEditor(previewElement, undefined, sigilResolver, ref('preview'))
+const { editorView: previewView } = previewComposable
+
+// Combined update callback for auto-save and preview sync
+let isSyncingContent = false
+const combinedUpdateCallback = (update: ViewUpdate) => {
+  // Call auto-save callback if it exists
+  if (autoSaveCallback) {
+    autoSaveCallback(update)
+  }
+  
+  // Sync to preview editor in split mode
+  if (previewMode.value === 'split' && update.docChanged && previewView.value && !isSyncingContent) {
+    isSyncingContent = true
+    const content = update.state.doc.toString()
+    const previewContent = previewView.value.state.doc.toString()
+    if (content !== previewContent) {
+      previewComposable.setContent(content)
+    }
+    nextTick(() => {
+      isSyncingContent = false
+    })
+  }
+}
+
 // Initialize editor with sigil resolver
-const editorComposable = useEditor(editorElement, autoSaveCallback, sigilResolver)
-const { editorView, isPreviewMode, togglePreview } = editorComposable
+const editorComposable = useEditor(editorElement, combinedUpdateCallback, sigilResolver, previewMode)
+const { editorView, togglePreview, applyPreviewMode } = editorComposable
 
 // Image upload handler
 const imageUploadHandler = useImageUpload({
@@ -120,12 +151,91 @@ watch(
   { immediate: true },
 )
 
+// Watch preview element for split mode
+watch(
+  [previewElement, () => previewMode.value],
+  ([element, mode], [oldElement, oldMode]) => {
+    if (mode === 'split' && element) {
+      // Check if editor view exists and if its parent is still valid
+      if (previewView.value) {
+        const editorParent = previewView.value.dom.parentElement
+        // If element changed or parent is no longer valid (not in DOM or doesn't match), destroy and recreate
+        if (
+          oldElement !== element ||
+          !editorParent ||
+          editorParent !== element ||
+          !element.isConnected
+        ) {
+          previewComposable.destroy()
+          previewViewRef.value = null
+        }
+      }
+      
+      // Initialize preview editor in split mode
+      if (!previewView.value && previewComposable.initializeEditor) {
+        nextTick(() => {
+          if (element && previewComposable.initializeEditor) {
+            previewComposable.initializeEditor()
+            previewViewRef.value = previewView.value
+            // Sync initial content after initialization
+            nextTick(() => {
+              if (editorView.value && previewView.value) {
+                const content = editorView.value.state.doc.toString()
+                previewComposable.setContent(content)
+                // Setup scroll sync
+                setupScrollSync()
+              }
+            })
+          }
+        })
+      } else if (previewView.value && editorView.value) {
+        // Already initialized, just sync content
+        nextTick(() => {
+          const content = editorView.value?.state.doc.toString() || ''
+          previewComposable.setContent(content)
+          // Ensure scroll sync is set up
+          setupScrollSync()
+        })
+      }
+    } else if (mode !== 'split' && previewView.value) {
+      // Destroy preview editor when not in split mode
+      previewComposable.destroy()
+      previewViewRef.value = null
+    }
+  },
+  { immediate: true },
+)
+
+// Watch preview mode changes to sync content when switching to split
+watch(
+  () => previewMode.value,
+  (mode, oldMode) => {
+    if (mode === 'split' && oldMode !== 'split') {
+      // Just switched to split mode, ensure preview editor is initialized and synced
+      nextTick(() => {
+        if (previewElement.value && !previewView.value && previewComposable.initializeEditor) {
+          previewComposable.initializeEditor()
+          previewViewRef.value = previewView.value
+        }
+        nextTick(() => {
+          if (editorView.value && previewView.value) {
+            const content = editorView.value.state.doc.toString()
+            previewComposable.setContent(content)
+          }
+        })
+      })
+    }
+  },
+)
+
 // Setup upload handlers when editor view becomes available
 watch(editorView, (view) => {
   if (view) {
     // Wait a tick to ensure DOM is ready
     nextTick(() => {
       setupUploadHandlers()
+      // Apply preview mode state when editor view becomes available
+      applyPreviewMode()
     })
   } else {
     // Cleanup when view is destroyed
@@ -139,6 +249,185 @@ watch(editorView, (view) => {
     }
   }
 })
+
+// Apply preview mode when switching tabs (when currentRune changes)
+watch(currentRune, () => {
+  if (editorView.value) {
+    nextTick(() => {
+      applyPreviewMode()
+      // Sync content to preview editor if in split mode
+      // Wait a bit longer to ensure preview editor is ready after tab switch
+      if (previewMode.value === 'split') {
+        nextTick(() => {
+          if (previewView.value && editorView.value) {
+            const content = editorView.value.state.doc.toString()
+            previewComposable.setContent(content)
+          } else if (previewElement.value && !previewView.value) {
+            // Preview element exists but editor not initialized yet, wait for it
+            const checkInterval = setInterval(() => {
+              if (previewView.value && editorView.value) {
+                const content = editorView.value.state.doc.toString()
+                previewComposable.setContent(content)
+                clearInterval(checkInterval)
+              }
+            }, 50)
+            // Clear interval after 2 seconds to avoid infinite loop
+            setTimeout(() => clearInterval(checkInterval), 2000)
+          }
+        })
+      }
+    })
+  }
+})
+
+// Sync content from main editor to preview editor in split mode
+watch(
+  [editorView, () => previewMode.value],
+  ([view, mode]) => {
+    if (mode === 'split' && view && previewView.value) {
+      // Watch for content changes in the main editor
+      const content = view.state.doc.toString()
+      const previewContent = previewView.value.state.doc.toString()
+      if (content !== previewContent) {
+        previewComposable.setContent(content)
+      }
+    }
+  },
+  { immediate: true },
+)
+
+// Content syncing is now handled in combinedUpdateCallback above
+// This watcher is kept as a fallback for edge cases
+watch(
+  () => editorView.value?.state.doc.toString(),
+  (content) => {
+    if (previewMode.value === 'split' && content !== undefined && previewView.value && !isSyncingContent) {
+      const previewContent = previewView.value.state.doc.toString()
+      if (content !== previewContent) {
+        isSyncingContent = true
+        previewComposable.setContent(content)
+        nextTick(() => {
+          isSyncingContent = false
+        })
+      }
+    }
+  },
+)
+
+// Synchronized scrolling for split mode
+let isSyncingScroll = false
+let editorScrollListener: (() => void) | null = null
+let previewScrollListener: (() => void) | null = null
+
+function syncScrollFromEditor() {
+  if (!editorView.value || !previewView.value || isSyncingScroll || previewMode.value !== 'split') {
+    return
+  }
+
+  isSyncingScroll = true
+
+  const editorScroller = editorView.value.scrollDOM
+  const previewScroller = previewView.value.scrollDOM
+
+  const editorScrollTop = editorScroller.scrollTop
+  const editorScrollHeight = editorScroller.scrollHeight
+  const editorClientHeight = editorScroller.clientHeight
+  const editorMaxScroll = editorScrollHeight - editorClientHeight
+
+  if (editorMaxScroll > 0) {
+    const scrollRatio = editorScrollTop / editorMaxScroll
+    const previewScrollHeight = previewScroller.scrollHeight
+    const previewClientHeight = previewScroller.clientHeight
+    const previewMaxScroll = previewScrollHeight - previewClientHeight
+
+    if (previewMaxScroll > 0) {
+      const targetScrollTop = scrollRatio * previewMaxScroll
+      previewScroller.scrollTop = targetScrollTop
+    }
+  }
+
+  nextTick(() => {
+    isSyncingScroll = false
+  })
+}
+
+function syncScrollFromPreview() {
+  if (!editorView.value || !previewView.value || isSyncingScroll || previewMode.value !== 'split') {
+    return
+  }
+
+  isSyncingScroll = true
+
+  const editorScroller = editorView.value.scrollDOM
+  const previewScroller = previewView.value.scrollDOM
+
+  const previewScrollTop = previewScroller.scrollTop
+  const previewScrollHeight = previewScroller.scrollHeight
+  const previewClientHeight = previewScroller.clientHeight
+  const previewMaxScroll = previewScrollHeight - previewClientHeight
+
+  if (previewMaxScroll > 0) {
+    const scrollRatio = previewScrollTop / previewMaxScroll
+    const editorScrollHeight = editorScroller.scrollHeight
+    const editorClientHeight = editorScroller.clientHeight
+    const editorMaxScroll = editorScrollHeight - editorClientHeight
+
+    if (editorMaxScroll > 0) {
+      const targetScrollTop = scrollRatio * editorMaxScroll
+      editorScroller.scrollTop = targetScrollTop
+    }
+  }
+
+  nextTick(() => {
+    isSyncingScroll = false
+  })
+}
+
+function setupScrollSync() {
+  // Cleanup old listeners
+  if (editorScrollListener && editorView.value) {
+    editorView.value.scrollDOM.removeEventListener('scroll', editorScrollListener)
+    editorScrollListener = null
+  }
+  if (previewScrollListener && previewView.value) {
+    previewView.value.scrollDOM.removeEventListener('scroll', previewScrollListener)
+    previewScrollListener = null
+  }
+
+  // Setup new listeners if in split mode
+  if (previewMode.value === 'split' && editorView.value && previewView.value) {
+    editorScrollListener = () => syncScrollFromEditor()
+    previewScrollListener = () => syncScrollFromPreview()
+
+    editorView.value.scrollDOM.addEventListener('scroll', editorScrollListener, { passive: true })
+    previewView.value.scrollDOM.addEventListener('scroll', previewScrollListener, { passive: true })
+  }
+}
+
+function cleanupScrollSync() {
+  if (editorScrollListener && editorView.value) {
+    editorView.value.scrollDOM.removeEventListener('scroll', editorScrollListener)
+    editorScrollListener = null
+  }
+  if (previewScrollListener && previewView.value) {
+    previewView.value.scrollDOM.removeEventListener('scroll', previewScrollListener)
+    previewScrollListener = null
+  }
+}
+
+// Setup scroll sync when editors are ready and in split mode
+watch(
+  [editorView, previewView, () => previewMode.value],
+  ([editor, preview, mode]) => {
+    if (mode === 'split' && editor && preview) {
+      nextTick(() => {
+        setupScrollSync()
+      })
+    } else {
+      cleanupScrollSync()
+    }
+  },
+)
 
 const statusBarUpdateTrigger = ref(0)
 
@@ -205,6 +494,10 @@ watch([editorView, currentRune], ([view, rune], [oldView, oldRune]) => {
                     insert: content,
                   },
                 })
+                // Sync to preview editor if in split mode
+                if (previewMode.value === 'split' && previewView.value) {
+                  previewComposable.setContent(content)
+                }
               }
             })
             .catch(() => {
@@ -223,6 +516,12 @@ onUnmounted(() => {
   }
   if (currentObserver) {
     currentObserver.disconnect()
+  }
+  // Cleanup scroll sync
+  cleanupScrollSync()
+  // Cleanup preview editor
+  if (previewView.value) {
+    previewComposable.destroy()
   }
 })
 
@@ -1302,7 +1601,7 @@ onUnmounted(() => {
         v-model="showCommandPalette"
         :tabs="tabs"
         :active-tab-id="activeTabId"
-        :is-preview-mode="isPreviewMode"
+        :preview-mode="previewMode"
         :right-sidebar-collapsed="rightSidebarCollapsed"
         :codex-title="currentCodex?.title || null"
         :can-navigate-back="canNavigateBack"
@@ -1325,7 +1624,9 @@ onUnmounted(() => {
         :has-open-rune="hasOpenRune"
         :is-loading-rune="isLoadingRune"
         :current-rune-id="currentRune?.uuid ?? null"
+        :preview-mode="previewMode"
         @update:editor-element="editorElement = $event"
+        @update:preview-element="previewElement = $event"
       />
 
       <!-- Status Bar -->

@@ -1,8 +1,8 @@
 <script lang="ts" setup>
 import { computed } from 'vue'
 import type { RuneInfo } from '@/composables/useCodex'
-import type { TreeNode } from './CodexLeftSidebar.vue'
-import CodexRuneItem from './CodexRuneItem.vue'
+import type { TreeNode } from '@/components/codex/CodexLeftSidebar.vue'
+import CodexRuneItem from '@/components/codex/CodexRuneItem.vue'
 
 type EditingState =
   | { type: 'creating-rune'; parentPath: string }

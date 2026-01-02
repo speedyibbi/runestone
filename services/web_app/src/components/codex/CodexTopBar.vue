@@ -1,14 +1,15 @@
 <script lang="ts" setup>
 import { computed } from 'vue'
-import CodexTabs, { type Tab } from './CodexTabs.vue'
-import CommandPalette from './CommandPalette.vue'
+import CodexTabs, { type Tab } from '@/components/codex/CodexTabs.vue'
+import CommandPalette from '@/components/codex/CommandPalette.vue'
 import type { RuneInfo } from '@/composables/useCodex'
+import type { PreviewMode } from '@/composables/useEditor'
 import type { SearchServiceResult, SearchOptions } from '@/interfaces/search'
 
 interface Props {
   tabs: Tab[]
   activeTabId: string | null
-  isPreviewMode: boolean
+  previewMode: PreviewMode
   rightSidebarCollapsed: boolean
   codexTitle: string | null
   modelValue?: boolean
@@ -53,6 +54,16 @@ const shortcutKey = computed(() => {
 
 function handleCommandPaletteSelect(runeId: string) {
   emit('openRune', runeId)
+}
+
+function getPreviewButtonTitle(): string {
+  if (props.previewMode === 'preview') {
+    return 'Switch to Split View (Ctrl+E)'
+  } else if (props.previewMode === 'split') {
+    return 'Switch to Edit Mode (Ctrl+E)'
+  } else {
+    return 'Switch to Preview Mode (Ctrl+E)'
+  }
 }
 </script>
 
@@ -164,11 +175,11 @@ function handleCommandPaletteSelect(runeId: string) {
       <button
         class="icon-button"
         @click="emit('togglePreview')"
-        :class="{ active: isPreviewMode }"
-        :title="isPreviewMode ? 'Exit Preview (Ctrl+E)' : 'Enter Preview (Ctrl+E)'"
+        :class="{ active: previewMode !== 'edit' }"
+        :title="getPreviewButtonTitle()"
       >
         <svg
-          v-if="isPreviewMode"
+          v-if="previewMode === 'preview'"
           xmlns="http://www.w3.org/2000/svg"
           width="16"
           height="16"
@@ -181,6 +192,21 @@ function handleCommandPaletteSelect(runeId: string) {
         >
           <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
           <path d="m15 5 4 4" />
+        </svg>
+        <svg
+          v-else-if="previewMode === 'split'"
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+          <line x1="12" y1="3" x2="12" y2="21" />
         </svg>
         <svg
           v-else
