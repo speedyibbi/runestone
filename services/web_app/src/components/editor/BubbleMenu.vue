@@ -40,7 +40,7 @@ watch(
       cleanupFn()
       cleanupFn = null
     }
-    
+
     editorViewRef.value = newView
     if (newView) {
       setupBubbleMenu()
@@ -561,8 +561,12 @@ onUnmounted(() => {
           <button @click="applyFormat('bold')" title="Bold" class="menu-btn">
             <strong>B</strong>
           </button>
-          <button @click="applyFormat('italic')" title="Italic
-          " class="menu-btn">
+          <button
+            @click="applyFormat('italic')"
+            title="Italic
+          "
+            class="menu-btn"
+          >
             <em>I</em>
           </button>
           <button @click="applyFormat('strikethrough')" title="Strikethrough" class="menu-btn">

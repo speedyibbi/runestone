@@ -47,7 +47,10 @@ const DEFAULT_SCHEMA: IndexSchema<DefaultBlobData> = {
  */
 export default class IndexerService {
   private static indexes = new Map<string, IndexSchema>()
-  private static indexCallbacks = new Map<{indexName: string, type: IndexCallbackType}, Array<(data?: any) => void>>()
+  private static indexCallbacks = new Map<
+    { indexName: string; type: IndexCallbackType },
+    Array<(data?: any) => void>
+  >()
   private static defaultTableRegistered = false
 
   /**
@@ -61,11 +64,19 @@ export default class IndexerService {
    * Register an index callback
    */
   static registerIndexCallback<T>(indexName: string, type: 'remove', callback: () => void): void
-  static registerIndexCallback<T>(indexName: string, type: 'add' | 'update', callback: (data: T) => void): void
-  static registerIndexCallback<T>(indexName: string, type: IndexCallbackType, callback: ((data: T) => void) | (() => void)): void {
-    const callbacks = this.indexCallbacks.get({indexName, type}) || []
+  static registerIndexCallback<T>(
+    indexName: string,
+    type: 'add' | 'update',
+    callback: (data: T) => void,
+  ): void
+  static registerIndexCallback<T>(
+    indexName: string,
+    type: IndexCallbackType,
+    callback: ((data: T) => void) | (() => void),
+  ): void {
+    const callbacks = this.indexCallbacks.get({ indexName, type }) || []
     callbacks.push(callback)
-    this.indexCallbacks.set({indexName, type}, callbacks)
+    this.indexCallbacks.set({ indexName, type }, callbacks)
   }
 
   /**
@@ -229,7 +240,7 @@ export default class IndexerService {
 
     // Call all registered callbacks
     try {
-      const callbacks = this.indexCallbacks.get({indexName, type: isUpdate ? 'update' : 'add'})
+      const callbacks = this.indexCallbacks.get({ indexName, type: isUpdate ? 'update' : 'add' })
       if (callbacks) {
         for (const callback of callbacks) {
           callback(blobData)
@@ -291,7 +302,7 @@ export default class IndexerService {
 
     // Call all registered callbacks
     try {
-      const callbacks = this.indexCallbacks.get({indexName, type: 'remove'})
+      const callbacks = this.indexCallbacks.get({ indexName, type: 'remove' })
       if (callbacks) {
         for (const callback of callbacks) {
           callback()
@@ -375,8 +386,8 @@ export default class IndexerService {
         }
 
         // Separate into inserts and updates
-         toInsert = []
-         toUpdate = []
+        toInsert = []
+        toUpdate = []
 
         for (const blob of blobArray) {
           const primaryKeyValue = String(blob[schema.primaryKey])
@@ -456,7 +467,7 @@ export default class IndexerService {
 
     // Call all registered add callbacks
     try {
-      const callbacks = this.indexCallbacks.get({indexName, type: 'add'})
+      const callbacks = this.indexCallbacks.get({ indexName, type: 'add' })
       if (callbacks) {
         for (const callback of callbacks) {
           callback(toInsert)
@@ -469,7 +480,7 @@ export default class IndexerService {
 
     // Call all registered update callbacks
     try {
-      const callbacks = this.indexCallbacks.get({indexName, type: 'update'})
+      const callbacks = this.indexCallbacks.get({ indexName, type: 'update' })
       if (callbacks) {
         for (const callback of callbacks) {
           callback(toUpdate.map(({ data }) => data))
@@ -561,7 +572,7 @@ export default class IndexerService {
 
     // Call all registered callbacks
     try {
-      const callbacks = this.indexCallbacks.get({indexName, type: 'remove'})
+      const callbacks = this.indexCallbacks.get({ indexName, type: 'remove' })
       if (callbacks) {
         for (const callback of callbacks) {
           callback()

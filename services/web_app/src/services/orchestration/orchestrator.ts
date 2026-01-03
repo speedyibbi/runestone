@@ -595,7 +595,7 @@ export default class OrchestrationService {
       )
     }
 
-    // Step 3: Index blob for search (non-blocking)
+    // Step 3: Index blob (non-blocking)
     if (manifest) {
       const entry = ManifestService.findEntry(manifest, uuid)
       if (entry) {
@@ -618,7 +618,7 @@ export default class OrchestrationService {
             id: uuid,
             type: 'image',
             title: entry.title,
-            content: '', // Images don't have searchable text content
+            content: '', // Images don't have text content
             metadata: JSON.stringify({
               filename: entry.title,
               hash: entry.hash,
@@ -681,7 +681,7 @@ export default class OrchestrationService {
       CacheService.upsertManifest(lookupHash, notebookId, encryptedManifest),
     ])
 
-    // Step 6: Index blob for search (non-blocking)
+    // Step 6: Index blob (non-blocking)
     if (metadata.type === 'note') {
       const content = new TextDecoder().decode(dataBuffer)
       IndexerService.addBlob({
@@ -701,7 +701,7 @@ export default class OrchestrationService {
         id: uuid,
         type: 'image',
         title: metadata.title,
-        content: '', // Images don't have searchable text content
+        content: '', // Images don't have text content
         metadata: JSON.stringify({
           filename: metadata.title,
           hash,
@@ -768,7 +768,7 @@ export default class OrchestrationService {
       CacheService.upsertManifest(lookupHash, notebookId, encryptedManifest),
     ])
 
-    // Step 7: Index blob for search (non-blocking)
+    // Step 7: Index blob (non-blocking)
     if (metadata.type === 'note') {
       const content = new TextDecoder().decode(dataBuffer)
       IndexerService.addBlob({
@@ -788,7 +788,7 @@ export default class OrchestrationService {
         id: uuid,
         type: 'image',
         title: metadata.title,
-        content: '', // Images don't have searchable text content
+        content: '', // Images don't have text content
         metadata: JSON.stringify({
           filename: metadata.title,
           hash,
@@ -835,7 +835,7 @@ export default class OrchestrationService {
       CacheService.upsertManifest(lookupHash, notebookId, encryptedManifest),
     ])
 
-    // Step 5: Remove blob from search index (non-blocking)
+    // Step 5: Remove blob from index (non-blocking)
     IndexerService.removeBlob(uuid).catch((error) => {
       console.warn('Failed to remove blob from index:', error)
     })
@@ -923,7 +923,7 @@ export default class OrchestrationService {
               id: entry.uuid,
               type: 'image',
               title: entry.title,
-              content: '', // Images don't have searchable text content
+              content: '', // Images don't have text content
               metadata: JSON.stringify({
                 filename: entry.title,
                 hash: entry.hash,

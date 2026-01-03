@@ -76,7 +76,11 @@ watch(
           'split-view': previewMode === 'split',
         }"
       >
-        <div ref="editorElement" class="editor" :class="{ 'split-left': previewMode === 'split' }"></div>
+        <div
+          ref="editorElement"
+          class="editor"
+          :class="{ 'split-left': previewMode === 'split' }"
+        ></div>
         <div
           v-if="previewMode === 'split'"
           ref="previewElement"

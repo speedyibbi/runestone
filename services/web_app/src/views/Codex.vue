@@ -73,9 +73,14 @@ const combinedUpdateCallback = (update: ViewUpdate) => {
   if (autoSaveCallback) {
     autoSaveCallback(update)
   }
-  
+
   // Sync to preview editor in split mode
-  if (previewMode.value === 'split' && update.docChanged && previewView.value && !isSyncingContent) {
+  if (
+    previewMode.value === 'split' &&
+    update.docChanged &&
+    previewView.value &&
+    !isSyncingContent
+  ) {
     isSyncingContent = true
     const content = update.state.doc.toString()
     const previewContent = previewView.value.state.doc.toString()
@@ -89,7 +94,12 @@ const combinedUpdateCallback = (update: ViewUpdate) => {
 }
 
 // Initialize editor with sigil resolver
-const editorComposable = useEditor(editorElement, combinedUpdateCallback, sigilResolver, previewMode)
+const editorComposable = useEditor(
+  editorElement,
+  combinedUpdateCallback,
+  sigilResolver,
+  previewMode,
+)
 const { editorView, togglePreview, applyPreviewMode } = editorComposable
 
 // Image upload handler
@@ -170,7 +180,7 @@ watch(
           previewViewRef.value = null
         }
       }
-      
+
       // Initialize preview editor in split mode
       if (!previewView.value && previewComposable.initializeEditor) {
         nextTick(() => {
@@ -301,7 +311,12 @@ watch(
 watch(
   () => editorView.value?.state.doc.toString(),
   (content) => {
-    if (previewMode.value === 'split' && content !== undefined && previewView.value && !isSyncingContent) {
+    if (
+      previewMode.value === 'split' &&
+      content !== undefined &&
+      previewView.value &&
+      !isSyncingContent
+    ) {
       const previewContent = previewView.value.state.doc.toString()
       if (content !== previewContent) {
         isSyncingContent = true
@@ -416,18 +431,15 @@ function cleanupScrollSync() {
 }
 
 // Setup scroll sync when editors are ready and in split mode
-watch(
-  [editorView, previewView, () => previewMode.value],
-  ([editor, preview, mode]) => {
-    if (mode === 'split' && editor && preview) {
-      nextTick(() => {
-        setupScrollSync()
-      })
-    } else {
-      cleanupScrollSync()
-    }
-  },
-)
+watch([editorView, previewView, () => previewMode.value], ([editor, preview, mode]) => {
+  if (mode === 'split' && editor && preview) {
+    nextTick(() => {
+      setupScrollSync()
+    })
+  } else {
+    cleanupScrollSync()
+  }
+})
 
 const statusBarUpdateTrigger = ref(0)
 
