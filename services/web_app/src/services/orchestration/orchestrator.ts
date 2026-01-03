@@ -874,21 +874,6 @@ export default class OrchestrationService {
   }
 
   /**
-   * Search notes in a notebook
-   * Supports different search modes: normal, phrase, boolean
-   */
-  static async searchNotes(
-    query: string,
-    options: SearchOptions = {},
-  ): Promise<SearchServiceResult> {
-    try {
-      return await SearchService.search(query, options)
-    } catch (error) {
-      throw new Error(`Search failed: ${error instanceof Error ? error.message : String(error)}`)
-    }
-  }
-
-  /**
    * Build indexes from manifest into the active database
    * Fetches all blobs and indexes them
    */
@@ -961,6 +946,21 @@ export default class OrchestrationService {
       throw new Error(
         `Failed to build indexes: ${error instanceof Error ? error.message : String(error)}`,
       )
+    }
+  }
+
+  /**
+   * Search notes in a notebook
+   * Supports different search modes: normal, phrase, boolean
+   */
+  static async searchNotes(
+    query: string,
+    options: SearchOptions = {},
+  ): Promise<SearchServiceResult> {
+    try {
+      return await SearchService.search(query, options)
+    } catch (error) {
+      throw new Error(`Search failed: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 

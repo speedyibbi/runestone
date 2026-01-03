@@ -11,6 +11,11 @@ export interface IndexSchema<T = Record<string, any>> {
 }
 
 /**
+ * Index callback type
+ */
+export type IndexCallbackType = 'add' | 'update' | 'remove'
+
+/**
  * Default blob_index table data structure
  */
 export interface DefaultBlobData {
@@ -42,6 +47,7 @@ const DEFAULT_SCHEMA: IndexSchema<DefaultBlobData> = {
  */
 export default class IndexerService {
   private static indexes = new Map<string, IndexSchema>()
+  private static indexCallbacks = new Map<{indexName: string, type: IndexCallbackType}, Array<(data?: any) => void>>()
   private static defaultTableRegistered = false
 
   /**
@@ -49,6 +55,17 @@ export default class IndexerService {
    */
   static registerIndex<T = Record<string, any>>(schema: IndexSchema<T>): void {
     this.indexes.set(schema.name, schema as IndexSchema)
+  }
+
+  /**
+   * Register an index callback
+   */
+  static registerIndexCallback<T>(indexName: string, type: 'remove', callback: () => void): void
+  static registerIndexCallback<T>(indexName: string, type: 'add' | 'update', callback: (data: T) => void): void
+  static registerIndexCallback<T>(indexName: string, type: IndexCallbackType, callback: ((data: T) => void) | (() => void)): void {
+    const callbacks = this.indexCallbacks.get({indexName, type}) || []
+    callbacks.push(callback)
+    this.indexCallbacks.set({indexName, type}, callbacks)
   }
 
   /**
@@ -167,6 +184,7 @@ export default class IndexerService {
     }
 
     const promiser = DatabaseService.getPromiser()
+    let isUpdate = false
 
     try {
       // Get primary key value
@@ -197,6 +215,7 @@ export default class IndexerService {
         await promiser('exec', {
           sql: `UPDATE ${indexName} SET ${setClause} WHERE rowid = ${rowid}`,
         })
+        isUpdate = true
       } else {
         // Insert new record
         await promiser('exec', {
@@ -205,6 +224,19 @@ export default class IndexerService {
       }
     } catch (error) {
       console.error(`Error adding blob to index ${indexName}:`, error, { data: blobData })
+      throw error
+    }
+
+    // Call all registered callbacks
+    try {
+      const callbacks = this.indexCallbacks.get({indexName, type: isUpdate ? 'update' : 'add'})
+      if (callbacks) {
+        for (const callback of callbacks) {
+          callback(blobData)
+        }
+      }
+    } catch (error) {
+      console.error(`Error calling callbacks for index ${indexName}:`, error)
       throw error
     }
   }
@@ -256,6 +288,19 @@ export default class IndexerService {
       console.error(`Error removing blob from index ${indexName}:`, error, { id: primaryKeyValue })
       throw error
     }
+
+    // Call all registered callbacks
+    try {
+      const callbacks = this.indexCallbacks.get({indexName, type: 'remove'})
+      if (callbacks) {
+        for (const callback of callbacks) {
+          callback()
+        }
+      }
+    } catch (error) {
+      console.error(`Error calling callbacks for index ${indexName}:`, error)
+      throw error
+    }
   }
 
   /**
@@ -300,6 +345,8 @@ export default class IndexerService {
     }
 
     const promiser = DatabaseService.getPromiser()
+    let toInsert: any[] = []
+    let toUpdate: Array<{ rowid: number; data: any }> = []
 
     try {
       // Start transaction for bulk operation
@@ -328,8 +375,8 @@ export default class IndexerService {
         }
 
         // Separate into inserts and updates
-        const toInsert: any[] = []
-        const toUpdate: Array<{ rowid: number; data: any }> = []
+         toInsert = []
+         toUpdate = []
 
         for (const blob of blobArray) {
           const primaryKeyValue = String(blob[schema.primaryKey])
@@ -404,6 +451,32 @@ export default class IndexerService {
       }
     } catch (error) {
       console.error(`Error batch adding blobs to index ${indexName}:`, error)
+      throw error
+    }
+
+    // Call all registered add callbacks
+    try {
+      const callbacks = this.indexCallbacks.get({indexName, type: 'add'})
+      if (callbacks) {
+        for (const callback of callbacks) {
+          callback(toInsert)
+        }
+      }
+    } catch (error) {
+      console.error(`Error calling callbacks for index ${indexName}:`, error)
+      throw error
+    }
+
+    // Call all registered update callbacks
+    try {
+      const callbacks = this.indexCallbacks.get({indexName, type: 'update'})
+      if (callbacks) {
+        for (const callback of callbacks) {
+          callback(toUpdate.map(({ data }) => data))
+        }
+      }
+    } catch (error) {
+      console.error(`Error calling callbacks for index ${indexName}:`, error)
       throw error
     }
   }
@@ -483,6 +556,19 @@ export default class IndexerService {
       }
     } catch (error) {
       console.error(`Error batch removing blobs from index ${indexName}:`, error)
+      throw error
+    }
+
+    // Call all registered callbacks
+    try {
+      const callbacks = this.indexCallbacks.get({indexName, type: 'remove'})
+      if (callbacks) {
+        for (const callback of callbacks) {
+          callback()
+        }
+      }
+    } catch (error) {
+      console.error(`Error calling callbacks for index ${indexName}:`, error)
       throw error
     }
   }
