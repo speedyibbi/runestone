@@ -27,6 +27,7 @@ import type {
 import type { Map } from '@/interfaces/map'
 import type { Manifest } from '@/interfaces/manifest'
 import type { SyncProgress, SyncResult } from '@/interfaces/sync'
+import type { GraphData, GraphQueryOptions } from '@/interfaces/graph'
 import type { SearchServiceResult, SearchOptions } from '@/interfaces/search'
 
 /**
@@ -966,6 +967,111 @@ export default class OrchestrationService {
     } catch (error) {
       throw new Error(`Search failed: ${error instanceof Error ? error.message : String(error)}`)
     }
+  }
+
+  /**
+   * Get graph data
+   */
+  static async getGraph(options: GraphQueryOptions = {}): Promise<GraphData> {
+    const {
+      queryType,
+      fromUuid,
+      toUuid,
+      centerUuid,
+      depth,
+      minConnections,
+      filters,
+    } = options
+
+    // Route to shortest path if both fromUuid and toUuid are provided
+    if (fromUuid && toUuid) {
+      const path = await GraphService.getShortestPath(fromUuid, toUuid)
+      if (path.length === 0) {
+        return { nodes: [], edges: [], hashtags: new Map() }
+      }
+
+      // Get graph data for all nodes in the path
+      const pathSet = new Set(path)
+      const pathOptions: GraphQueryOptions = {
+        filters: {
+          ...filters,
+          // Filter to only include nodes in the path
+        },
+      }
+      const graphData = await GraphService.getGraph(pathOptions)
+      
+      // Filter nodes to only include those in the path
+      const filteredNodes = graphData.nodes.filter((node) => pathSet.has(node.uuid))
+      
+      // Create edges between consecutive nodes in the path
+      // Also include any existing edges between path nodes
+      const pathEdges: typeof graphData.edges = []
+      const existingEdges = new Set<string>()
+      
+      // Add existing edges between path nodes
+      for (const edge of graphData.edges) {
+        if (pathSet.has(edge.source) && pathSet.has(edge.target)) {
+          const edgeKey = `${edge.source}->${edge.target}`
+          if (!existingEdges.has(edgeKey)) {
+            pathEdges.push(edge)
+            existingEdges.add(edgeKey)
+          }
+        }
+      }
+
+      return {
+        nodes: filteredNodes,
+        edges: pathEdges,
+        hashtags: graphData.hashtags,
+      }
+    }
+
+    // Route to orphan nodes query
+    if (queryType === 'orphans') {
+      const orphanNodes = await GraphService.getOrphanNodes(filters)
+      // Get hashtags for orphan nodes
+      const graphData = await GraphService.getGraph({ filters })
+      return {
+        nodes: orphanNodes,
+        edges: [],
+        hashtags: graphData.hashtags,
+      }
+    }
+
+    // Route to hub nodes query
+    if (queryType === 'hubs' || minConnections !== undefined) {
+      const hubNodes = await GraphService.getHubNodes(minConnections ?? 5, filters)
+      const hubUuids = new Set(hubNodes.map((node) => node.uuid))
+      
+      if (hubUuids.size === 0) {
+        return { nodes: [], edges: [], hashtags: new Map() }
+      }
+
+      // Get full graph data to include edges for hub nodes
+      const graphData = await GraphService.getGraph({
+        filters,
+      })
+      
+      // Filter to only include hub nodes and their connections
+      const filteredNodes = graphData.nodes.filter((node) => hubUuids.has(node.uuid))
+      const filteredEdges = graphData.edges.filter(
+        (edge) => hubUuids.has(edge.source) && hubUuids.has(edge.target),
+      )
+
+      return {
+        nodes: filteredNodes,
+        edges: filteredEdges,
+        hashtags: graphData.hashtags,
+      }
+    }
+
+    // Route to neighborhood query if centerUuid and depth are provided
+    if (centerUuid && depth !== undefined) {
+      return await GraphService.getNodeNeighborhood(centerUuid, depth, filters)
+    }
+
+    // Default: use general getGraph with all provided options
+    return await GraphService.getGraph(options)
   }
 
   /**

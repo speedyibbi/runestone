@@ -49,6 +49,11 @@ export interface GraphQueryOptions {
   maxNodes?: number
   centerUuid?: string // for ego networks
   depth?: number
+  // Query type detection fields
+  fromUuid?: string // for shortest path queries
+  toUuid?: string // for shortest path queries
+  queryType?: 'full' | 'neighborhood' | 'shortestPath' | 'orphans' | 'hubs' // explicit query type
+  minConnections?: number // for hub nodes query
 }
 
 /**

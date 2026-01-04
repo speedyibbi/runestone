@@ -5,6 +5,7 @@ import type { Map } from '@/interfaces/map'
 import type { Manifest } from '@/interfaces/manifest'
 import type { SyncProgress, SyncResult } from '@/interfaces/sync'
 import type { SearchServiceResult, SearchOptions } from '@/interfaces/search'
+import type { GraphData, GraphQueryOptions } from '@/interfaces/graph'
 
 /**
  * Session store for managing user session state
@@ -890,6 +891,20 @@ export const useSessionStore = defineStore('session', () => {
     return await OrchestrationService.searchNotes(query, options)
   }
 
+  // ==================== Graph Operations ====================
+
+  /**
+   * Get graph data for the currently open codex
+   * Supports various query types: full graph, neighborhood, shortest path, orphans, hubs
+   */
+  async function getGraph(options: GraphQueryOptions = {}): Promise<GraphData> {
+    if (!hasOpenCodex.value) {
+      throw new Error('No codex is currently open')
+    }
+
+    return await OrchestrationService.getGraph(options)
+  }
+
   return {
     // Computed
     isActive,
@@ -932,5 +947,8 @@ export const useSessionStore = defineStore('session', () => {
 
     // Search Operations
     searchRunes,
+
+    // Graph Operations
+    getGraph,
   }
 })
