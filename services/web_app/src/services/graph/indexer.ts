@@ -225,101 +225,89 @@ export default class GraphIndexerService {
     const now = new Date().toISOString()
 
     try {
-      // Start transaction
-      await promiser('exec', { sql: 'BEGIN TRANSACTION;' })
+      // Remove existing edges and hashtags for this node
+      await promiser('exec', {
+        sql: `DELETE FROM graph_edges WHERE source_uuid = '${this.escapeSql(uuid)}';`,
+      })
+      await promiser('exec', {
+        sql: `DELETE FROM graph_note_hashtags WHERE note_uuid = '${this.escapeSql(uuid)}';`,
+      })
 
-      try {
-        // Remove existing edges and hashtags for this node
-        await promiser('exec', {
-          sql: `DELETE FROM graph_edges WHERE source_uuid = '${this.escapeSql(uuid)}';`,
-        })
-        await promiser('exec', {
-          sql: `DELETE FROM graph_note_hashtags WHERE note_uuid = '${this.escapeSql(uuid)}';`,
-        })
+      // Upsert node
+      await promiser('exec', {
+        sql: `
+          INSERT OR REPLACE INTO graph_nodes (uuid, title, last_indexed)
+          VALUES ('${this.escapeSql(uuid)}', '${this.escapeSql(title)}', '${now}')
+        `,
+      })
 
-        // Upsert node
+      // Create resolver functions
+      const resolveTitleToUuid: TitleToUuidResolver = (title: string) =>
+        this.resolveTitleToUuid(title)
+      const resolveUuidToTitle: UuidToTitleResolver = (uuid: string) =>
+        this.resolveUuidToTitle(uuid)
+
+      // Extract links and hashtags
+      const { links, hashtags } = await LinkExtractorService.extract(
+        uuid,
+        content,
+        resolveTitleToUuid,
+        resolveUuidToTitle,
+      )
+
+      // Insert edges
+      for (const link of links) {
+        if (link.targetUuid) {
+          // Only create edge if target UUID exists
+          await promiser('exec', {
+            sql: `
+              INSERT OR REPLACE INTO graph_edges 
+              (source_uuid, target_uuid, link_type, link_text, target_title)
+              VALUES (
+                '${this.escapeSql(link.sourceUuid)}',
+                '${this.escapeSql(link.targetUuid)}',
+                '${this.escapeSql(link.type)}',
+                '${this.escapeSql(link.linkText)}',
+                ${link.targetTitle ? `'${this.escapeSql(link.targetTitle)}'` : 'NULL'}
+              )
+            `,
+          })
+        }
+      }
+
+      // Update hashtags
+      const hashtagCounts = new Map<string, number>()
+      for (const tag of hashtags) {
+        // Track note-hashtag relationship
         await promiser('exec', {
           sql: `
-            INSERT OR REPLACE INTO graph_nodes (uuid, title, last_indexed)
-            VALUES ('${this.escapeSql(uuid)}', '${this.escapeSql(title)}', '${now}')
+            INSERT OR REPLACE INTO graph_note_hashtags (note_uuid, hashtag)
+            VALUES ('${this.escapeSql(uuid)}', '${this.escapeSql(tag.hashtag)}')
           `,
         })
 
-        // Create resolver functions
-        const resolveTitleToUuid: TitleToUuidResolver = (title: string) =>
-          this.resolveTitleToUuid(title)
-        const resolveUuidToTitle: UuidToTitleResolver = (uuid: string) =>
-          this.resolveUuidToTitle(uuid)
+        // Count hashtags
+        hashtagCounts.set(tag.hashtag, (hashtagCounts.get(tag.hashtag) || 0) + 1)
+      }
 
-        // Extract links and hashtags
-        const { links, hashtags } = await LinkExtractorService.extract(
-          uuid,
-          content,
-          resolveTitleToUuid,
-          resolveUuidToTitle,
-        )
+      // Update hashtag counts
+      for (const [hashtag, count] of hashtagCounts.entries()) {
+        // Get current count
+        const currentResponse = await promiser('exec', {
+          sql: `SELECT count FROM graph_hashtags WHERE hashtag = '${this.escapeSql(hashtag)}'`,
+          returnValue: 'resultRows',
+        })
 
-        // Insert edges
-        for (const link of links) {
-          if (link.targetUuid) {
-            // Only create edge if target UUID exists
-            await promiser('exec', {
-              sql: `
-                INSERT OR REPLACE INTO graph_edges 
-                (source_uuid, target_uuid, link_type, link_text, target_title)
-                VALUES (
-                  '${this.escapeSql(link.sourceUuid)}',
-                  '${this.escapeSql(link.targetUuid)}',
-                  '${this.escapeSql(link.type)}',
-                  '${this.escapeSql(link.linkText)}',
-                  ${link.targetTitle ? `'${this.escapeSql(link.targetTitle)}'` : 'NULL'}
-                )
-              `,
-            })
-          }
-        }
+        const currentRows = currentResponse.result?.resultRows ?? currentResponse.resultRows ?? []
+        const currentCount = currentRows[0]?.count ?? currentRows[0]?.[0] ?? 0
 
-        // Update hashtags
-        const hashtagCounts = new Map<string, number>()
-        for (const tag of hashtags) {
-          // Track note-hashtag relationship
-          await promiser('exec', {
-            sql: `
-              INSERT OR REPLACE INTO graph_note_hashtags (note_uuid, hashtag)
-              VALUES ('${this.escapeSql(uuid)}', '${this.escapeSql(tag.hashtag)}')
-            `,
-          })
-
-          // Count hashtags
-          hashtagCounts.set(tag.hashtag, (hashtagCounts.get(tag.hashtag) || 0) + 1)
-        }
-
-        // Update hashtag counts
-        for (const [hashtag, count] of hashtagCounts.entries()) {
-          // Get current count
-          const currentResponse = await promiser('exec', {
-            sql: `SELECT count FROM graph_hashtags WHERE hashtag = '${this.escapeSql(hashtag)}'`,
-            returnValue: 'resultRows',
-          })
-
-          const currentRows = currentResponse.result?.resultRows ?? currentResponse.resultRows ?? []
-          const currentCount = currentRows[0]?.count ?? currentRows[0]?.[0] ?? 0
-
-          // Update count
-          await promiser('exec', {
-            sql: `
-              INSERT OR REPLACE INTO graph_hashtags (hashtag, count)
-              VALUES ('${this.escapeSql(hashtag)}', ${currentCount + count})
-            `,
-          })
-        }
-
-        // Commit transaction
-        await promiser('exec', { sql: 'COMMIT;' })
-      } catch (error) {
-        // Rollback on error
-        await promiser('exec', { sql: 'ROLLBACK;' })
-        throw error
+        // Update count
+        await promiser('exec', {
+          sql: `
+            INSERT OR REPLACE INTO graph_hashtags (hashtag, count)
+            VALUES ('${this.escapeSql(hashtag)}', ${currentCount + count})
+          `,
+        })
       }
     } catch (error) {
       console.error(`Error indexing graph node ${uuid}:`, error)
@@ -338,69 +326,60 @@ export default class GraphIndexerService {
     const promiser = DatabaseService.getPromiser()
 
     try {
-      await promiser('exec', { sql: 'BEGIN TRANSACTION;' })
+      // Remove edges where this node is source
+      await promiser('exec', {
+        sql: `DELETE FROM graph_edges WHERE source_uuid = '${this.escapeSql(uuid)}';`,
+      })
 
-      try {
-        // Remove edges where this node is source
-        await promiser('exec', {
-          sql: `DELETE FROM graph_edges WHERE source_uuid = '${this.escapeSql(uuid)}';`,
-        })
+      // Remove edges where this node is target
+      await promiser('exec', {
+        sql: `DELETE FROM graph_edges WHERE target_uuid = '${this.escapeSql(uuid)}';`,
+      })
 
-        // Remove edges where this node is target
-        await promiser('exec', {
-          sql: `DELETE FROM graph_edges WHERE target_uuid = '${this.escapeSql(uuid)}';`,
-        })
+      // Remove hashtag relationships
+      const hashtagResponse = await promiser('exec', {
+        sql: `SELECT hashtag FROM graph_note_hashtags WHERE note_uuid = '${this.escapeSql(uuid)}'`,
+        returnValue: 'resultRows',
+      })
 
-        // Remove hashtag relationships
-        const hashtagResponse = await promiser('exec', {
-          sql: `SELECT hashtag FROM graph_note_hashtags WHERE note_uuid = '${this.escapeSql(uuid)}'`,
-          returnValue: 'resultRows',
-        })
+      const hashtagRows = hashtagResponse.result?.resultRows ?? hashtagResponse.resultRows ?? []
 
-        const hashtagRows = hashtagResponse.result?.resultRows ?? hashtagResponse.resultRows ?? []
+      for (const row of hashtagRows) {
+        const hashtag = row.hashtag ?? row[0]
+        if (hashtag) {
+          // Decrement count
+          const countResponse = await promiser('exec', {
+            sql: `SELECT count FROM graph_hashtags WHERE hashtag = '${this.escapeSql(hashtag)}'`,
+            returnValue: 'resultRows',
+          })
 
-        for (const row of hashtagRows) {
-          const hashtag = row.hashtag ?? row[0]
-          if (hashtag) {
-            // Decrement count
-            const countResponse = await promiser('exec', {
-              sql: `SELECT count FROM graph_hashtags WHERE hashtag = '${this.escapeSql(hashtag)}'`,
-              returnValue: 'resultRows',
+          const countRows = countResponse.result?.resultRows ?? countResponse.resultRows ?? []
+          const currentCount = countRows[0]?.count ?? countRows[0]?.[0] ?? 0
+
+          if (currentCount > 1) {
+            await promiser('exec', {
+              sql: `
+                UPDATE graph_hashtags SET count = ${currentCount - 1}
+                WHERE hashtag = '${this.escapeSql(hashtag)}'
+              `,
             })
-
-            const countRows = countResponse.result?.resultRows ?? countResponse.resultRows ?? []
-            const currentCount = countRows[0]?.count ?? countRows[0]?.[0] ?? 0
-
-            if (currentCount > 1) {
-              await promiser('exec', {
-                sql: `
-                  UPDATE graph_hashtags SET count = ${currentCount - 1}
-                  WHERE hashtag = '${this.escapeSql(hashtag)}'
-                `,
-              })
-            } else {
-              // Remove hashtag if count reaches 0
-              await promiser('exec', {
-                sql: `DELETE FROM graph_hashtags WHERE hashtag = '${this.escapeSql(hashtag)}'`,
-              })
-            }
+          } else {
+            // Remove hashtag if count reaches 0
+            await promiser('exec', {
+              sql: `DELETE FROM graph_hashtags WHERE hashtag = '${this.escapeSql(hashtag)}'`,
+            })
           }
         }
-
-        await promiser('exec', {
-          sql: `DELETE FROM graph_note_hashtags WHERE note_uuid = '${this.escapeSql(uuid)}';`,
-        })
-
-        // Remove node
-        await promiser('exec', {
-          sql: `DELETE FROM graph_nodes WHERE uuid = '${this.escapeSql(uuid)}';`,
-        })
-
-        await promiser('exec', { sql: 'COMMIT;' })
-      } catch (error) {
-        await promiser('exec', { sql: 'ROLLBACK;' })
-        throw error
       }
+
+      await promiser('exec', {
+        sql: `DELETE FROM graph_note_hashtags WHERE note_uuid = '${this.escapeSql(uuid)}';`,
+      })
+
+      // Remove node
+      await promiser('exec', {
+        sql: `DELETE FROM graph_nodes WHERE uuid = '${this.escapeSql(uuid)}';`,
+      })
     } catch (error) {
       console.error(`Error removing graph node ${uuid}:`, error)
       throw error
