@@ -859,7 +859,7 @@ export default class OrchestrationService {
   ): Promise<void> {
     try {
       // Register indexes and callbacks
-      GraphService.register()
+      await GraphService.register()
 
       // Create all registered indexes
       await IndexerService.createIndexes()
