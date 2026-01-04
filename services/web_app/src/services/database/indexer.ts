@@ -63,10 +63,7 @@ export default class IndexerService {
   /**
    * Register an index callback for the default blob_index table
    */
-  static registerIndexCallback<T>(
-    type: IndexCallbackType,
-    callback: (data: T) => void,
-  ): void
+  static registerIndexCallback<T>(type: IndexCallbackType, callback: (data: T) => void): void
   /**
    * Register an index callback for a specific index
    */

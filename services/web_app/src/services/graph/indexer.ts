@@ -62,7 +62,7 @@ export default class GraphIndexerService {
     IndexerService.registerIndexCallback<string | string[]>('remove', async (idOrIds) => {
       // Handle both single ID and array of IDs (from batch operations)
       const ids = Array.isArray(idOrIds) ? idOrIds : [idOrIds]
-      
+
       for (const id of ids) {
         try {
           await this.removeNode(id)
@@ -357,8 +357,7 @@ export default class GraphIndexerService {
           returnValue: 'resultRows',
         })
 
-        const hashtagRows =
-          hashtagResponse.result?.resultRows ?? hashtagResponse.resultRows ?? []
+        const hashtagRows = hashtagResponse.result?.resultRows ?? hashtagResponse.resultRows ?? []
 
         for (const row of hashtagRows) {
           const hashtag = row.hashtag ?? row[0]

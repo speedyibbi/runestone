@@ -12,16 +12,16 @@ import type {
  * GraphService provides high-level graph query APIs with filtering
  */
 export default class GraphService {
-    /**
-     * Initialize graph tables and register callbacks
-     */
-    static async register(): Promise<void> {
-        if (!DatabaseService.isReady()) {
-            throw new Error('Database is not ready')
-        }
-        
-        await GraphIndexer.initialize()
+  /**
+   * Initialize graph tables and register callbacks
+   */
+  static async register(): Promise<void> {
+    if (!DatabaseService.isReady()) {
+      throw new Error('Database is not ready')
     }
+
+    await GraphIndexer.initialize()
+  }
 
   /**
    * Get full graph or subgraph with filters
@@ -124,12 +124,8 @@ export default class GraphService {
         const title = row.title ?? row[1]
 
         // Count edges
-        const outlinkCount = edgeRows.filter(
-          (e: any) => (e.source_uuid ?? e[0]) === uuid,
-        ).length
-        const backlinkCount = edgeRows.filter(
-          (e: any) => (e.target_uuid ?? e[1]) === uuid,
-        ).length
+        const outlinkCount = edgeRows.filter((e: any) => (e.source_uuid ?? e[0]) === uuid).length
+        const backlinkCount = edgeRows.filter((e: any) => (e.target_uuid ?? e[1]) === uuid).length
 
         // Get hashtags for this node
         const hashtagsResponse = await promiser('exec', {
@@ -137,8 +133,7 @@ export default class GraphService {
           returnValue: 'resultRows',
         })
 
-        const hashtagRows =
-          hashtagsResponse.result?.resultRows ?? hashtagsResponse.resultRows ?? []
+        const hashtagRows = hashtagsResponse.result?.resultRows ?? hashtagsResponse.resultRows ?? []
         const hashtags = hashtagRows.map((h: any) => h.hashtag ?? h[0])
 
         nodes.push({
@@ -205,10 +200,7 @@ export default class GraphService {
       const outlinks = await GraphIndexer.getOutlinks(currentUuid)
       const backlinks = await GraphIndexer.getBacklinks(currentUuid)
 
-      const neighbors = [
-        ...outlinks.map((l) => l.target),
-        ...backlinks.map((l) => l.source),
-      ]
+      const neighbors = [...outlinks.map((l) => l.target), ...backlinks.map((l) => l.source)]
 
       for (const neighbor of neighbors) {
         if (neighbor === toUuid) {
@@ -337,8 +329,7 @@ export default class GraphService {
           returnValue: 'resultRows',
         })
 
-        const hashtagRows =
-          hashtagsResponse.result?.resultRows ?? hashtagsResponse.resultRows ?? []
+        const hashtagRows = hashtagsResponse.result?.resultRows ?? hashtagsResponse.resultRows ?? []
         const hashtags = hashtagRows.map((h: any) => h.hashtag ?? h[0])
 
         nodes.push({

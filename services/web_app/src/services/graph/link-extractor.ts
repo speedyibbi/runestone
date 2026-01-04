@@ -30,19 +30,11 @@ export default class LinkExtractorService {
     const hashtags: ExtractedHashtag[] = []
 
     // Extract wiki-style links: [[Title]] or [[Title|Display Text]]
-    const wikiLinks = await this.extractWikiLinks(
-      sourceUuid,
-      content,
-      resolveTitleToUuid,
-    )
+    const wikiLinks = await this.extractWikiLinks(sourceUuid, content, resolveTitleToUuid)
     links.push(...wikiLinks)
 
     // Extract markdown links: [text](url) - only internal links
-    const markdownLinks = await this.extractMarkdownLinks(
-      sourceUuid,
-      content,
-      resolveUuidToTitle,
-    )
+    const markdownLinks = await this.extractMarkdownLinks(sourceUuid, content, resolveUuidToTitle)
     links.push(...markdownLinks)
 
     // Extract hashtags: #tag or #multi-word-tag
@@ -120,7 +112,8 @@ export default class LinkExtractorService {
       const url = match[2].trim()
 
       // rune://uuid link format
-      const runeProtocolPattern = /^rune:\/\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i
+      const runeProtocolPattern =
+        /^rune:\/\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i
 
       if (runeProtocolPattern.test(url)) {
         const uuidMatch = url.match(runeProtocolPattern)
