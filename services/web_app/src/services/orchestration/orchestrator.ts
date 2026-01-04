@@ -8,6 +8,7 @@ import RemoteService from '@/services/l2-storage/remote'
 import SyncService from '@/services/orchestration/sync'
 import DatabaseService from '@/services/database/db'
 import IndexerService from '@/services/database/indexer'
+import GraphService from '@/services/graph/graph'
 import SearchService from '@/services/search/search'
 import { toBase64 } from '@/utils/helpers'
 import type {
@@ -857,6 +858,9 @@ export default class OrchestrationService {
     manifest?: Manifest,
   ): Promise<void> {
     try {
+      // Register indexes and callbacks
+      GraphService.register()
+
       // Create all registered indexes
       await IndexerService.createIndexes()
 

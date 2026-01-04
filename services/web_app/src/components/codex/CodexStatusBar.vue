@@ -88,7 +88,7 @@ const displayStatusClass = computed(() => {
       </span>
       <template v-else>
         <span v-if="currentRuneTitle" class="status-item">{{ currentRuneTitle }}</span>
-        <span v-else class="status-item">No document open</span>
+        <span v-else class="status-item">No rune selected</span>
       </template>
     </div>
     <div class="status-bar-right">

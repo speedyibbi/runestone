@@ -5,6 +5,7 @@ import type { SearchResult, SearchOptions, SearchServiceResult } from '@/interfa
  * SearchService handles full-text search using SQLite FTS5
  */
 export default class SearchService {
+  private static readonly DEFAULT_INDEXER_TABLE = 'blob_index'
   private static readonly FEATURE_FTS_SEARCH = __APP_CONFIG__.global.featureFlags.ftsSearch
 
   /**
@@ -83,14 +84,14 @@ export default class SearchService {
 
     // Get ranking weights (defaults: title=1.0, content=1.0)
     // FTS5 bm25() function signature: bm25(table, weight1, weight2, weight3, weight4, weight5, ...)
-    // blob_index table columns: id, type, title, content, metadata
+    // Default indexer table columns: id, type, title, content, metadata
     // We use 0 for id, 0 for type, title weight, content weight, 0 for metadata
     const titleWeight = ranking?.weights?.title ?? 1.0
     const contentWeight = ranking?.weights?.content ?? 1.0
 
     // Build BM25 function call with weights
-    // bm25(blob_index, id_weight, type_weight, title_weight, content_weight, metadata_weight)
-    const bm25Function = `bm25(blob_index, 0, 0, ${titleWeight}, ${contentWeight}, 0)`
+    // bm25(default_indexer_table, id_weight, type_weight, title_weight, content_weight, metadata_weight)
+    const bm25Function = `bm25(${this.DEFAULT_INDEXER_TABLE}, 0, 0, ${titleWeight}, ${contentWeight}, 0)`
 
     try {
       const promiser = DatabaseService.getPromiser()
@@ -109,10 +110,10 @@ export default class SearchService {
           SELECT 
             id as uuid,
             title,
-            snippet(blob_index, 3, '<mark>', '</mark>', '...', 32) as snippet,
+            snippet(${this.DEFAULT_INDEXER_TABLE}, 3, '<mark>', '</mark>', '...', 32) as snippet,
             ${bm25Function} as rank
-          FROM blob_index
-          WHERE type = 'note' AND blob_index MATCH '${escapedQuery}'
+          FROM ${this.DEFAULT_INDEXER_TABLE}
+          WHERE type = 'note' AND ${this.DEFAULT_INDEXER_TABLE} MATCH '${escapedQuery}'
           ORDER BY ${bm25Function}
           LIMIT ${limit} OFFSET ${offset};
         `,
@@ -173,7 +174,7 @@ export default class SearchService {
         total = results.length
       } else {
         const countResponse = await promiser('exec', {
-          sql: `SELECT COUNT(*) as count FROM blob_index WHERE type = 'note' AND blob_index MATCH '${escapedQuery}';`,
+          sql: `SELECT COUNT(*) as count FROM ${this.DEFAULT_INDEXER_TABLE} WHERE type = 'note' AND ${this.DEFAULT_INDEXER_TABLE} MATCH '${escapedQuery}';`,
           returnValue: 'resultRows',
         })
         total =

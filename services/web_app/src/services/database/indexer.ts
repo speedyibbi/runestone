@@ -61,21 +61,43 @@ export default class IndexerService {
   }
 
   /**
-   * Register an index callback
+   * Register an index callback for the default blob_index table
    */
-  static registerIndexCallback<T>(indexName: string, type: 'remove', callback: () => void): void
   static registerIndexCallback<T>(
-    indexName: string,
-    type: 'add' | 'update',
+    type: IndexCallbackType,
     callback: (data: T) => void,
   ): void
+  /**
+   * Register an index callback for a specific index
+   */
   static registerIndexCallback<T>(
     indexName: string,
     type: IndexCallbackType,
-    callback: ((data: T) => void) | (() => void),
+    callback: (data: T) => void,
+  ): void
+  static registerIndexCallback<T>(
+    indexNameOrType: string | IndexCallbackType,
+    typeOrCallback: IndexCallbackType | ((data: T) => void),
+    callback?: (data: T) => void,
   ): void {
+    let indexName: string
+    let type: IndexCallbackType
+    let cb: (data: T) => void
+
+    if (callback === undefined) {
+      // First overload: (type, callback)
+      indexName = DEFAULT_TABLE_NAME
+      type = indexNameOrType as IndexCallbackType
+      cb = typeOrCallback as (data: T) => void
+    } else {
+      // Second overload: (indexName, type, callback)
+      indexName = indexNameOrType as string
+      type = typeOrCallback as IndexCallbackType
+      cb = callback
+    }
+
     const callbacks = this.indexCallbacks.get({ indexName, type }) || []
-    callbacks.push(callback)
+    callbacks.push(cb)
     this.indexCallbacks.set({ indexName, type }, callbacks)
   }
 
@@ -305,7 +327,7 @@ export default class IndexerService {
       const callbacks = this.indexCallbacks.get({ indexName, type: 'remove' })
       if (callbacks) {
         for (const callback of callbacks) {
-          callback()
+          callback(primaryKeyValue)
         }
       }
     } catch (error) {
@@ -575,7 +597,7 @@ export default class IndexerService {
       const callbacks = this.indexCallbacks.get({ indexName, type: 'remove' })
       if (callbacks) {
         for (const callback of callbacks) {
-          callback()
+          callback(idArray)
         }
       }
     } catch (error) {
