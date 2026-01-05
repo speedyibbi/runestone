@@ -17,6 +17,7 @@ const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
 const isFtsEnabled = __APP_CONFIG__.global.featureFlags.ftsSearch
+const isGraphEnabled = __APP_CONFIG__.global.featureFlags.graph
 
 function togglePanel(panel: 'files' | 'search' | 'graph') {
   emit('update:activePanel', panel)
@@ -96,6 +97,7 @@ function togglePanel(panel: 'files' | 'search' | 'graph') {
         </svg>
       </button>
       <button
+        v-if="isGraphEnabled"
         class="ribbon-icon"
         :class="{ active: !collapsed && activePanel === 'graph' }"
         @click="togglePanel('graph')"

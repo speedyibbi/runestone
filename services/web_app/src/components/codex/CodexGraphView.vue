@@ -6,6 +6,8 @@ import Loader from '@/components/base/Loader.vue'
 import Dropdown from '@/components/form/Dropdown.vue'
 import type { GraphNode, GraphEdge, GraphQueryOptions } from '@/interfaces/graph'
 
+const isGraphEnabled = __APP_CONFIG__.global.featureFlags.graph
+
 // Extend GraphNode with d3 simulation properties
 interface GraphNodeWithSimulation extends GraphNode {
   x?: number
@@ -65,6 +67,12 @@ const centerNodeUuid = ref<string | null>(null)
 const neighborhoodDepth = ref<number>(2)
 
 async function loadGraph() {
+  if (!isGraphEnabled) {
+    error.value = 'Graph feature is disabled'
+    isLoading.value = false
+    return
+  }
+
   if (!sessionStore.hasOpenCodex) {
     error.value = 'No codex is currently open'
     isLoading.value = false

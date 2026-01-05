@@ -12,10 +12,16 @@ import type {
  * GraphService provides high-level graph query APIs with filtering
  */
 export default class GraphService {
+  private static readonly FEATURE_GRAPH = __APP_CONFIG__.global.featureFlags.graph
+
   /**
    * Initialize graph tables and register callbacks
    */
   static async register(): Promise<void> {
+    if (!this.FEATURE_GRAPH) {
+      return
+    }
+
     if (!DatabaseService.isReady()) {
       throw new Error('Database is not ready')
     }
@@ -27,6 +33,10 @@ export default class GraphService {
    * Get full graph or subgraph with filters
    */
   static async getGraph(options: GraphQueryOptions = {}): Promise<GraphData> {
+    if (!this.FEATURE_GRAPH) {
+      return { nodes: [], edges: [], hashtags: new Map() }
+    }
+
     if (!DatabaseService.isReady()) {
       return { nodes: [], edges: [], hashtags: new Map() }
     }
@@ -182,6 +192,10 @@ export default class GraphService {
    * Get shortest path between two nodes (BFS)
    */
   static async getShortestPath(fromUuid: string, toUuid: string): Promise<string[]> {
+    if (!this.FEATURE_GRAPH) {
+      return []
+    }
+
     if (!DatabaseService.isReady()) {
       return []
     }
@@ -221,6 +235,10 @@ export default class GraphService {
    * Get orphan nodes (nodes with no links)
    */
   static async getOrphanNodes(filters?: GraphFilters): Promise<GraphNode[]> {
+    if (!this.FEATURE_GRAPH) {
+      return []
+    }
+
     if (!DatabaseService.isReady()) {
       return []
     }
@@ -279,6 +297,10 @@ export default class GraphService {
     minConnections: number = 5,
     filters?: GraphFilters,
   ): Promise<GraphNode[]> {
+    if (!this.FEATURE_GRAPH) {
+      return []
+    }
+
     if (!DatabaseService.isReady()) {
       return []
     }

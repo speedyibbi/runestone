@@ -5,13 +5,16 @@ interface Emits {
 
 const emit = defineEmits<Emits>()
 
+const isGraphEnabled = __APP_CONFIG__.global.featureFlags.graph
+
 function handleOpenGraph() {
+  if (!isGraphEnabled) return
   emit('openGraph')
 }
 </script>
 
 <template>
-  <div class="sidebar-section">
+  <div v-if="isGraphEnabled" class="sidebar-section">
     <div class="section-header">
       <span class="section-title">Graph View</span>
     </div>

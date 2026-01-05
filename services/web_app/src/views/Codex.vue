@@ -831,6 +831,11 @@ function handleTabClose(tab: Tab) {
 }
 
 function handleOpenGraph() {
+  const isGraphEnabled = __APP_CONFIG__.global.featureFlags.graph
+  if (!isGraphEnabled) {
+    return
+  }
+
   // Check if graph tab already exists
   const existingGraphTab = tabs.value.find((t) => !t.runeId && t.title === 'Graph View')
   if (existingGraphTab) {
