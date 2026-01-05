@@ -28,6 +28,7 @@
     "@lezer/highlight": "^1.2.3",
     "@noble/hashes": "^1.8.0",
     "@sqlite.org/sqlite-wasm": "^3.51.1-build2",
+    "d3": "^7.9.0",
     "katex": "^0.16.27",
     "pinia": "^3.0.3",
     "vue": "^3.5.18",
@@ -36,6 +37,7 @@
   "devDependencies": {
     "@runestone/config": "*",
     "@tsconfig/node22": "^22.0.2",
+    "@types/d3": "^7.4.3",
     "@types/node": "^22.16.5",
     "@vitejs/plugin-vue": "^6.0.1",
     "@vue/eslint-config-prettier": "^10.2.0",
