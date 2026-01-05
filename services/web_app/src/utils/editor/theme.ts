@@ -488,6 +488,32 @@ export const minimalTheme = EditorView.theme(
       borderColor: 'var(--color-error-border)',
       backgroundColor: 'var(--color-error-bg)',
     },
+
+    // Wiki links - styled to match markdown links
+    '.cm-wiki-link': {
+      color: 'var(--color-accent)',
+      textDecoration: 'underline',
+      cursor: 'pointer',
+    },
+
+    // Hashtags - Obsidian-style pill/badge appearance
+    '.cm-hashtag': {
+      display: 'inline-block',
+      backgroundColor: 'var(--color-overlay-medium)',
+      color: 'var(--color-accent)',
+      padding: '0.15rem 0.5rem',
+      borderRadius: '0.25rem',
+      fontSize: '0.875rem',
+      fontWeight: '500',
+      cursor: 'pointer',
+      transition: 'background-color 0.2s ease',
+      verticalAlign: 'baseline',
+      lineHeight: '1.4',
+    },
+
+    '.cm-hashtag:hover': {
+      backgroundColor: 'var(--color-overlay-hover)',
+    },
   },
   { dark: true },
 )

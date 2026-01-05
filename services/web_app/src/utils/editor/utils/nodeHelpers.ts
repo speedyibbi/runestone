@@ -49,7 +49,7 @@ export function findAncestorNode(node: SyntaxNode | null, nodeType: string): Syn
 
 /**
  * Get link URL at a given position
- * Handles inline links, autolinks, and reference-style links
+ * Handles inline links, autolinks, reference-style links, and wiki links
  */
 export function getLinkAtPos(view: EditorView, pos: number): string | null {
   const tree = syntaxTree(view.state)
@@ -92,6 +92,47 @@ export function getLinkAtPos(view: EditorView, pos: number): string | null {
       return url.trim()
     }
     autolinkNode = autolinkNode.parent
+  }
+
+  // Check for wiki links: [[Title]] or [[Title|Display Text]]
+  // We need to scan the text around the position to find wiki links
+  const line = view.state.doc.lineAt(pos)
+  const lineText = line.text
+  const lineStart = line.from
+  const posInLine = pos - lineStart
+
+  // Find all wiki links in the line
+  const wikiLinkRegex = /\[\[([^\]]+?)(?:\|([^\]]+?))?\]\]/g
+  let wikiMatch
+  while ((wikiMatch = wikiLinkRegex.exec(lineText)) !== null) {
+    const matchStart = lineStart + wikiMatch.index
+    const matchEnd = matchStart + wikiMatch[0].length
+
+    // Check if the position is within this wiki link
+    if (pos >= matchStart && pos <= matchEnd) {
+      const targetTitle = wikiMatch[1].trim()
+      // Return the target title as the link (could be converted to a URL later)
+      // For now, we'll return it as-is, but it could be prefixed with a protocol
+      // or converted to a rune:// URL format if needed
+      return targetTitle
+    }
+  }
+
+  // Check for hashtags: #tag or #multi-word-tag
+  // Pattern matches at start of line or after whitespace
+  const hashtagRegex = /(?:^|\s)(#)([\w-]+)/g
+  let hashtagMatch
+  while ((hashtagMatch = hashtagRegex.exec(lineText)) !== null) {
+    const fullMatchStart = lineStart + hashtagMatch.index
+    const hashStart = fullMatchStart + hashtagMatch[0].indexOf('#')
+    const tagEnd = fullMatchStart + hashtagMatch[0].length
+
+    // Check if the position is within this hashtag (including the #)
+    if (pos >= hashStart && pos <= tagEnd) {
+      const hashtag = hashtagMatch[2].toLowerCase()
+      // Return the hashtag prefixed with # for identification
+      return `#${hashtag}`
+    }
   }
 
   return null

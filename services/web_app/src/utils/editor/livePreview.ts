@@ -121,6 +121,115 @@ function buildDecorations(view: EditorView, isPreviewMode = false): DecorationSe
     )
   })
 
+  // Track processed wiki links to avoid duplicates
+  const processedWikiLinks = new Set<number>()
+
+  // Scan for wiki links [[Title]] or [[Title|Display Text]]
+  for (const { from, to } of view.visibleRanges) {
+    const text = view.state.doc.sliceString(from, to)
+
+    // Find wiki links: [[Title]] or [[Title|Display Text]]
+    const wikiLinkRegex = /\[\[([^\]]+?)(?:\|([^\]]+?))?\]\]/g
+    let wikiMatch
+    while ((wikiMatch = wikiLinkRegex.exec(text)) !== null) {
+      const matchStart = from + wikiMatch.index
+      const matchEnd = matchStart + wikiMatch[0].length
+      const targetTitle = wikiMatch[1].trim()
+      const displayText = wikiMatch[2]?.trim() || targetTitle
+
+      // Check if cursor is within the wiki link
+      const cursorPos = view.state.selection.main.head
+      const cursorInWikiLink = cursorPos >= matchStart && cursorPos <= matchEnd
+
+      if (!cursorInWikiLink && !processedWikiLinks.has(matchStart)) {
+        processedWikiLinks.add(matchStart)
+
+        // Hide the opening brackets [[
+        decorations.push(Decoration.replace({}).range(matchStart, matchStart + 2))
+
+        // Hide the closing brackets ]]
+        decorations.push(Decoration.replace({}).range(matchEnd - 2, matchEnd))
+
+        if (wikiMatch[2]) {
+          // Has display text: [[Title|Display Text]]
+          // Hide the target title and pipe, show only display text as link
+          const targetStart = matchStart + 2
+          const targetEnd = targetStart + targetTitle.length
+          const pipeEnd = targetEnd + 1 // pipe is 1 char
+          const displayStart = pipeEnd
+          const displayEnd = matchEnd - 2
+
+          // Hide target title and pipe
+          decorations.push(Decoration.replace({}).range(targetStart, displayStart))
+
+          // Decorate the display text to look like a markdown link
+          decorations.push(
+            Decoration.mark({
+              class: 'cm-wiki-link',
+              attributes: {
+                'data-wiki-target': targetTitle,
+              },
+            }).range(displayStart, displayEnd),
+          )
+        } else {
+          // No display text: [[Title]] - show title as link
+          const linkTextStart = matchStart + 2
+          const linkTextEnd = matchEnd - 2
+
+          decorations.push(
+            Decoration.mark({
+              class: 'cm-wiki-link',
+              attributes: {
+                'data-wiki-target': targetTitle,
+              },
+            }).range(linkTextStart, linkTextEnd),
+          )
+        }
+      }
+    }
+  }
+
+  // Track processed hashtags to avoid duplicates
+  const processedHashtags = new Set<number>()
+
+  // Scan for hashtags #tag or #multi-word-tag
+  for (const { from, to } of view.visibleRanges) {
+    const text = view.state.doc.sliceString(from, to)
+
+    // Find hashtags: #tag (word characters and hyphens)
+    // Pattern matches at start of line or after whitespace
+    const hashtagRegex = /(?:^|\s)(#)([\w-]+)/g
+    let hashtagMatch
+    while ((hashtagMatch = hashtagRegex.exec(text)) !== null) {
+      const fullMatchStart = from + hashtagMatch.index
+      const hashStart = fullMatchStart + hashtagMatch[0].indexOf('#')
+      const tagStart = hashStart + 1 // After the #
+      const tagEnd = fullMatchStart + hashtagMatch[0].length
+      const hashtag = hashtagMatch[2]
+
+      // Check if cursor is within the hashtag
+      const cursorPos = view.state.selection.main.head
+      const cursorInHashtag = cursorPos >= hashStart && cursorPos <= tagEnd
+
+      if (!cursorInHashtag && !processedHashtags.has(hashStart)) {
+        processedHashtags.add(hashStart)
+
+        // Hide the # symbol
+        decorations.push(Decoration.replace({}).range(hashStart, tagStart))
+
+        // Decorate the tag text to look like an Obsidian tag (pill/badge style)
+        decorations.push(
+          Decoration.mark({
+            class: 'cm-hashtag',
+            attributes: {
+              'data-hashtag': hashtag.toLowerCase(),
+            },
+          }).range(tagStart, tagEnd),
+        )
+      }
+    }
+  }
+
   // Scan for math equations (inline $...$ and block $$...$$)
   for (const { from, to } of view.visibleRanges) {
     const text = view.state.doc.sliceString(from, to)
