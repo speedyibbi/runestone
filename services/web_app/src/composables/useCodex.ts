@@ -514,7 +514,16 @@ export function useCodex(
         throw new Error('Rune title cannot be empty')
       }
 
-      const runeId = await sessionStore.createRune(title.trim(), content)
+      const trimmedTitle = title.trim()
+
+      // Check if title already exists
+      const existingRunes = sessionStore.listRunes()
+      const titleExists = existingRunes.some((rune) => rune.title === trimmedTitle)
+      if (titleExists) {
+        throw new Error(`A rune with the title "${trimmedTitle}" already exists`)
+      }
+
+      const runeId = await sessionStore.createRune(trimmedTitle, content)
 
       // Refresh rune list
       refreshRuneList()
@@ -596,6 +605,16 @@ export function useCodex(
 
       const oldTitle = runeInfo.title
       const trimmedNewTitle = newTitle.trim()
+
+      // Check if the new title already exists (excluding the current rune)
+      const existingRunes = sessionStore.listRunes()
+      const titleExists = existingRunes.some(
+        (rune) => rune.title === trimmedNewTitle && rune.uuid !== runeId,
+      )
+      if (titleExists) {
+        throw new Error(`A rune with the title "${trimmedNewTitle}" already exists`)
+      }
+
       const isDir = isDirectory(oldTitle)
 
       // If renaming a directory, find all children and update their paths
@@ -623,6 +642,17 @@ export function useCodex(
         for (const child of sortedChildren) {
           // Replace the old directory path with the new one
           const newChildTitle = child.title.replace(oldTitle, trimmedNewTitle)
+
+          // Check if the new child title already exists (excluding the child being renamed)
+          const childTitleExists = existingRunes.some(
+            (rune) => rune.title === newChildTitle && rune.uuid !== child.uuid,
+          )
+          if (childTitleExists) {
+            throw new Error(
+              `Cannot rename directory: a rune with the title "${newChildTitle}" already exists`,
+            )
+          }
+
           await sessionStore.updateRune(child.uuid, { title: newChildTitle })
         }
       }
