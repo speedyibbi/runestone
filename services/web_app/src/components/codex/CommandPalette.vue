@@ -16,6 +16,7 @@ interface Props {
 interface Emits {
   (e: 'update:show', show: boolean): void
   (e: 'select', runeId: string): void
+  (e: 'command', command: string): void
 }
 
 const props = defineProps<Props>()
@@ -29,10 +30,81 @@ const isSearching = ref(false)
 const searchDebounceTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 
 const isFtsEnabled = __APP_CONFIG__.global.featureFlags.ftsSearch
+const isGraphEnabled = __APP_CONFIG__.global.featureFlags.graph
+
+// Commands that can be executed from the palette
+interface Command {
+  id: string
+  title: string
+  description?: string
+  icon?: string
+}
+
+const commands: Command[] = [
+  ...(isGraphEnabled
+    ? [
+        {
+          id: 'open-graph',
+          title: 'Graph View',
+        },
+      ]
+    : []),
+]
 
 // When no search query, show recent runes (non-directories)
 const recentRunes = computed(() => {
   return props.runes.filter((rune) => !props.isDirectory(rune.title)).slice(0, 10)
+})
+
+// Search commands
+const commandResults = computed(() => {
+  if (!searchQuery.value.trim()) {
+    return []
+  }
+
+  const query = searchQuery.value.toLowerCase().trim()
+  const results: Array<{ command: Command; score: number }> = []
+
+  for (const command of commands) {
+    const title = command.title.toLowerCase()
+    let score = 0
+
+    // Exact match gets highest score
+    if (title === query) {
+      score = 1000
+    }
+    // Starts with query
+    else if (title.startsWith(query)) {
+      score = 500
+    }
+    // Contains query
+    else if (title.includes(query)) {
+      score = 300
+    }
+    // Fuzzy match (all characters in order)
+    else if (isFuzzyMatch(query, title)) {
+      score = 100
+    }
+
+    if (score > 0) {
+      results.push({ command, score })
+    }
+  }
+
+  // Sort by score (descending), then by title
+  return results
+    .sort((a, b) => {
+      if (b.score !== a.score) {
+        return b.score - a.score
+      }
+      return a.command.title.localeCompare(b.command.title)
+    })
+    .map((r) => ({
+      id: r.command.id,
+      title: r.command.title,
+      description: r.command.description,
+      score: r.score,
+    }))
 })
 
 // Fuzzy search for when FTS is disabled
@@ -111,22 +183,73 @@ function isFuzzyMatch(query: string, text: string): boolean {
   return queryIndex === query.length
 }
 
-const displayResults = computed(() => {
+interface DisplayResult {
+  uuid?: string
+  id?: string
+  title: string
+  snippet?: string
+  description?: string
+  rank?: number
+  isCommand?: boolean
+}
+
+const displayResults = computed<DisplayResult[]>(() => {
   if (!searchQuery.value.trim()) {
-    return recentRunes.value.map((rune) => ({
+    // When no query, show commands first, then recent runes
+    const commandItems: DisplayResult[] = commands.map((cmd) => ({
+      id: cmd.id,
+      title: cmd.title,
+      description: cmd.description,
+      isCommand: true,
+    }))
+    const runeItems: DisplayResult[] = recentRunes.value.map((rune) => ({
       uuid: rune.uuid,
       title: rune.title,
       snippet: '',
       rank: 0,
+      isCommand: false,
     }))
+    return [...commandItems, ...runeItems]
   }
 
+  // When searching, combine commands and runes
+  const commandItems: DisplayResult[] = commandResults.value.map((cmd) => ({
+    id: cmd.id,
+    title: cmd.title,
+    description: cmd.description,
+    rank: cmd.score,
+    isCommand: true,
+  }))
+
   // Use FTS results if enabled, otherwise use fuzzy search
-  if (isFtsEnabled) {
-    return searchResults.value
-  } else {
-    return fuzzySearchResults.value
-  }
+  const runeItems: DisplayResult[] = isFtsEnabled
+    ? searchResults.value.map((r) => ({
+        uuid: r.uuid,
+        title: r.title,
+        snippet: r.snippet,
+        rank: r.rank,
+        isCommand: false,
+      }))
+    : fuzzySearchResults.value.map((r) => ({
+        uuid: r.uuid,
+        title: r.title,
+        snippet: r.snippet,
+        rank: r.rank,
+        isCommand: false,
+      }))
+
+  // Sort combined results by rank (commands first if same rank)
+  return [...commandItems, ...runeItems].sort((a, b) => {
+    const aRank = a.rank ?? 0
+    const bRank = b.rank ?? 0
+    if (bRank !== aRank) {
+      return bRank - aRank
+    }
+    // Commands come before runes if same rank
+    if (a.isCommand && !b.isCommand) return -1
+    if (!a.isCommand && b.isCommand) return 1
+    return a.title.localeCompare(b.title)
+  })
 })
 
 /**
@@ -281,8 +404,14 @@ function handleKeydown(event: KeyboardEvent) {
     } else if (event.key === 'Enter') {
       // Clamp index to valid range before selecting
       const clampedIndex = Math.max(0, Math.min(selectedIndex.value, currentLength - 1))
-      if (displayResults.value[clampedIndex]) {
-        handleSelect(displayResults.value[clampedIndex].uuid)
+      const result = displayResults.value[clampedIndex]
+      if (result) {
+        if (result.isCommand && result.id) {
+          emit('command', result.id)
+          close()
+        } else if (result.uuid) {
+          handleSelect(result.uuid)
+        }
       }
     }
     return
@@ -357,25 +486,39 @@ onUnmounted(() => {
         <div v-if="displayResults.length > 0" class="command-palette-results">
           <button
             v-for="(result, index) in displayResults"
-            :key="result.uuid"
+            :key="result.isCommand ? result.id : result.uuid"
             :class="['command-palette-item', { selected: index === selectedIndex }]"
-            @click="handleSelect(result.uuid)"
+            @click="
+              result.isCommand && result.id
+                ? emit('command', result.id)
+                : result.uuid
+                  ? handleSelect(result.uuid)
+                  : null
+            "
             @mouseenter="selectedIndex = index"
           >
             <div class="command-palette-item-content">
               <div class="command-palette-item-header">
                 <span
-                  v-if="getDisplayTitle(result.title).path"
+                  v-if="!result.isCommand && getDisplayTitle(result.title).path"
                   class="command-palette-item-path"
                   v-html="getDisplayTitle(result.title).path"
                 />
                 <span
-                  class="command-palette-item-filename"
-                  v-html="getDisplayTitle(result.title).name"
+                  :class="[
+                    result.isCommand ? 'command-palette-item-command' : 'command-palette-item-filename',
+                  ]"
+                  v-html="result.isCommand ? result.title : getDisplayTitle(result.title).name"
                 />
               </div>
               <div
-                v-if="result.snippet"
+                v-if="result.description"
+                class="command-palette-item-description"
+              >
+                {{ result.description }}
+              </div>
+              <div
+                v-else-if="result.snippet"
                 class="command-palette-item-snippet"
                 v-html="result.snippet"
               />
@@ -537,6 +680,30 @@ onUnmounted(() => {
   flex: 1;
   min-width: 0;
   font-weight: 400;
+}
+
+.command-palette-item-command {
+  color: var(--color-foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+  font-weight: 500;
+}
+
+.command-palette-item-description {
+  color: var(--color-muted);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  -webkit-box-orient: vertical;
+  opacity: 0.7;
+  margin-top: 0.125rem;
 }
 
 .command-palette-item-snippet {

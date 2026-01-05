@@ -30,6 +30,7 @@ interface Emits {
   (e: 'update:modelValue', value: boolean): void
   (e: 'navigateBack'): void
   (e: 'navigateForward'): void
+  (e: 'command', command: string): void
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -54,6 +55,10 @@ const shortcutKey = computed(() => {
 
 function handleCommandPaletteSelect(runeId: string) {
   emit('openRune', runeId)
+}
+
+function handleCommandPaletteCommand(command: string) {
+  emit('command', command)
 }
 
 function getPreviewButtonTitle(): string {
@@ -232,6 +237,7 @@ function getPreviewButtonTitle(): string {
       :is-directory="isDirectory"
       :search-runes="searchRunes"
       @select="handleCommandPaletteSelect"
+      @command="handleCommandPaletteCommand"
     />
   </header>
 </template>

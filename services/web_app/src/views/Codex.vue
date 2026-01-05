@@ -646,6 +646,12 @@ watch(
   { deep: true },
 )
 
+function handleCommand(command: string) {
+  if (command === 'open-graph') {
+    handleOpenGraph()
+  }
+}
+
 function handleTabClick(tab: Tab) {
   if (!isNavigatingHistory.value) {
     addToHistory(tab.id)
@@ -1659,6 +1665,7 @@ onUnmounted(() => {
         @toggle-preview="togglePreview"
         @toggle-right-sidebar="rightSidebarCollapsed = !rightSidebarCollapsed"
         @open-rune="openRune"
+        @command="handleCommand"
         @navigate-back="navigateHistoryBack"
         @navigate-forward="navigateHistoryForward"
       />
