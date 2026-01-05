@@ -34,28 +34,37 @@ export default class GraphIndexerService {
 
     // Register callbacks on the default indexer table (using overload without indexName)
     IndexerService.registerIndexCallback<DefaultBlobData>('add', async (data) => {
-      if (data.type !== 'note') {
-        return // Only index notes
-      }
+      // Handle both single ID and array of IDs (from batch operations)
+      const ids = Array.isArray(data) ? data : [data]
 
-      try {
-        await this.indexNode(data.id, data.title, data.content)
-      } catch (error) {
-        console.error('Error indexing graph for added blob:', error)
+      for (const id of ids) {
+        if (id.type !== 'note') {
+          continue // Only index notes
+        }
+
+        try {
+          await this.indexNode(id.id, id.title, id.content)
+        } catch (error) {
+          console.error('Error indexing graph for added blob:', error)
+        }
       }
     })
 
     IndexerService.registerIndexCallback<DefaultBlobData>('update', async (data) => {
-      if (data.type !== 'note') {
-        return // Only index notes
-      }
+      // Handle both single ID and array of IDs (from batch operations)
+      const ids = Array.isArray(data) ? data : [data]
 
-      try {
-        // Remove old edges and re-index
-        await this.removeNode(data.id)
-        await this.indexNode(data.id, data.title, data.content)
-      } catch (error) {
-        console.error('Error updating graph for updated blob:', error)
+      for (const id of ids) {
+        if (id.type !== 'note') {
+          continue // Only index notes
+        }
+
+        try {
+          await this.removeNode(id.id)
+          await this.indexNode(id.id, id.title, id.content)
+        } catch (error) {
+          console.error('Error updating graph for updated blob:', error)
+        }
       }
     })
 
