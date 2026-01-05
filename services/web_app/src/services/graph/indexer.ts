@@ -12,7 +12,6 @@ import LinkExtractorService, {
  * Uses the default indexer table to resolve note titles and UUIDs
  */
 export default class GraphIndexerService {
-  private static initialized = false
   private static readonly DEFAULT_INDEXER_TABLE = 'blob_index'
 
   /**
@@ -20,13 +19,7 @@ export default class GraphIndexerService {
    */
   static async initialize(): Promise<void> {
     if (!DatabaseService.isReady()) {
-      // Reset initialized flag if database is not ready (was closed)
-      this.initialized = false
       throw new Error('Database is not ready')
-    }
-
-    if (this.initialized) {
-      return
     }
 
     // Create graph tables
@@ -80,15 +73,6 @@ export default class GraphIndexerService {
         }
       }
     })
-
-    this.initialized = true
-  }
-
-  /**
-   * Check if graph indexer is initialized
-   */
-  static isInitialized(): boolean {
-    return this.initialized
   }
 
   /**
