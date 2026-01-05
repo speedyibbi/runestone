@@ -2,6 +2,7 @@
 import { ref, watch } from 'vue'
 import Loader from '@/components/base/Loader.vue'
 import FadeTransition from '@/components/base/FadeTransition.vue'
+import CodexGraphView from '@/components/codex/CodexGraphView.vue'
 import type { PreviewMode } from '@/composables/useEditor'
 
 interface Props {
@@ -9,6 +10,7 @@ interface Props {
   isLoadingRune: boolean
   currentRuneId?: string | null
   previewMode: PreviewMode
+  isGraphTab?: boolean
 }
 
 const props = defineProps<Props>()
@@ -40,8 +42,11 @@ watch(
 
 <template>
   <div class="editor-area">
+    <!-- Graph View -->
+    <CodexGraphView v-if="isGraphTab" />
+
     <!-- Empty State -->
-    <div v-if="!hasOpenRune && !isLoadingRune" class="empty-state">
+    <div v-else-if="!hasOpenRune && !isLoadingRune" class="empty-state">
       <div class="empty-state-content">
         <svg
           xmlns="http://www.w3.org/2000/svg"

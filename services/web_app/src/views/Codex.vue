@@ -654,6 +654,7 @@ function handleTabClick(tab: Tab) {
   if (tab.runeId) {
     openRune(tab.runeId)
   }
+  // Graph tabs don't have runeId, so they don't need to open a rune
 }
 
 function addToHistory(tabId: string) {
@@ -827,6 +828,31 @@ function handleTabClose(tab: Tab) {
       }
     }
   }
+}
+
+function handleOpenGraph() {
+  // Check if graph tab already exists
+  const existingGraphTab = tabs.value.find((t) => !t.runeId && t.title === 'Graph View')
+  if (existingGraphTab) {
+    activeTabId.value = existingGraphTab.id
+    if (!isNavigatingHistory.value) {
+      addToHistory(existingGraphTab.id)
+    }
+    return
+  }
+
+  // Create new graph tab
+  const newTab: Tab = {
+    id: `graph-tab-${Date.now()}-${Math.random()}`,
+    title: 'Graph View',
+    hasUnsavedChanges: false,
+  }
+  tabs.value.push(newTab)
+  if (!isNavigatingHistory.value) {
+    addToHistory(newTab.id)
+  }
+  activeTabId.value = newTab.id
+  setStatusMessage('Opened: Graph View', 'info', 2000)
 }
 
 function handleRuneClick(rune: RuneInfo, event?: MouseEvent) {
@@ -1604,6 +1630,7 @@ onUnmounted(() => {
       :is-renaming-codex="isRenamingCodex"
       @codex-title-edit-submit="handleCodexTitleEditSubmit"
       @codex-title-edit-cancel="handleCodexTitleEditCancel"
+      @open-graph="handleOpenGraph"
     />
 
     <!-- Main Content Area -->
@@ -1637,6 +1664,7 @@ onUnmounted(() => {
         :is-loading-rune="isLoadingRune"
         :current-rune-id="currentRune?.uuid ?? null"
         :preview-mode="previewMode"
+        :is-graph-tab="activeTabId !== null && tabs.find((t) => t.id === activeTabId)?.runeId === undefined"
         @update:editor-element="editorElement = $event"
         @update:preview-element="previewElement = $event"
       />
@@ -1654,6 +1682,7 @@ onUnmounted(() => {
         :is-saving="isSavingRune"
         :has-error="!!error"
         :has-unsaved-changes="hasUnsavedChanges"
+        :is-graph-tab="activeTabId !== null && tabs.find((t) => t.id === activeTabId)?.runeId === undefined"
       />
     </div>
 

@@ -49,6 +49,7 @@ interface Emits {
   (e: 'codexTitleContextMenu', event: MouseEvent): void
   (e: 'codex-title-edit-submit', value: string): void
   (e: 'codex-title-edit-cancel'): void
+  (e: 'openGraph'): void
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -167,7 +168,7 @@ function handleKeydown(event: KeyboardEvent) {
           :codex-title="codexTitle"
           @rune-click="(rune: RuneInfo) => emit('runeClick', rune)"
         />
-        <CodexGraphPanel v-else-if="activePanel === 'graph'" />
+        <CodexGraphPanel v-else-if="activePanel === 'graph'" @open-graph="emit('openGraph')" />
       </div>
     </FadeTransition>
   </aside>

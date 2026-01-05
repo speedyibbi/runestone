@@ -13,6 +13,7 @@ interface Props {
   isSaving?: boolean
   hasError?: boolean
   hasUnsavedChanges?: boolean
+  isGraphTab?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -21,6 +22,7 @@ const props = withDefaults(defineProps<Props>(), {
   isSaving: false,
   hasError: false,
   hasUnsavedChanges: false,
+  isGraphTab: false,
 })
 
 const statusClass = computed(() => {
@@ -87,7 +89,8 @@ const displayStatusClass = computed(() => {
         {{ displayStatusMessage }}
       </span>
       <template v-else>
-        <span v-if="currentRuneTitle" class="status-item">{{ currentRuneTitle }}</span>
+        <span v-if="isGraphTab" class="status-item">Graph view open</span>
+        <span v-else-if="currentRuneTitle" class="status-item">{{ currentRuneTitle }}</span>
         <span v-else class="status-item">No rune selected</span>
       </template>
     </div>
