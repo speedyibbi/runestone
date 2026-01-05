@@ -73,8 +73,69 @@ export default class SearchService {
           break
         case 'normal':
         default:
-          // Normal search: escape quotes, spaces treated as implicit AND
-          formattedQuery = query.replace(/"/g, '""')
+          // Normal search: handle special characters and escape quotes
+          // FTS5 special characters that need quoting: . ( ) { } [ ] : ^ $ -
+          const fts5SpecialChars = /[.(){}\[\]:^$\-]/
+          
+          // Split query into terms, preserving quoted phrases
+          const terms: string[] = []
+          let currentTerm = ''
+          let inQuotes = false
+          
+          for (let i = 0; i < query.length; i++) {
+            const char = query[i]
+            if (char === '"' && (i === 0 || query[i - 1] !== '\\')) {
+              if (inQuotes) {
+                // End of quoted phrase
+                currentTerm += char
+                terms.push(currentTerm)
+                currentTerm = ''
+                inQuotes = false
+              } else {
+                // Start of quoted phrase
+                if (currentTerm.trim()) {
+                  terms.push(currentTerm.trim())
+                  currentTerm = ''
+                }
+                currentTerm = char
+                inQuotes = true
+              }
+            } else if (!inQuotes && /\s/.test(char)) {
+              // Space outside quotes - term separator
+              if (currentTerm.trim()) {
+                terms.push(currentTerm.trim())
+                currentTerm = ''
+              }
+            } else {
+              currentTerm += char
+            }
+          }
+          
+          if (currentTerm.trim()) {
+            terms.push(currentTerm.trim())
+          }
+          
+          // Process each term: quote terms with special characters, escape quotes in all terms
+          formattedQuery = terms
+            .filter((term) => term.length > 0)
+            .map((term) => {
+              // If already quoted, preserve outer quotes and only escape internal quotes
+              if (term.startsWith('"') && term.endsWith('"') && term.length > 2) {
+                const inner = term.slice(1, -1) // Get content between quotes
+                const escapedInner = inner.replace(/"/g, '""')
+                return `"${escapedInner}"`
+              }
+              
+              // If contains special characters, quote it (and escape internal quotes)
+              if (fts5SpecialChars.test(term)) {
+                const escaped = term.replace(/"/g, '""')
+                return `"${escaped}"`
+              }
+              
+              // Otherwise, just escape any quotes
+              return term.replace(/"/g, '""')
+            })
+            .join(' ')
           break
       }
     }

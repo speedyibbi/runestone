@@ -392,9 +392,7 @@ onUnmounted(() => {
 }
 
 .search-input:focus {
-  background: var(--color-overlay-light);
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 2px var(--color-selection);
+  border-color: white;
 }
 
 .case-sensitive-button {
