@@ -25,6 +25,8 @@ export default class RemoteService {
         return `${notebookId}/manifest.json.enc`
       case 'blob':
         return `${notebookId}/blobs/${uuid}.enc`
+      default:
+        throw new Error(`Invalid file type: ${type}`)
     }
   }
 
