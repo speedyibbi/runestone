@@ -37,6 +37,7 @@ export const config = Object.freeze({
     featureFlags: {
       cryptography: process.env.FEATURE_CRYPTOGRAPHY ? process.env.FEATURE_CRYPTOGRAPHY === 'true' : true,
       ftsSearch: process.env.FEATURE_FTS_SEARCH ? process.env.FEATURE_FTS_SEARCH === 'true' : true,
+      graph: process.env.FEATURE_GRAPH ? process.env.FEATURE_GRAPH === 'true' : false,
     },
   },
   aws: {
