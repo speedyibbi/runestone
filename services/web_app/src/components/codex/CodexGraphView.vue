@@ -297,7 +297,15 @@ function initializeGraph() {
     .attr('font-size', '0.6875rem')
     .attr('fill', 'var(--color-muted)')
     .attr('fill-opacity', 0.8)
-    .text((d: GraphNodeWithSimulation) => d.title)
+    .text((d: GraphNodeWithSimulation) => {
+      // Strip directory prefix from title (show only filename)
+      const title = d.title
+      if (title.includes('/')) {
+        const parts = title.split('/').filter((p) => p)
+        return parts[parts.length - 1]
+      }
+      return title
+    })
     .style('pointer-events', 'none')
     .style('user-select', 'none')
 

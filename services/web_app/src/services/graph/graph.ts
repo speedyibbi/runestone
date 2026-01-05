@@ -83,7 +83,14 @@ export default class GraphService {
         returnValue: 'resultRows',
       })
 
-      const nodeRows = nodesResponse.result?.resultRows ?? nodesResponse.resultRows ?? []
+      let nodeRows = nodesResponse.result?.resultRows ?? nodesResponse.resultRows ?? []
+      
+      // Filter out directories (titles ending with '/')
+      nodeRows = nodeRows.filter((row: any) => {
+        const title = row.title ?? row[1]
+        return !title.endsWith('/')
+      })
+      
       const nodeUuids = new Set(nodeRows.map((row: any) => row.uuid ?? row[0]))
 
       // If centerUuid is specified, get neighborhood
