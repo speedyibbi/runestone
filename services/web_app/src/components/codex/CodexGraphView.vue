@@ -719,6 +719,7 @@ watch(
   padding: 0.4rem 0.875rem;
   min-width: 12rem;
   transition: all 0.15s ease;
+  backdrop-filter: blur(7px);
 }
 
 .graph-filter-search:focus-within {
@@ -761,6 +762,7 @@ watch(
 
 .graph-filter-dropdown {
   min-width: 12rem;
+  backdrop-filter: blur(7px);
 }
 
 .graph-filter-back {
