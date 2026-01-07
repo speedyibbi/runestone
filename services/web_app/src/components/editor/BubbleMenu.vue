@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, onUnmounted, onMounted } from 'vue'
 import type { EditorView } from '@codemirror/view'
-import { EditorSelection } from '@codemirror/state'
+import { EditorSelection, type ChangeSpec } from '@codemirror/state'
 import { previewModeField } from '@/utils/editor/livePreview'
 import {
   toggleWrap,
@@ -12,9 +12,14 @@ import {
   insertInline,
   insertAtCursor,
 } from '@/utils/editor/keyboardShortcuts'
+import { isInLinkUrlField } from '@/utils/editor/linkDetection'
+import type { RuneInfo } from '@/composables/useCodex'
+import RuneLinkSelector from '@/components/editor/RuneLinkSelector.vue'
 
 const props = defineProps<{
   editorView: EditorView | null
+  runes?: RuneInfo[]
+  isDirectory?: (title: string) => boolean
 }>()
 
 // Create a local ref that tracks the editor view
@@ -44,6 +49,7 @@ watch(
     editorViewRef.value = newView
     if (newView) {
       setupBubbleMenu()
+      // Don't check immediately on setup - wait for user interaction
     }
   },
 )
@@ -96,14 +102,194 @@ function applyList(targetType: 'numbered' | 'bullet' | 'task'): void {
   view.focus()
 }
 
+// Rune link selector state
+const showRuneLinkSelector = ref(false)
+const runeLinkSelectorPosition = ref({ top: 0, left: 0 })
+const runeLinkSelectorSearchQuery = ref('')
+let typingTimeout: ReturnType<typeof setTimeout> | null = null
+const isHoveringDropdown = ref(false)
+let lastLinkStart = -1 // Track link start position to avoid unnecessary position updates
+
+// Calculate position for rune link selector - smart positioning like bubble menu
+function calculateRuneLinkSelectorPosition(): { top: number; left: number } {
+  const view = editorViewRef.value
+  if (!view) return { top: 0, left: 0 }
+
+  const linkInfo = isInLinkUrlField(view as EditorView)
+  if (!linkInfo) return { top: 0, left: 0 }
+
+  // Get coordinates for the link text (prioritize showing under the link text)
+  // Use the start of the link bracket '[' as a stable anchor point
+  const linkBracketStart = linkInfo.linkStart // Position of '['
+  const linkTextStart = linkInfo.linkStart + 1 // Position after '['
+  const linkTextEnd = linkInfo.linkStart + 1 + linkInfo.linkText.length // Position before ']'
+  
+  // Get coordinates - use bracket start as primary anchor for stability
+  const bracketCoords = view.coordsAtPos(linkBracketStart)
+  const linkTextStartCoords = view.coordsAtPos(linkTextStart)
+  const linkTextEndCoords = view.coordsAtPos(linkTextEnd)
+  
+  // Get cursor coordinates as fallback
+  const cursorCoords = view.coordsAtPos(linkInfo.cursorPos)
+  
+  // Prefer using bracket or link text coordinates for stability
+  if (bracketCoords && linkTextEndCoords) {
+    // Use bracket start for horizontal position (more stable)
+    // Use link text end for vertical position (shows below the link text)
+    const centerX = bracketCoords.left + (linkTextEndCoords.right - bracketCoords.left) / 2
+    const linkTextBottom = linkTextEndCoords.bottom + window.scrollY
+
+    return {
+      top: linkTextBottom + 4,
+      left: centerX + window.scrollX,
+    }
+  } else if (linkTextStartCoords && linkTextEndCoords) {
+    // Fallback to link text coordinates
+    const centerX = (linkTextStartCoords.left + linkTextEndCoords.right) / 2
+    const linkTextBottom = linkTextEndCoords.bottom + window.scrollY
+
+    return {
+      top: linkTextBottom + 4,
+      left: centerX + window.scrollX,
+    }
+  } else if (cursorCoords) {
+    // Fallback to cursor position
+    return {
+      top: cursorCoords.bottom + window.scrollY + 4,
+      left: cursorCoords.left + window.scrollX + 4,
+    }
+  }
+  
+  return { top: 0, left: 0 }
+}
+
+// Check if we should show the rune link selector
+function checkAndShowRuneLinkSelector(view: EditorView): void {
+  if (!props.runes || props.runes.length === 0 || !props.isDirectory) {
+    // Hide if no runes available
+    if (showRuneLinkSelector.value) {
+      showRuneLinkSelector.value = false
+    }
+    return
+  }
+
+  const linkInfo = isInLinkUrlField(view)
+  if (linkInfo) {
+    // Cursor is in link URL field
+    // Clear any existing timeout - we want to keep it visible while in link field
+    if (typingTimeout) {
+      clearTimeout(typingTimeout)
+      typingTimeout = null
+    }
+
+    // Only update position if link start position changed (prevents jitter while typing in URL)
+    if (linkInfo.linkStart !== lastLinkStart) {
+      runeLinkSelectorPosition.value = calculateRuneLinkSelectorPosition()
+      lastLinkStart = linkInfo.linkStart
+    }
+    
+    // Always update search query from URL text
+    runeLinkSelectorSearchQuery.value = linkInfo.urlText || ''
+    
+    // Show dropdown only if there are results (component will handle filtering)
+    // The component will hide itself if filteredRunes is empty
+    showRuneLinkSelector.value = true
+  } else {
+    // Cursor is not in link URL field
+    // Clear timeout
+    if (typingTimeout) {
+      clearTimeout(typingTimeout)
+      typingTimeout = null
+    }
+    
+    // Reset link start tracking
+    lastLinkStart = -1
+    
+    // Only hide if we're not hovering (user might be selecting)
+    if (!isHoveringDropdown.value) {
+      showRuneLinkSelector.value = false
+    } else {
+      // User is hovering but cursor moved out - set a timeout to hide after they stop hovering
+      typingTimeout = setTimeout(() => {
+        if (!isHoveringDropdown.value) {
+          showRuneLinkSelector.value = false
+        }
+        typingTimeout = null
+      }, 500) // Hide 500ms after leaving hover
+    }
+  }
+}
+
 // Insert link
 function insertLink(): void {
   const view = editorViewRef.value
   if (!view) return
 
+  // Just insert the link template, dropdown will appear when user types in URL field
   insertInline(view as EditorView, '[', '](url)', 'link text')
   view.focus()
 }
+
+// Handle rune selection from the selector
+function handleRuneSelect(rune: RuneInfo): void {
+  const view = editorViewRef.value
+  if (!view) return
+
+  const linkInfo = isInLinkUrlField(view as EditorView)
+  if (!linkInfo) {
+    showRuneLinkSelector.value = false
+    return
+  }
+
+  const { state } = view
+  const line = state.doc.lineAt(linkInfo.cursorPos)
+  const lineText = line.text
+  const lineStart = line.from
+
+  // Find the full markdown link: [text](url)
+  const linkPattern = /\[([^\]]+?)\]\(([^)]*?)\)/g
+  let match
+  let fullLinkStart = -1
+  let fullLinkEnd = -1
+
+  while ((match = linkPattern.exec(lineText)) !== null) {
+    const matchStart = lineStart + match.index
+    const matchEnd = matchStart + match[0].length
+    
+    // Check if cursor is in this link's URL
+    if (linkInfo.cursorPos >= matchStart && linkInfo.cursorPos <= matchEnd) {
+      fullLinkStart = matchStart
+      fullLinkEnd = matchEnd
+      break
+    }
+  }
+
+  if (fullLinkStart === -1) {
+    showRuneLinkSelector.value = false
+    return
+  }
+
+  // Replace the entire markdown link with wiki link
+  const wikiLink = `[[${rune.title}]]`
+  const changes: ChangeSpec[] = [{
+    from: fullLinkStart,
+    to: fullLinkEnd,
+    insert: wikiLink,
+  }]
+
+  // Place cursor after the wiki link
+  const newPos = fullLinkStart + wikiLink.length
+  const newSelection = EditorSelection.cursor(newPos)
+
+  view.dispatch({
+    changes,
+    selection: newSelection,
+  })
+
+  view.focus()
+  showRuneLinkSelector.value = false
+}
+
 
 // Insert image
 function insertImage(): void {
@@ -426,6 +612,18 @@ function setupBubbleMenu() {
   const checkSelection = () => {
     handleSelectionChange()
   }
+  
+  // Listen to editor changes for rune link selector
+  const handleEditorChanges = () => {
+    if (view && !isInPreviewMode()) {
+      // Use requestAnimationFrame to debounce and avoid immediate closing
+      requestAnimationFrame(() => {
+        if (view) {
+          checkAndShowRuneLinkSelector(view as EditorView)
+        }
+      })
+    }
+  }
 
   // Hide menu when clicking outside
   const handleClickOutside = (event: MouseEvent) => {
@@ -434,6 +632,9 @@ function setupBubbleMenu() {
     if (target.closest('.bubble-menu')) {
       return
     }
+
+    // Close rune link selector on any click outside (the selector handles its own click outside)
+    // This is just a backup in case the selector's handler doesn't catch it
 
     // Hide menu when clicking outside
     if (!target.closest('.cm-editor')) {
@@ -461,9 +662,16 @@ function setupBubbleMenu() {
 
   // Hide menu on escape key
   const handleKeyDown = (event: KeyboardEvent) => {
-    if (event.key === 'Escape' && isVisible.value) {
-      event.preventDefault()
-      hideBubbleMenu()
+    if (event.key === 'Escape') {
+      if (isVisible.value) {
+        event.preventDefault()
+        hideBubbleMenu()
+      }
+      // Also close rune link selector if open
+      if (showRuneLinkSelector.value) {
+        event.preventDefault()
+        showRuneLinkSelector.value = false
+      }
     }
   }
 
@@ -508,6 +716,7 @@ function setupBubbleMenu() {
   view.dom.addEventListener('keyup', checkSelection)
   view.dom.addEventListener('keydown', handleKeyDown)
   view.dom.addEventListener('input', handleInput)
+  view.dom.addEventListener('input', handleEditorChanges)
   view.dom.addEventListener('contextmenu', handleContextMenu)
   view.dom.addEventListener('blur', hideBubbleMenu)
   document.addEventListener('mousedown', handleClickOutside)
@@ -515,6 +724,7 @@ function setupBubbleMenu() {
   window.addEventListener('scroll', handleScroll, true)
   window.addEventListener('resize', handleResize)
   window.addEventListener('blur', handleWindowBlur)
+  
 
   // Clean up function
   cleanupFn = () => {
@@ -523,6 +733,7 @@ function setupBubbleMenu() {
       view.dom.removeEventListener('keyup', checkSelection)
       view.dom.removeEventListener('keydown', handleKeyDown)
       view.dom.removeEventListener('input', handleInput)
+      view.dom.removeEventListener('input', handleEditorChanges)
       view.dom.removeEventListener('contextmenu', handleContextMenu)
       view.dom.removeEventListener('blur', hideBubbleMenu)
     }
@@ -532,6 +743,12 @@ function setupBubbleMenu() {
     window.removeEventListener('resize', handleResize)
     window.removeEventListener('blur', handleWindowBlur)
     hideBubbleMenu()
+    
+    // Clear typing timeout
+    if (typingTimeout) {
+      clearTimeout(typingTimeout)
+      typingTimeout = null
+    }
   }
 }
 
@@ -647,6 +864,21 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
+
+    <!-- Rune Link Selector -->
+    <RuneLinkSelector
+      v-if="runes && isDirectory"
+      :runes="runes"
+      :is-directory="isDirectory"
+      :visible="showRuneLinkSelector"
+      :editor-view="editorViewRef as EditorView | null"
+      :position="runeLinkSelectorPosition"
+      :search-query="runeLinkSelectorSearchQuery"
+      @select="handleRuneSelect"
+      @close="showRuneLinkSelector = false"
+      @hover="isHoveringDropdown = true"
+      @leave="isHoveringDropdown = false"
+    />
   </Teleport>
 </template>
 

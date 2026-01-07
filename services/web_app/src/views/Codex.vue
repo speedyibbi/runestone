@@ -1792,7 +1792,7 @@ onUnmounted(() => {
     />
 
     <KeyboardShortcuts />
-    <BubbleMenu :editor-view="editorView" />
+    <BubbleMenu :editor-view="editorView" :runes="runes" :is-directory="isDirectory" />
 
     <!-- Context Menu -->
     <CodexContextMenu
