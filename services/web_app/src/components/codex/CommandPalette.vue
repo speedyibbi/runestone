@@ -484,46 +484,50 @@ onUnmounted(() => {
           />
         </div>
         <div v-if="displayResults.length > 0" class="command-palette-results">
-          <button
-            v-for="(result, index) in displayResults"
-            :key="result.isCommand ? result.id : result.uuid"
-            :class="['command-palette-item', { selected: index === selectedIndex }]"
-            @click="
-              result.isCommand && result.id
-                ? emit('command', result.id)
-                : result.uuid
-                  ? handleSelect(result.uuid)
-                  : null
-            "
-            @mouseenter="selectedIndex = index"
-          >
-            <div class="command-palette-item-content">
-              <div class="command-palette-item-header">
-                <span
-                  v-if="!result.isCommand && getDisplayTitle(result.title).path"
-                  class="command-palette-item-path"
-                  v-html="getDisplayTitle(result.title).path"
-                />
-                <span
-                  :class="[
-                    result.isCommand ? 'command-palette-item-command' : 'command-palette-item-filename',
-                  ]"
-                  v-html="result.isCommand ? result.title : getDisplayTitle(result.title).name"
+          <template v-for="(result, index) in displayResults" :key="result.isCommand ? result.id : result.uuid">
+            <div
+              v-if="index > 0 && !result.isCommand && displayResults[index - 1]?.isCommand"
+              class="command-palette-divider"
+            />
+            <button
+              :class="['command-palette-item', { selected: index === selectedIndex }]"
+              @click="
+                result.isCommand && result.id
+                  ? emit('command', result.id)
+                  : result.uuid
+                    ? handleSelect(result.uuid)
+                    : null
+              "
+              @mouseenter="selectedIndex = index"
+            >
+              <div class="command-palette-item-content">
+                <div class="command-palette-item-header">
+                  <span
+                    v-if="!result.isCommand && getDisplayTitle(result.title).path"
+                    class="command-palette-item-path"
+                    v-html="getDisplayTitle(result.title).path"
+                  />
+                  <span
+                    :class="[
+                      result.isCommand ? 'command-palette-item-command' : 'command-palette-item-filename',
+                    ]"
+                    v-html="result.isCommand ? result.title : getDisplayTitle(result.title).name"
+                  />
+                </div>
+                <div
+                  v-if="result.description"
+                  class="command-palette-item-description"
+                >
+                  {{ result.description }}
+                </div>
+                <div
+                  v-else-if="result.snippet"
+                  class="command-palette-item-snippet"
+                  v-html="result.snippet"
                 />
               </div>
-              <div
-                v-if="result.description"
-                class="command-palette-item-description"
-              >
-                {{ result.description }}
-              </div>
-              <div
-                v-else-if="result.snippet"
-                class="command-palette-item-snippet"
-                v-html="result.snippet"
-              />
-            </div>
-          </button>
+            </button>
+          </template>
         </div>
         <div v-else-if="isSearching && searchQuery.trim()" class="command-palette-empty">
           <Loader message="Searching..." width="12rem" />
@@ -622,6 +626,13 @@ onUnmounted(() => {
   padding: 0.25rem;
   min-height: 0;
   max-height: calc(100vh - 10rem);
+}
+
+.command-palette-divider {
+  height: 1px;
+  background: var(--color-overlay-border);
+  margin: 0.5rem 0.75rem;
+  opacity: 0.5;
 }
 
 .command-palette-item {
