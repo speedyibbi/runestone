@@ -12,6 +12,8 @@ import LinkExtractorService, {
  * Uses the default indexer table to resolve note titles and UUIDs
  */
 export default class GraphIndexerService {
+  private static indexingInProgress = new Set<string>()
+  private static pendingIndexOperations = new Map<string, { title: string; content: string }>()
   private static readonly DEFAULT_INDEXER_TABLE = 'blob_index'
 
   /**
@@ -53,7 +55,6 @@ export default class GraphIndexerService {
         }
 
         try {
-          await this.removeNode(id.id)
           await this.indexNode(id.id, id.title, id.content)
         } catch (error) {
           console.error('Error updating graph for updated blob:', error)
@@ -214,14 +215,70 @@ export default class GraphIndexerService {
       return
     }
 
-    const promiser = DatabaseService.getPromiser()
-    const now = new Date().toISOString()
+    // If already indexing, queue this update
+    if (this.indexingInProgress.has(uuid)) {
+      this.pendingIndexOperations.set(uuid, { title, content })
+      return
+    }
 
-    try {
-      // Remove existing edges and hashtags for this node
+    this.indexingInProgress.add(uuid)
+
+    // Process indexing, and re-process if there are pending updates
+    while (true) {
+      // Get the latest data (may have been updated while we were processing)
+      const latestData = this.pendingIndexOperations.get(uuid)
+      if (latestData) {
+        // Use the latest data
+        title = latestData.title
+        content = latestData.content
+        this.pendingIndexOperations.delete(uuid)
+      }
+
+      const promiser = DatabaseService.getPromiser()
+      const now = new Date().toISOString()
+
+      try {
+        // Remove existing edges
       await promiser('exec', {
         sql: `DELETE FROM graph_edges WHERE source_uuid = '${this.escapeSql(uuid)}';`,
       })
+
+      // Remove hashtag relationships
+      const hashtagResponse = await promiser('exec', {
+        sql: `SELECT hashtag FROM graph_note_hashtags WHERE note_uuid = '${this.escapeSql(uuid)}'`,
+        returnValue: 'resultRows',
+      })
+
+      const hashtagRows = hashtagResponse.result?.resultRows ?? hashtagResponse.resultRows ?? []
+
+      for (const row of hashtagRows) {
+        const hashtag = row.hashtag ?? row[0]
+        if (hashtag) {
+          // Decrement count
+          const countResponse = await promiser('exec', {
+            sql: `SELECT count FROM graph_hashtags WHERE hashtag = '${this.escapeSql(hashtag)}'`,
+            returnValue: 'resultRows',
+          })
+
+          const countRows = countResponse.result?.resultRows ?? countResponse.resultRows ?? []
+          const currentCount = countRows[0]?.count ?? countRows[0]?.[0] ?? 0
+
+          if (currentCount > 1) {
+            await promiser('exec', {
+              sql: `
+                UPDATE graph_hashtags SET count = ${currentCount - 1}
+                WHERE hashtag = '${this.escapeSql(hashtag)}'
+              `,
+            })
+          } else {
+            // Remove hashtag if count reaches 0
+            await promiser('exec', {
+              sql: `DELETE FROM graph_hashtags WHERE hashtag = '${this.escapeSql(hashtag)}'`,
+            })
+          }
+        }
+      }
+
       await promiser('exec', {
         sql: `DELETE FROM graph_note_hashtags WHERE note_uuid = '${this.escapeSql(uuid)}';`,
       })
@@ -269,7 +326,6 @@ export default class GraphIndexerService {
       }
 
       // Update hashtags
-      const hashtagCounts = new Map<string, number>()
       for (const tag of hashtags) {
         // Track note-hashtag relationship
         await promiser('exec', {
@@ -278,16 +334,13 @@ export default class GraphIndexerService {
             VALUES ('${this.escapeSql(uuid)}', '${this.escapeSql(tag.hashtag)}')
           `,
         })
-
-        // Count hashtags
-        hashtagCounts.set(tag.hashtag, (hashtagCounts.get(tag.hashtag) || 0) + 1)
       }
 
       // Update hashtag counts
-      for (const [hashtag, count] of hashtagCounts.entries()) {
+      for (const tag of hashtags) {
         // Get current count
         const currentResponse = await promiser('exec', {
-          sql: `SELECT count FROM graph_hashtags WHERE hashtag = '${this.escapeSql(hashtag)}'`,
+          sql: `SELECT count FROM graph_hashtags WHERE hashtag = '${this.escapeSql(tag.hashtag)}'`,
           returnValue: 'resultRows',
         })
 
@@ -298,14 +351,22 @@ export default class GraphIndexerService {
         await promiser('exec', {
           sql: `
             INSERT OR REPLACE INTO graph_hashtags (hashtag, count)
-            VALUES ('${this.escapeSql(hashtag)}', ${currentCount + count})
+            VALUES ('${this.escapeSql(tag.hashtag)}', ${currentCount + 1})
           `,
         })
       }
-    } catch (error) {
-      console.error(`Error indexing graph node ${uuid}:`, error)
-      throw error
+      } catch (error) {
+        console.error(`Error indexing graph node ${uuid}:`, error)
+        throw error
+      }
+
+      // Check if there's a newer pending update
+      if (!this.pendingIndexOperations.has(uuid)) {
+        break
+      }
     }
+
+    this.indexingInProgress.delete(uuid)
   }
 
   /**
@@ -315,6 +376,12 @@ export default class GraphIndexerService {
     if (!DatabaseService.isReady()) {
       return
     }
+
+    if (this.indexingInProgress.has(uuid)) {
+      return
+    }
+
+    this.indexingInProgress.add(uuid)
 
     const promiser = DatabaseService.getPromiser()
 
@@ -376,6 +443,8 @@ export default class GraphIndexerService {
     } catch (error) {
       console.error(`Error removing graph node ${uuid}:`, error)
       throw error
+    } finally {
+      this.indexingInProgress.delete(uuid)
     }
   }
 
