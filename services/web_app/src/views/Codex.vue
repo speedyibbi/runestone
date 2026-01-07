@@ -239,13 +239,17 @@ watch(
 )
 
 // Setup upload handlers when editor view becomes available
-watch(editorView, (view) => {
+watch(editorView, (view, oldView) => {
   if (view) {
     // Wait a tick to ensure DOM is ready
     nextTick(() => {
       setupUploadHandlers()
       // Apply preview mode state when editor view becomes available
       applyPreviewMode()
+      // Focus the editor if we just got a view and have an open rune that's not loading
+      if (!oldView && hasOpenRune.value && !isLoadingRune.value) {
+        focusEditor()
+      }
     })
   } else {
     // Cleanup when view is destroyed
@@ -618,6 +622,8 @@ watch(
       }
       if (!oldRune || oldRune.uuid !== rune.uuid) {
         setStatusMessage(`Opened: ${getBaseName(rune.title)}`, 'info', 2000)
+        // Focus the editor when a new rune is opened
+        focusEditor()
       }
     }
   },
@@ -630,6 +636,17 @@ watch(hasUnsavedChanges, (unsaved) => {
     activeTab.hasUnsavedChanges = unsaved
   }
 })
+
+// Focus the editor when a rune finishes loading
+watch(
+  [isLoadingRune, currentRune],
+  ([loading, rune], [oldLoading]) => {
+    // Focus when loading completes and we have an open rune
+    if (oldLoading && !loading && rune && hasOpenRune.value) {
+      focusEditor()
+    }
+  },
+)
 
 watch(
   runes,
@@ -652,13 +669,65 @@ function handleCommand(command: string) {
   }
 }
 
-function handleTabClick(tab: Tab) {
+/**
+ * Focus the editor, waiting for it to be ready if necessary
+ */
+function focusEditor() {
+  // Try to focus immediately if editor is ready
+  if (editorView.value && hasOpenRune.value && !isLoadingRune.value) {
+    // Check if the editor DOM element is actually in the document
+    if (editorView.value.dom && editorView.value.dom.isConnected) {
+      editorView.value.focus()
+      return
+    }
+  }
+
+  // Otherwise, wait for editor to be ready
+  const maxAttempts = 20
+  let attempts = 0
+  const tryFocus = () => {
+    attempts++
+    if (
+      editorView.value &&
+      hasOpenRune.value &&
+      !isLoadingRune.value &&
+      editorView.value.dom &&
+      editorView.value.dom.isConnected
+    ) {
+      editorView.value.focus()
+    } else if (attempts < maxAttempts) {
+      setTimeout(tryFocus, 100)
+    }
+  }
+  nextTick(() => {
+    tryFocus()
+  })
+}
+
+/**
+ * Wrapper for openRune that also focuses the editor
+ */
+async function handleOpenRune(runeId: string) {
+  await openRune(runeId)
+  // Wait for next tick and then focus with a delay to ensure modal has closed
+  // and editor is ready (especially important when opening from command palette)
+  // Modal closing animation takes 200ms, so we wait a bit longer
+  await nextTick()
+  // Use requestAnimationFrame to ensure DOM updates are complete
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      focusEditor()
+    }, 250)
+  })
+}
+
+async function handleTabClick(tab: Tab) {
   if (!isNavigatingHistory.value) {
     addToHistory(tab.id)
   }
   activeTabId.value = tab.id
   if (tab.runeId) {
-    openRune(tab.runeId)
+    await handleOpenRune(tab.runeId)
   }
   // Graph tabs don't have runeId, so they don't need to open a rune
 }
@@ -684,7 +753,7 @@ function addToHistory(tabId: string) {
   historyIndex.value = tabHistory.value.length - 1
 }
 
-function navigateHistoryBack() {
+async function navigateHistoryBack() {
   if (historyIndex.value > 0) {
     historyIndex.value--
     const tabId = tabHistory.value[historyIndex.value]
@@ -695,12 +764,18 @@ function navigateHistoryBack() {
       isNavigatingHistory.value = true
       activeTabId.value = tab.id
       if (tab.runeId) {
-        openRune(tab.runeId)
+        await openRune(tab.runeId)
+        // Focus the editor after opening the rune
+        focusEditor()
+        nextTick(() => {
+          isNavigatingHistory.value = false
+        })
+      } else {
+        // Reset flag after navigation completes
+        nextTick(() => {
+          isNavigatingHistory.value = false
+        })
       }
-      // Reset flag after navigation completes
-      nextTick(() => {
-        isNavigatingHistory.value = false
-      })
     } else {
       // Tab is closed, check if we have its runeId and reopen it
       const runeId = closedTabs.value.get(tabId)
@@ -719,6 +794,8 @@ function navigateHistoryBack() {
                 // Remove from closed tabs since it's now open
                 closedTabs.value.delete(tabId)
               }
+              // Focus the editor after opening the rune
+              focusEditor()
               isNavigatingHistory.value = false
             })
           })
@@ -736,7 +813,7 @@ function navigateHistoryBack() {
   }
 }
 
-function navigateHistoryForward() {
+async function navigateHistoryForward() {
   if (historyIndex.value < tabHistory.value.length - 1) {
     historyIndex.value++
     const tabId = tabHistory.value[historyIndex.value]
@@ -747,12 +824,18 @@ function navigateHistoryForward() {
       isNavigatingHistory.value = true
       activeTabId.value = tab.id
       if (tab.runeId) {
-        openRune(tab.runeId)
+        await openRune(tab.runeId)
+        // Focus the editor after opening the rune
+        focusEditor()
+        nextTick(() => {
+          isNavigatingHistory.value = false
+        })
+      } else {
+        // Reset flag after navigation completes
+        nextTick(() => {
+          isNavigatingHistory.value = false
+        })
       }
-      // Reset flag after navigation completes
-      nextTick(() => {
-        isNavigatingHistory.value = false
-      })
     } else {
       // Tab is closed, check if we have its runeId and reopen it
       const runeId = closedTabs.value.get(tabId)
@@ -771,6 +854,8 @@ function navigateHistoryForward() {
                 // Remove from closed tabs since it's now open
                 closedTabs.value.delete(tabId)
               }
+              // Focus the editor after opening the rune
+              focusEditor()
               isNavigatingHistory.value = false
             })
           })
@@ -825,7 +910,7 @@ function handleTabClose(tab: Tab) {
         const nextTab = tabs.value[Math.min(index, tabs.value.length - 1)]
         activeTabId.value = nextTab.id
         if (nextTab.runeId) {
-          openRune(nextTab.runeId)
+          handleOpenRune(nextTab.runeId)
         }
       } else {
         activeTabId.value = null
@@ -875,7 +960,7 @@ function handleRuneClick(rune: RuneInfo, event?: MouseEvent) {
     }
     expandedDirectories.value = new Set(expandedDirectories.value)
   } else {
-    openRune(rune.uuid)
+    handleOpenRune(rune.uuid)
     selectedDirectory.value = ''
   }
 }
@@ -1048,7 +1133,7 @@ async function handleCreateRuneSubmit(title: string) {
 
     const runeId = await createRune(fullTitle)
     expandAllParentDirectories(fullTitle)
-    await openRune(runeId)
+    await handleOpenRune(runeId)
     setStatusMessage(`Created note: ${title}`, 'success')
   } catch (err) {
     console.error('Error creating rune:', err)
@@ -1437,7 +1522,7 @@ watch(
   () => route.params.runeId,
   (newRuneId) => {
     if (newRuneId && typeof newRuneId === 'string') {
-      openRune(newRuneId)
+      handleOpenRune(newRuneId)
     }
   },
 )
@@ -1569,7 +1654,7 @@ onMounted(() => {
 
   const runeId = route.params.runeId as string | undefined
   if (runeId) {
-    openRune(runeId)
+    handleOpenRune(runeId)
   }
 
   window.addEventListener('keydown', handleKeydown, { capture: true })
@@ -1664,7 +1749,7 @@ onUnmounted(() => {
         @update:tabs="tabs = $event"
         @toggle-preview="togglePreview"
         @toggle-right-sidebar="rightSidebarCollapsed = !rightSidebarCollapsed"
-        @open-rune="openRune"
+        @open-rune="handleOpenRune"
         @command="handleCommand"
         @navigate-back="navigateHistoryBack"
         @navigate-forward="navigateHistoryForward"
