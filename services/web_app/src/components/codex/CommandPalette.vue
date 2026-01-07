@@ -222,14 +222,17 @@ const displayResults = computed<DisplayResult[]>(() => {
   }))
 
   // Use FTS results if enabled, otherwise use fuzzy search
+  // Filter out directories since they can't be opened
   const runeItems: DisplayResult[] = isFtsEnabled
-    ? searchResults.value.map((r) => ({
-        uuid: r.uuid,
-        title: r.title,
-        snippet: r.snippet,
-        rank: r.rank,
-        isCommand: false,
-      }))
+    ? searchResults.value
+        .filter((r) => !props.isDirectory(r.title))
+        .map((r) => ({
+          uuid: r.uuid,
+          title: r.title,
+          snippet: r.snippet,
+          rank: r.rank,
+          isCommand: false,
+        }))
     : fuzzySearchResults.value.map((r) => ({
         uuid: r.uuid,
         title: r.title,
