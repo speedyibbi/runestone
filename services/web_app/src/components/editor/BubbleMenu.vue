@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onUnmounted, onMounted } from 'vue'
+import { ref, computed, watch, onUnmounted, onMounted } from 'vue'
 import type { EditorView } from '@codemirror/view'
 import { EditorSelection, type ChangeSpec } from '@codemirror/state'
 import { previewModeField } from '@/utils/editor/livePreview'
@@ -13,8 +13,11 @@ import {
   insertAtCursor,
 } from '@/utils/editor/keyboardShortcuts'
 import { isInLinkUrlField } from '@/utils/editor/linkDetection'
+import { isInHashtag } from '@/utils/editor/hashtagDetection'
 import type { RuneInfo } from '@/composables/useCodex'
 import RuneLinkSelector from '@/components/editor/RuneLinkSelector.vue'
+import HashtagSelector from '@/components/editor/HashtagSelector.vue'
+import { useSessionStore } from '@/stores/session'
 
 const props = defineProps<{
   editorView: EditorView | null
@@ -102,6 +105,9 @@ function applyList(targetType: 'numbered' | 'bullet' | 'task'): void {
   view.focus()
 }
 
+// Session store for fetching hashtags
+const sessionStore = useSessionStore()
+
 // Rune link selector state
 const showRuneLinkSelector = ref(false)
 const runeLinkSelectorPosition = ref({ top: 0, left: 0 })
@@ -109,6 +115,46 @@ const runeLinkSelectorSearchQuery = ref('')
 let typingTimeout: ReturnType<typeof setTimeout> | null = null
 const isHoveringDropdown = ref(false)
 let lastLinkStart = -1 // Track link start position to avoid unnecessary position updates
+
+// Hashtag selector state
+const showHashtagSelector = ref(false)
+const hashtagSelectorPosition = ref({ top: 0, left: 0 })
+const hashtagSelectorSearchQuery = ref('')
+const availableHashtags = ref<Map<string, number>>(new Map())
+const documentHashtags = ref<Set<string>>(new Set()) // Track hashtags currently in the document
+let hashtagTypingTimeout: ReturnType<typeof setTimeout> | null = null
+const isHoveringHashtagDropdown = ref(false)
+let lastHashtagStart = -1 // Track hashtag start position to avoid unnecessary position updates
+
+// Extract hashtags from document content
+function extractHashtagsFromDocument(content: string): Set<string> {
+  const hashtags = new Set<string>()
+  // Pattern: #tag (word characters and hyphens)
+  // Matches at start of line or after whitespace
+  const hashtagPattern = /(?:^|\s)#([\w-]+)/g
+  
+  let match
+  while ((match = hashtagPattern.exec(content)) !== null) {
+    const hashtag = match[1].toLowerCase() // Normalize to lowercase
+    hashtags.add(hashtag)
+  }
+  
+  return hashtags
+}
+
+// Merge available hashtags with new hashtags from document
+const allHashtags = computed(() => {
+  const merged = new Map<string, number>(availableHashtags.value)
+  
+  // Add document hashtags that aren't in available hashtags (new hashtags with count 0)
+  documentHashtags.value.forEach((tag) => {
+    if (!merged.has(tag)) {
+      merged.set(tag, 0) // New hashtags have count 0
+    }
+  })
+  
+  return merged
+})
 
 // Calculate position for rune link selector - smart positioning like bubble menu
 function calculateRuneLinkSelectorPosition(): { top: number; left: number } {
@@ -290,6 +336,145 @@ function handleRuneSelect(rune: RuneInfo): void {
   showRuneLinkSelector.value = false
 }
 
+// Calculate position for hashtag selector - smart positioning like bubble menu
+function calculateHashtagSelectorPosition(): { top: number; left: number } {
+  const view = editorViewRef.value
+  if (!view) return { top: 0, left: 0 }
+
+  const hashtagInfo = isInHashtag(view as EditorView)
+  if (!hashtagInfo) return { top: 0, left: 0 }
+
+  // Get coordinates for the hashtag
+  const hashCoords = view.coordsAtPos(hashtagInfo.hashStart)
+  const tagEndCoords = view.coordsAtPos(hashtagInfo.tagEnd)
+  const cursorCoords = view.coordsAtPos(hashtagInfo.cursorPos)
+  
+  // Prefer using hashtag coordinates
+  if (hashCoords && tagEndCoords) {
+    const centerX = (hashCoords.left + tagEndCoords.right) / 2
+    const hashtagBottom = tagEndCoords.bottom + window.scrollY
+
+    return {
+      top: hashtagBottom + 4,
+      left: centerX + window.scrollX,
+    }
+  } else if (cursorCoords) {
+    // Fallback to cursor position
+    return {
+      top: cursorCoords.bottom + window.scrollY + 4,
+      left: cursorCoords.left + window.scrollX + 4,
+    }
+  }
+  
+  return { top: 0, left: 0 }
+}
+
+// Fetch available hashtags from graph service
+async function fetchHashtags(): Promise<void> {
+  try {
+    const graphData = await sessionStore.getGraph()
+    availableHashtags.value = graphData.hashtags
+  } catch (error) {
+    console.error('Error fetching hashtags:', error)
+    availableHashtags.value = new Map()
+  }
+}
+
+// Update document hashtags from editor content
+function updateDocumentHashtags(view: EditorView): void {
+  const content = view.state.doc.toString()
+  documentHashtags.value = extractHashtagsFromDocument(content)
+}
+
+// Check if we should show the hashtag selector
+function checkAndShowHashtagSelector(view: EditorView): void {
+  // Update document hashtags on every check
+  updateDocumentHashtags(view)
+  
+  const hashtagInfo = isInHashtag(view)
+  if (hashtagInfo) {
+    // Cursor is in hashtag
+    // Clear any existing timeout - we want to keep it visible while in hashtag
+    if (hashtagTypingTimeout) {
+      clearTimeout(hashtagTypingTimeout)
+      hashtagTypingTimeout = null
+    }
+
+    // Only update position if hashtag start position changed (prevents jitter while typing)
+    if (hashtagInfo.hashStart !== lastHashtagStart) {
+      hashtagSelectorPosition.value = calculateHashtagSelectorPosition()
+      lastHashtagStart = hashtagInfo.hashStart
+    }
+    
+    // Always update search query from tag text
+    hashtagSelectorSearchQuery.value = hashtagInfo.tagText || ''
+    
+    // Fetch hashtags if not already loaded
+    if (availableHashtags.value.size === 0) {
+      fetchHashtags()
+    }
+    
+    // Show dropdown only if there are results (component will handle filtering)
+    showHashtagSelector.value = true
+  } else {
+    // Cursor is not in hashtag
+    // Clear timeout
+    if (hashtagTypingTimeout) {
+      clearTimeout(hashtagTypingTimeout)
+      hashtagTypingTimeout = null
+    }
+    
+    // Reset hashtag start tracking
+    lastHashtagStart = -1
+    
+    // Only hide if we're not hovering (user might be selecting)
+    if (!isHoveringHashtagDropdown.value) {
+      showHashtagSelector.value = false
+    } else {
+      // User is hovering but cursor moved out - set a timeout to hide after they stop hovering
+      hashtagTypingTimeout = setTimeout(() => {
+        if (!isHoveringHashtagDropdown.value) {
+          showHashtagSelector.value = false
+        }
+        hashtagTypingTimeout = null
+      }, 500) // Hide 500ms after leaving hover
+    }
+  }
+}
+
+// Handle hashtag selection from the selector
+function handleHashtagSelect(hashtag: string): void {
+  const view = editorViewRef.value
+  if (!view) return
+
+  const hashtagInfo = isInHashtag(view as EditorView)
+  if (!hashtagInfo) {
+    showHashtagSelector.value = false
+    return
+  }
+
+  const { state } = view
+  
+  // Replace the current hashtag text with the selected one
+  // Keep the # symbol, only replace the tag text
+  const changes: ChangeSpec[] = [{
+    from: hashtagInfo.tagStart,
+    to: hashtagInfo.tagEnd,
+    insert: hashtag,
+  }]
+
+  // Place cursor after the hashtag
+  const newPos = hashtagInfo.hashStart + 1 + hashtag.length // After # and tag
+  const newSelection = EditorSelection.cursor(newPos)
+
+  view.dispatch({
+    changes,
+    selection: newSelection,
+  })
+
+  view.focus()
+  showHashtagSelector.value = false
+}
 
 // Insert image
 function insertImage(): void {
@@ -613,13 +798,14 @@ function setupBubbleMenu() {
     handleSelectionChange()
   }
   
-  // Listen to editor changes for rune link selector
+  // Listen to editor changes for rune link selector and hashtag autocomplete
   const handleEditorChanges = () => {
     if (view && !isInPreviewMode()) {
       // Use requestAnimationFrame to debounce and avoid immediate closing
       requestAnimationFrame(() => {
         if (view) {
           checkAndShowRuneLinkSelector(view as EditorView)
+          checkAndShowHashtagSelector(view as EditorView)
         }
       })
     }
@@ -671,6 +857,11 @@ function setupBubbleMenu() {
       if (showRuneLinkSelector.value) {
         event.preventDefault()
         showRuneLinkSelector.value = false
+      }
+      // Also close hashtag selector if open
+      if (showHashtagSelector.value) {
+        event.preventDefault()
+        showHashtagSelector.value = false
       }
     }
   }
@@ -878,6 +1069,19 @@ onUnmounted(() => {
       @close="showRuneLinkSelector = false"
       @hover="isHoveringDropdown = true"
       @leave="isHoveringDropdown = false"
+    />
+
+    <!-- Hashtag Selector -->
+    <HashtagSelector
+      :hashtags="allHashtags"
+      :visible="showHashtagSelector"
+      :editor-view="editorViewRef as EditorView | null"
+      :position="hashtagSelectorPosition"
+      :search-query="hashtagSelectorSearchQuery"
+      @select="handleHashtagSelect"
+      @close="showHashtagSelector = false"
+      @hover="isHoveringHashtagDropdown = true"
+      @leave="isHoveringHashtagDropdown = false"
     />
   </Teleport>
 </template>
