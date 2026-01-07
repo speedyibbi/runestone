@@ -214,40 +214,52 @@ export default class IndexerService {
     let isUpdate = false
 
     try {
-      // Get primary key value
-      const primaryKeyValue = String(blobData[schema.primaryKey])
-      const escapedPrimaryKey = this.escapeSql(primaryKeyValue)
+      // Start transaction
+      await promiser('exec', { sql: 'BEGIN TRANSACTION;' })
 
-      // Check if record exists
-      const rowid = await this.getRowid(indexName, schema.primaryKey, escapedPrimaryKey)
+      try {
+        // Get primary key value
+        const primaryKeyValue = String(blobData[schema.primaryKey])
+        const escapedPrimaryKey = this.escapeSql(primaryKeyValue)
 
-      // Build column values
-      const columns: string[] = []
-      const values: string[] = []
+        // Check if record exists
+        const rowid = await this.getRowid(indexName, schema.primaryKey, escapedPrimaryKey)
 
-      for (const column of schema.columns) {
-        const value = blobData[column]
-        if (value !== undefined && value !== null) {
-          columns.push(column)
-          values.push(`'${this.escapeSql(String(value))}'`)
+        // Build column values
+        const columns: string[] = []
+        const values: string[] = []
+
+        for (const column of schema.columns) {
+          const value = blobData[column]
+          if (value !== undefined && value !== null) {
+            columns.push(column)
+            values.push(`'${this.escapeSql(String(value))}'`)
+          }
         }
-      }
 
-      const columnsStr = columns.join(', ')
-      const valuesStr = values.join(', ')
+        const columnsStr = columns.join(', ')
+        const valuesStr = values.join(', ')
 
-      if (rowid !== null) {
-        // Update existing record
-        const setClause = columns.map((col, idx) => `${col} = ${values[idx]}`).join(', ')
-        await promiser('exec', {
-          sql: `UPDATE ${indexName} SET ${setClause} WHERE rowid = ${rowid}`,
-        })
-        isUpdate = true
-      } else {
-        // Insert new record
-        await promiser('exec', {
-          sql: `INSERT INTO ${indexName}(${columnsStr}) VALUES (${valuesStr})`,
-        })
+        if (rowid !== null) {
+          // Update existing record
+          const setClause = columns.map((col, idx) => `${col} = ${values[idx]}`).join(', ')
+          await promiser('exec', {
+            sql: `UPDATE ${indexName} SET ${setClause} WHERE rowid = ${rowid}`,
+          })
+          isUpdate = true
+        } else {
+          // Insert new record
+          await promiser('exec', {
+            sql: `INSERT INTO ${indexName}(${columnsStr}) VALUES (${valuesStr})`,
+          })
+        }
+
+        // Commit transaction
+        await promiser('exec', { sql: 'COMMIT;' })
+      } catch (error) {
+        // Rollback on error
+        await promiser('exec', { sql: 'ROLLBACK;' })
+        throw error
       }
     } catch (error) {
       console.error(`Error adding blob to index ${indexName}:`, error, { data: blobData })
@@ -302,14 +314,27 @@ export default class IndexerService {
       throw new Error(`Index ${indexName} not found`)
     }
 
-    try {
-      const rowid = await this.getRowid(indexName, schema.primaryKey, primaryKeyValue)
+    const promiser = DatabaseService.getPromiser()
 
-      if (rowid !== null) {
-        const promiser = DatabaseService.getPromiser()
-        await promiser('exec', {
-          sql: `DELETE FROM ${indexName} WHERE rowid = ${rowid}`,
-        })
+    try {
+      // Start transaction
+      await promiser('exec', { sql: 'BEGIN TRANSACTION;' })
+
+      try {
+        const rowid = await this.getRowid(indexName, schema.primaryKey, primaryKeyValue)
+
+        if (rowid !== null) {
+          await promiser('exec', {
+            sql: `DELETE FROM ${indexName} WHERE rowid = ${rowid}`,
+          })
+        }
+
+        // Commit transaction
+        await promiser('exec', { sql: 'COMMIT;' })
+      } catch (error) {
+        // Rollback on error
+        await promiser('exec', { sql: 'ROLLBACK;' })
+        throw error
       }
     } catch (error) {
       console.error(`Error removing blob from index ${indexName}:`, error, { id: primaryKeyValue })
