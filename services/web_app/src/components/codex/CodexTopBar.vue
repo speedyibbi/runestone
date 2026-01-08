@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import CodexTabs, { type Tab } from '@/components/codex/CodexTabs.vue'
 import CommandPalette from '@/components/codex/CommandPalette.vue'
 import type { RuneInfo } from '@/composables/useCodex'
@@ -31,6 +31,8 @@ interface Emits {
   (e: 'navigateBack'): void
   (e: 'navigateForward'): void
   (e: 'command', command: string): void
+  (e: 'exportRune'): void
+  (e: 'exportCodex'): void
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -70,6 +72,43 @@ function getPreviewButtonTitle(): string {
     return 'Switch to Preview Mode (Ctrl+E)'
   }
 }
+
+const showExportDropdown = ref(false)
+const exportButtonRef = ref<HTMLElement | null>(null)
+const exportDropdownRef = ref<HTMLElement | null>(null)
+
+function toggleExportDropdown() {
+  showExportDropdown.value = !showExportDropdown.value
+}
+
+function handleExportRune() {
+  emit('exportRune')
+  showExportDropdown.value = false
+}
+
+function handleExportCodex() {
+  emit('exportCodex')
+  showExportDropdown.value = false
+}
+
+function handleClickOutside(event: MouseEvent) {
+  if (
+    exportButtonRef.value &&
+    exportDropdownRef.value &&
+    !exportButtonRef.value.contains(event.target as Node) &&
+    !exportDropdownRef.value.contains(event.target as Node)
+  ) {
+    showExportDropdown.value = false
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
+})
 </script>
 
 <template>
@@ -229,6 +268,51 @@ function getPreviewButtonTitle(): string {
           <circle cx="12" cy="12" r="3" />
         </svg>
       </button>
+      <div class="export-dropdown-wrapper">
+        <button
+          ref="exportButtonRef"
+          class="icon-button"
+          :class="{ active: showExportDropdown }"
+          @click="toggleExportDropdown"
+          title="Export"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+        </button>
+        <Transition name="dropdown-fade">
+          <div
+            v-if="showExportDropdown"
+            ref="exportDropdownRef"
+            class="export-dropdown"
+          >
+            <button
+              class="export-dropdown-item"
+              @click="handleExportRune"
+            >
+              Export Rune
+            </button>
+            <button
+              class="export-dropdown-item"
+              @click="handleExportCodex"
+            >
+              Export Codex
+            </button>
+          </div>
+        </Transition>
+      </div>
     </div>
     <CommandPalette
       v-model:show="showCommandPalette"
@@ -412,5 +496,52 @@ function getPreviewButtonTitle(): string {
   background: var(--color-overlay-subtle);
   color: var(--color-foreground);
   opacity: 1;
+}
+
+.export-dropdown-wrapper {
+  position: relative;
+}
+
+.export-dropdown {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  z-index: 1000;
+  background: var(--color-background);
+  border: 1px solid var(--color-overlay-subtle);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px -2px var(--color-modal-shadow);
+  padding: 0.25rem;
+  min-width: 10rem;
+}
+
+.export-dropdown-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--color-foreground);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+}
+
+.export-dropdown-item:hover {
+  background: var(--color-overlay-subtle);
+}
+
+.dropdown-fade-enter-active,
+.dropdown-fade-leave-active {
+  transition: opacity 0.15s ease-in-out, transform 0.15s ease-in-out;
+}
+
+.dropdown-fade-enter-from,
+.dropdown-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-0.25rem);
 }
 </style>

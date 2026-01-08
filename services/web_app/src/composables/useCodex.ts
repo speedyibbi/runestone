@@ -4,6 +4,7 @@ import { useToast } from '@/composables/useToast'
 import { EditorView, type ViewUpdate } from '@codemirror/view'
 import type { SyncProgress, SyncResult } from '@/interfaces/sync'
 import type { SearchServiceResult, SearchOptions } from '@/interfaces/search'
+import JSZip from 'jszip'
 
 // ==================== Interfaces ====================
 
@@ -61,6 +62,7 @@ export interface UseCodexReturn {
   renameCodex: (newTitle: string) => Promise<void>
   deleteCodex: () => Promise<void>
   closeCodex: () => void
+  exportCodex: () => Promise<void>
 
   // Rune operations
   refreshRuneList: () => void
@@ -72,6 +74,7 @@ export interface UseCodexReturn {
   duplicateRune: (runeId: string) => Promise<string>
   closeRune: () => void
   searchRunes: (query: string, options?: SearchOptions) => Promise<SearchServiceResult>
+  exportRune: (runeId?: string) => Promise<void>
 
   // Sigil operations
   refreshSigilList: () => void
@@ -413,6 +416,90 @@ export function useCodex(
     }
 
     lastSavedContent = ''
+  }
+
+  /**
+   * Export the entire codex as a ZIP archive
+   * Maintains directory structure based on rune titles (using '/' as path separator)
+   */
+  async function exportCodex(): Promise<void> {
+    clearError()
+
+    try {
+      if (!currentCodex.value) {
+        throw new Error('No codex is currently open')
+      }
+
+      // Get all non-directory runes (directories are just for structure)
+      const allRunes = runes.value.filter((rune) => !isDirectory(rune.title))
+
+      if (allRunes.length === 0) {
+        throw new Error('No runes to export')
+      }
+
+      // Create a new ZIP file
+      const zip = new JSZip()
+
+      // Fetch all rune contents and add to ZIP with proper paths
+      let exportedCount = 0
+      for (const rune of allRunes) {
+        try {
+          const content = await sessionStore.getRune(rune.uuid)
+          
+          // Use rune title as file path (titles use '/' as directory separator)
+          // Ensure .md extension
+          let filePath = rune.title
+          if (!filePath.endsWith('.md')) {
+            filePath = `${filePath}.md`
+          }
+          
+          // Sanitize path: remove invalid characters but preserve '/' for directory structure
+          // Replace invalid filename characters but keep directory separators
+          filePath = filePath.replace(/[<>:"|?*\x00-\x1f]/g, '_')
+          
+          // Ensure path doesn't start with '/' (JSZip doesn't like absolute paths)
+          if (filePath.startsWith('/')) {
+            filePath = filePath.substring(1)
+          }
+          
+          // Add file to ZIP
+          zip.file(filePath, content)
+          exportedCount++
+        } catch (err) {
+          console.warn(`Failed to fetch rune ${rune.title}:`, err)
+          // Continue with other runes even if one fails
+        }
+      }
+
+      if (exportedCount === 0) {
+        throw new Error('Failed to fetch any rune contents')
+      }
+
+      // Generate ZIP file as blob
+      const zipBlob = await zip.generateAsync({ type: 'blob' })
+
+      // Download the ZIP file
+      const url = URL.createObjectURL(zipBlob)
+      const link = document.createElement('a')
+      link.href = url
+      // Sanitize codex title for filename
+      const sanitizedTitle = currentCodex.value.title.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_')
+      link.download = `${sanitizedTitle}.zip`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+
+      if (showNotifications) {
+        toast.success(`Exported codex: ${currentCodex.value.title} (${exportedCount} files)`)
+      }
+    } catch (err) {
+      setError(err as Error)
+      if (showNotifications) {
+        toast.error(err instanceof Error ? err.message : 'Failed to export codex')
+      }
+      throw err
+    }
   }
 
   // ==================== Rune Operations ====================
@@ -839,6 +926,70 @@ export function useCodex(
     }
   }
 
+  /**
+   * Export a rune as a markdown file
+   * If runeId is not provided, exports the currently open rune
+   */
+  async function exportRune(runeId?: string): Promise<void> {
+    clearError()
+
+    try {
+      if (!currentCodex.value) {
+        throw new Error('No codex is currently open')
+      }
+
+      // Determine which rune to export
+      const targetRuneId = runeId || currentRune.value?.uuid
+      if (!targetRuneId) {
+        throw new Error('No rune is currently open and no rune ID provided')
+      }
+
+      // Get rune info
+      const runeInfo = runes.value.find((r) => r.uuid === targetRuneId)
+      if (!runeInfo) {
+        throw new Error(`Rune with ID ${targetRuneId} not found`)
+      }
+
+      // Check if it's a directory
+      if (isDirectory(runeInfo.title)) {
+        throw new Error('Cannot export directories')
+      }
+
+      // Get rune content
+      // If it's the current rune, use editor content (which may have unsaved changes)
+      // Otherwise, fetch from store
+      let content: string
+      if (targetRuneId === currentRune.value?.uuid && editorView?.value) {
+        content = getEditorContent()
+      } else {
+        content = await sessionStore.getRune(targetRuneId)
+      }
+
+      // Create blob and download
+      const blob = new Blob([content], { type: 'text/markdown' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      // Sanitize filename: remove invalid characters and ensure .md extension
+      const sanitizedTitle = runeInfo.title.replace(/[<>:"/\\|?*]/g, '_')
+      link.download = `${sanitizedTitle}.md`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+
+      if (showNotifications) {
+        toast.success(`Exported rune: ${runeInfo.title}`)
+      }
+    } catch (err) {
+      setError(err as Error)
+      if (showNotifications) {
+        toast.error(err instanceof Error ? err.message : 'Failed to export rune')
+      }
+      throw err
+    }
+  }
+
   // ==================== Sigil (Image) Operations ====================
 
   /**
@@ -1071,6 +1222,7 @@ export function useCodex(
     renameCodex,
     deleteCodex,
     closeCodex,
+    exportCodex,
 
     // Rune operations
     refreshRuneList,
@@ -1082,6 +1234,7 @@ export function useCodex(
     duplicateRune,
     closeRune,
     searchRunes,
+    exportRune,
 
     // Sigil operations
     refreshSigilList,

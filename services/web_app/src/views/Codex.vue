@@ -50,6 +50,8 @@ const {
   renameCodex,
   deleteCodex,
   searchRunes,
+  exportRune,
+  exportCodex,
 } = useCodex(editorViewRef, { autoSave: true })
 
 const autoSaveCallback = createAutoSaveCallback()
@@ -666,6 +668,34 @@ watch(
 function handleCommand(command: string) {
   if (command === 'open-graph') {
     handleOpenGraph()
+  }
+}
+
+async function handleExportRune() {
+  try {
+    await exportRune()
+    setStatusMessage('Rune exported successfully', 'success')
+  } catch (err) {
+    console.error('Error exporting rune:', err)
+    setStatusMessage(
+      err instanceof Error ? err.message : 'Failed to export rune',
+      'error',
+      5000,
+    )
+  }
+}
+
+async function handleExportCodex() {
+  try {
+    await exportCodex()
+    setStatusMessage('Codex exported successfully', 'success')
+  } catch (err) {
+    console.error('Error exporting codex:', err)
+    setStatusMessage(
+      err instanceof Error ? err.message : 'Failed to export codex',
+      'error',
+      5000,
+    )
   }
 }
 
@@ -1753,6 +1783,8 @@ onUnmounted(() => {
         @command="handleCommand"
         @navigate-back="navigateHistoryBack"
         @navigate-forward="navigateHistoryForward"
+        @export-rune="handleExportRune"
+        @export-codex="handleExportCodex"
       />
 
       <!-- Editor Area -->
