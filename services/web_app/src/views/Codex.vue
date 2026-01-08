@@ -52,6 +52,8 @@ const {
   searchRunes,
   exportRune,
   exportCodex,
+  syncCurrentCodex,
+  isSyncing,
 } = useCodex(editorViewRef, { autoSave: true })
 
 const autoSaveCallback = createAutoSaveCallback()
@@ -721,6 +723,20 @@ async function handleExportCodex() {
     console.error('Error exporting codex:', err)
     setStatusMessage(
       err instanceof Error ? err.message : 'Failed to export codex',
+      'error',
+      5000,
+    )
+  }
+}
+
+async function handleSync() {
+  try {
+    await syncCurrentCodex()
+    setStatusMessage('Codex synced successfully', 'success')
+  } catch (err) {
+    console.error('Error syncing codex:', err)
+    setStatusMessage(
+      err instanceof Error ? err.message : 'Failed to sync codex',
       'error',
       5000,
     )
@@ -1802,6 +1818,7 @@ onUnmounted(() => {
         :runes="runes"
         :is-directory="isDirectory"
         :search-runes="searchRunes"
+        :is-syncing="isSyncing"
         @tab-click="handleTabClick"
         @tab-close="handleTabClose"
         @update:tabs="tabs = $event"
@@ -1813,6 +1830,7 @@ onUnmounted(() => {
         @navigate-forward="navigateHistoryForward"
         @export-rune="handleExportRune"
         @export-codex="handleExportCodex"
+        @sync="handleSync"
       />
 
       <!-- Editor Area -->

@@ -18,6 +18,7 @@ interface Props {
   runes: RuneInfo[]
   isDirectory: (runeTitle: string) => boolean
   searchRunes: (query: string, options?: SearchOptions) => Promise<SearchServiceResult>
+  isSyncing?: boolean
 }
 
 interface Emits {
@@ -33,10 +34,12 @@ interface Emits {
   (e: 'command', command: string): void
   (e: 'exportRune'): void
   (e: 'exportCodex'): void
+  (e: 'sync'): void
 }
 
 const props = withDefaults(defineProps<Props>(), {
   modelValue: false,
+  isSyncing: false,
 })
 
 const emit = defineEmits<Emits>()
@@ -65,11 +68,11 @@ function handleCommandPaletteCommand(command: string) {
 
 function getPreviewButtonTitle(): string {
   if (props.previewMode === 'preview') {
-    return 'Switch to Split View (Ctrl+E)'
+    return 'Switch to Split View'
   } else if (props.previewMode === 'split') {
-    return 'Switch to Edit Mode (Ctrl+E)'
+    return 'Switch to Edit Mode'
   } else {
-    return 'Switch to Preview Mode (Ctrl+E)'
+    return 'Switch to Preview Mode'
   }
 }
 
@@ -266,6 +269,32 @@ onUnmounted(() => {
         >
           <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
           <circle cx="12" cy="12" r="3" />
+        </svg>
+      </button>
+      <button
+        class="icon-button"
+        :class="{ active: isSyncing }"
+        :disabled="isSyncing"
+        @click="emit('sync')"
+        title="Sync Codex"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          :class="{ spinning: isSyncing }"
+        >
+          <path d="m17 18-1.535 1.605a5 5 0 0 1-8-1.5" />
+          <path d="M17 22v-4h-4" />
+          <path d="M20.996 15.251A4.5 4.5 0 0 0 17.495 8h-1.79a7 7 0 1 0-12.709 5.607" />
+          <path d="M7 10v4h4" />
+          <path d="m7 14 1.535-1.605a5 5 0 0 1 8 1.5" />
         </svg>
       </button>
       <div class="export-dropdown-wrapper">
@@ -543,5 +572,23 @@ onUnmounted(() => {
 .dropdown-fade-leave-to {
   opacity: 0;
   transform: translateY(-0.25rem);
+}
+
+.icon-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>
