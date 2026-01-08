@@ -6,6 +6,12 @@ import Loader from '@/components/base/Loader.vue'
 import Dropdown from '@/components/form/Dropdown.vue'
 import type { GraphNode, GraphEdge, GraphQueryOptions } from '@/interfaces/graph'
 
+interface Props {
+  openRune?: (runeId: string) => Promise<void>
+}
+
+const props = defineProps<Props>()
+
 const isGraphEnabled = __APP_CONFIG__.global.featureFlags.graph
 
 // Extend GraphNode with d3 simulation properties
@@ -267,8 +273,20 @@ function initializeGraph() {
       hoveredNode.value = null
       updateNodeStyles()
     })
-    .on('click', (event: MouseEvent, d: GraphNodeWithSimulation) => {
+    .on('click', async (event: MouseEvent, d: GraphNodeWithSimulation) => {
       event.stopPropagation()
+      
+      // Ctrl+click opens the rune
+      if ((event.ctrlKey || event.metaKey) && props.openRune) {
+        try {
+          await props.openRune(d.uuid)
+        } catch (err) {
+          console.error('Error opening rune:', err)
+        }
+        return
+      }
+      
+      // Regular click selects/deselects the node
       selectedNode.value = selectedNode.value?.uuid === d.uuid ? null : d
       updateNodeStyles()
     })
@@ -406,6 +424,10 @@ function initializeGraph() {
   ) {
     const drag = d3
       .drag<SVGCircleElement, GraphNodeWithSimulation>()
+      .filter((event: MouseEvent) => {
+        // Don't start drag if Ctrl/Cmd is held (allow Ctrl+click to work)
+        return !event.ctrlKey && !event.metaKey
+      })
       .on('start', (event: d3.D3DragEvent<SVGCircleElement, GraphNodeWithSimulation, GraphNodeWithSimulation>, d: GraphNodeWithSimulation) => {
         if (!event.active && simulation) {
           simulation.alphaTarget(0.3).restart()

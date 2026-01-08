@@ -11,6 +11,7 @@ interface Props {
   currentRuneId?: string | null
   previewMode: PreviewMode
   isGraphTab?: boolean
+  openRune?: (runeId: string) => Promise<void>
 }
 
 const props = defineProps<Props>()
@@ -43,7 +44,7 @@ watch(
 <template>
   <div class="editor-area">
     <!-- Graph View -->
-    <CodexGraphView v-if="isGraphTab" />
+    <CodexGraphView v-if="isGraphTab" :open-rune="props.openRune" />
 
     <!-- Empty State -->
     <div v-else-if="!hasOpenRune && !isLoadingRune" class="empty-state">

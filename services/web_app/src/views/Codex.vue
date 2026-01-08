@@ -1822,6 +1822,7 @@ onUnmounted(() => {
         :current-rune-id="currentRune?.uuid ?? null"
         :preview-mode="previewMode"
         :is-graph-tab="activeTabId !== null && tabs.find((t) => t.id === activeTabId)?.runeId === undefined"
+        :open-rune="handleOpenRune"
         @update:editor-element="editorElement = $event"
         @update:preview-element="previewElement = $event"
       />
