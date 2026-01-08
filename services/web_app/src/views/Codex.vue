@@ -61,11 +61,38 @@ const sigilResolver = async (sigilId: string): Promise<string> => {
   return await getSigilUrl(sigilId)
 }
 
+// Create rune opener function - finds rune by title or UUID and opens it
+const runeOpener = async (runeIdentifier: string): Promise<void> => {
+  const normalized = runeIdentifier.trim()
+  
+  // Check if it's a rune://uuid format
+  const runeProtocolPattern = /^rune:\/\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i
+  const uuidMatch = normalized.match(runeProtocolPattern)
+  
+  if (uuidMatch) {
+    // It's a UUID - open directly
+    const uuid = uuidMatch[1]
+    await openRune(uuid)
+    return
+  }
+  
+  // Otherwise, treat it as a title and find by title
+  const foundRune = runes.value.find(
+    (rune) => rune.title === normalized || rune.title.toLowerCase() === normalized.toLowerCase(),
+  )
+
+  if (foundRune) {
+    await openRune(foundRune.uuid)
+  } else {
+    throw new Error(`Rune "${normalized}" not found`)
+  }
+}
+
 // Shared preview mode state across all tabs
 const previewMode = ref<PreviewMode>('edit')
 
 // Initialize preview editor for split mode (needed for the callback)
-const previewComposable = useEditor(previewElement, undefined, sigilResolver, ref('preview'))
+const previewComposable = useEditor(previewElement, undefined, sigilResolver, ref('preview'), runeOpener)
 const { editorView: previewView } = previewComposable
 
 // Combined update callback for auto-save and preview sync
@@ -95,12 +122,13 @@ const combinedUpdateCallback = (update: ViewUpdate) => {
   }
 }
 
-// Initialize editor with sigil resolver
+// Initialize editor with sigil resolver and rune opener
 const editorComposable = useEditor(
   editorElement,
   combinedUpdateCallback,
   sigilResolver,
   previewMode,
+  runeOpener,
 )
 const { editorView, togglePreview, applyPreviewMode } = editorComposable
 

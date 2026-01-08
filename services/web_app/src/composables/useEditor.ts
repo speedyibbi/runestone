@@ -16,6 +16,7 @@ import {
   previewModeTheme,
   previewModeExtension,
   sigilResolverFacet,
+  runeOpenerFacet,
 } from '@/utils/editor/livePreview'
 import {
   markdownHeadingFolding,
@@ -32,6 +33,7 @@ export function useEditor(
   onUpdate?: (update: ViewUpdate) => void,
   sigilResolver?: SigilUrlResolver,
   previewMode?: Ref<PreviewMode>,
+  runeOpener?: (runeTitle: string) => Promise<void>,
 ) {
   const editorView = ref<EditorView | null>(null)
   // Use shared preview mode state if provided, otherwise create local one
@@ -65,6 +67,9 @@ export function useEditor(
 
         // Sigil resolver facet - provide the resolver for encrypted images
         sigilResolverFacet.of(sigilResolver || null),
+
+        // Rune opener facet - provide the function to open runes by title
+        runeOpenerFacet.of(runeOpener || null),
 
         // Use tabs instead of spaces
         indentUnit.of('\t'),

@@ -45,6 +45,17 @@ export const sigilResolverFacet = Facet.define<SigilUrlResolver | null, SigilUrl
 })
 
 /**
+ * Facet to provide rune opener function
+ * Takes a rune title and opens the corresponding rune
+ */
+export const runeOpenerFacet = Facet.define<
+  ((runeTitle: string) => Promise<void>) | null,
+  ((runeTitle: string) => Promise<void>) | null
+>({
+  combine: (values) => values[values.length - 1] ?? null,
+})
+
+/**
  * State field to track preview mode
  */
 export const togglePreviewMode = StateEffect.define<boolean>()
@@ -560,6 +571,24 @@ function handleClick(event: MouseEvent, view: EditorView): boolean {
   if (event.button !== 0) return false
   if (!event.ctrlKey && !event.metaKey) return false
 
+  // Check if we clicked on a wiki link decoration element
+  const target = event.target as HTMLElement
+  const wikiTarget = target.closest('.cm-wiki-link')?.getAttribute('data-wiki-target')
+  
+  if (wikiTarget) {
+    // Clicked on a wiki link - open the rune
+    event.preventDefault()
+    event.stopPropagation()
+    
+    const runeOpener = view.state.facet(runeOpenerFacet)
+    if (runeOpener) {
+      runeOpener(wikiTarget).catch((error) => {
+        console.warn('Failed to open rune:', error.message || error)
+      })
+    }
+    return true
+  }
+
   // Get the position where the click occurred
   const pos = view.posAtCoords({ x: event.clientX, y: event.clientY })
   if (pos === null) return false
@@ -572,7 +601,41 @@ function handleClick(event: MouseEvent, view: EditorView): boolean {
   event.preventDefault()
   event.stopPropagation()
 
-  // Open the link in a new tab
+  // Get rune opener from facet
+  const runeOpener = view.state.facet(runeOpenerFacet)
+
+  // Check if this is a rune link (wiki link or markdown link pointing to a rune)
+  // Wiki links return the title directly, markdown links might point to a rune
+  if (runeOpener) {
+    // Check for rune:// protocol (markdown links to runes)
+    const isRuneProtocol = url.startsWith('rune://')
+    
+    // For wiki links, the URL is the rune title
+    // For markdown links, check if the URL doesn't look like an external URL
+    const isExternalUrl =
+      url.startsWith('http://') ||
+      url.startsWith('https://') ||
+      url.startsWith('//') ||
+      url.startsWith('mailto:') ||
+      url.startsWith('tel:') ||
+      url.startsWith('#')
+
+    if (isRuneProtocol || !isExternalUrl) {
+      // This is a rune link - try to open it
+      // The URL could be:
+      // - rune://uuid (from markdown link)
+      // - rune title (from wiki link)
+      // - relative path (treated as rune title)
+      runeOpener(url).catch((error) => {
+        // If opening as rune fails (e.g., rune not found), just log it
+        // Don't fall back to external link behavior for non-external URLs
+        console.warn('Failed to open rune:', error.message || error)
+      })
+      return true
+    }
+  }
+
+  // Open external links in a new tab
   try {
     if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('//')) {
       window.open(url, '_blank', 'noopener,noreferrer')
