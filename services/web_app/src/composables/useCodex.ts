@@ -1107,10 +1107,6 @@ export function useCodex(
       refreshRuneList()
       refreshSigilList()
 
-      if (showNotifications) {
-        toast.success('Synced successfully')
-      }
-
       return result
     } catch (err) {
       setError(err as Error)
@@ -1138,10 +1134,6 @@ export function useCodex(
       // Update sync time if current codex was synced
       if (currentCodex.value) {
         lastSyncTime.value = sessionStore.getLastSyncTime()
-      }
-
-      if (showNotifications) {
-        toast.success('All codexes synced')
       }
 
       return results

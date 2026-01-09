@@ -626,6 +626,16 @@ function getBaseName(fullTitle: string): string {
   return parts[parts.length - 1] || fullTitle
 }
 
+// Watch isSyncing to show syncing status in status bar
+watch(isSyncing, (syncing) => {
+  if (syncing) {
+    // Show "Syncing..." when sync starts
+    setStatusMessage('Syncing...', 'info', 0) // No timeout, will be cleared by success/error message
+  }
+  // When syncing becomes false, don't clear the message here
+  // Let the success/error message from handleSync take over
+})
+
 watch(
   () => currentRune.value,
   (rune, oldRune) => {

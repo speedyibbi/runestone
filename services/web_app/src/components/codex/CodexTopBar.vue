@@ -288,7 +288,6 @@ onUnmounted(() => {
           stroke-width="2"
           stroke-linecap="round"
           stroke-linejoin="round"
-          :class="{ spinning: isSyncing }"
         >
           <path d="m17 18-1.535 1.605a5 5 0 0 1-8-1.5" />
           <path d="M17 22v-4h-4" />
@@ -577,18 +576,5 @@ onUnmounted(() => {
 .icon-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-
-.spinning {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
 }
 </style>
