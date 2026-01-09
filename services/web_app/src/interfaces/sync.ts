@@ -8,6 +8,8 @@ export interface SyncProgress {
     | 'comparing'
     | 'downloading'
     | 'uploading'
+    | 'deleting_remote'
+    | 'deleting_local'
     | 'saving_manifest'
     | 'syncing_root'
   current: number
@@ -21,6 +23,8 @@ export interface SyncResult {
   success: boolean
   downloaded: number
   uploaded: number
+  deletedRemotely: number
+  deletedLocally: number
   conflicts: number
   errors: string[]
   duration: number

@@ -806,9 +806,15 @@ export const useSessionStore = defineStore('session', () => {
       throw new Error('FEK is not available')
     }
 
+    if (!root.value.mek) {
+      throw new Error('MEK is not available')
+    }
+
     if (!notebook.value.manifest) {
       throw new Error('Manifest is not loaded')
     }
+
+    await OrchestrationService.syncRoot(lookupHash.value!, root.value.mek, onProgress, signal)
 
     const codexId = notebook.value.manifest.notebook_id
 
@@ -840,6 +846,10 @@ export const useSessionStore = defineStore('session', () => {
       throw new Error('Lookup hash is not set')
     }
 
+    if (!root.value.mek) {
+      throw new Error('MEK is not available')
+    }
+
     if (!root.value.map) {
       throw new Error('Map is not loaded')
     }
@@ -849,6 +859,8 @@ export const useSessionStore = defineStore('session', () => {
     root.value.map.entries.forEach((entry) => {
       codexTitles.set(entry.uuid, entry.title)
     })
+
+    await OrchestrationService.syncRoot(lookupHash.value!, root.value.mek, () => {}, signal)
 
     // Sync all notebooks with enhanced progress callback
     const results = await OrchestrationService.syncAllNotebooks(

@@ -425,6 +425,9 @@ export default class OrchestrationService {
       CacheService.upsertManifest(lookupHash, notebookId, encryptedManifest),
     ])
 
+    // Step 7: Sync notebook
+    await this.syncNotebook(notebookId, lookupHash, fek, () => {}, signal)
+
     return {
       notebookId,
       notebookMeta,
@@ -1140,6 +1143,8 @@ export default class OrchestrationService {
           success: false,
           downloaded: 0,
           uploaded: 0,
+          deletedRemotely: 0,
+          deletedLocally: 0,
           conflicts: 0,
           errors: [
             `Failed to sync notebook ${entry.title}: ${error instanceof Error ? error.message : String(error)}`,

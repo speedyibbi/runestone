@@ -27,18 +27,23 @@ export default class SyncService {
 
   /**
    * Compare manifests and determine sync actions
+   * Verifies that blobs actually exist in cache (not just manifest entries)
    */
-  private static compareManifests(
+  private static async compareManifests(
     cached: Manifest | null,
     remote: Manifest | null,
-  ): {
+    lookupHash: string,
+    notebookId: string,
+  ): Promise<{
     toDownload: ManifestEntry[]
     toUpload: ManifestEntry[]
-  } {
+    toDeleteRemotely: string[]
+    toDeleteLocally: string[]
+  }> {
     if (remote && !cached) {
-      return { toDownload: remote.entries, toUpload: [] }
+      return { toDownload: remote.entries, toUpload: [], toDeleteRemotely: [], toDeleteLocally: [] }
     } else if (!remote && cached) {
-      return { toDownload: [], toUpload: cached.entries }
+      return { toDownload: [], toUpload: cached.entries, toDeleteRemotely: [], toDeleteLocally: [] }
     }
 
     if (!cached || !remote) {
@@ -47,6 +52,8 @@ export default class SyncService {
 
     const toDownload: ManifestEntry[] = []
     const toUpload: ManifestEntry[] = []
+    const toDeleteRemotely: string[] = []
+    const toDeleteLocally: string[] = []
 
     const cachedEntries = new Map<string, ManifestEntry>()
     for (const entry of cached.entries) {
@@ -58,32 +65,61 @@ export default class SyncService {
       remoteEntries.set(entry.uuid, entry)
     }
 
-    // Check remote entries (download if missing or newer)
+    const cachedManifestTime = new Date(cached.last_updated).getTime()
+    const remoteManifestTime = new Date(remote.last_updated).getTime()
+
+    // Check remote entries (download if missing or newer, or delete if removed locally)
     for (const remoteEntry of remote.entries) {
       const cachedEntry = cachedEntries.get(remoteEntry.uuid)
 
       if (!cachedEntry) {
-        // Entry doesn't exist in cache - download
-        toDownload.push(remoteEntry)
-      } else {
-        // Compare timestamps (Last-Write-Wins)
-        const cachedTime = new Date(cachedEntry.last_updated).getTime()
-        const remoteTime = new Date(remoteEntry.last_updated).getTime()
-
-        if (remoteTime > cachedTime) {
-          // Remote is newer - download
+        // Entry doesn't exist in cache manifest
+        const remoteEntryTime = new Date(remoteEntry.last_updated).getTime()
+        
+        if (remoteManifestTime > cachedManifestTime || remoteEntryTime > cachedManifestTime) {
+          // Remote manifest or entry is newer - this is a new entry, download it
           toDownload.push(remoteEntry)
+        } else {
+          // Cached manifest is newer and doesn't have this entry - it was deleted locally
+          // Delete it from remote
+          toDeleteRemotely.push(remoteEntry.uuid)
+        }
+      } else {
+        // Entry exists in manifest - check if blob file actually exists in cache
+        const blobExists = await CacheService.getBlob(lookupHash, notebookId, remoteEntry.uuid)
+        
+        if (!blobExists) {
+          // Manifest entry exists but blob file is missing - download
+          toDownload.push(remoteEntry)
+        } else {
+          // Compare timestamps (Last-Write-Wins)
+          const cachedTime = new Date(cachedEntry.last_updated).getTime()
+          const remoteTime = new Date(remoteEntry.last_updated).getTime()
+
+          if (remoteTime > cachedTime) {
+            // Remote is newer - download
+            toDownload.push(remoteEntry)
+          }
         }
       }
     }
 
-    // Check cached entries (upload if missing remotely or newer)
+    // Check cached entries (upload if missing remotely or newer, or delete if removed remotely)
     for (const cachedEntry of cached.entries) {
       const remoteEntry = remoteEntries.get(cachedEntry.uuid)
 
       if (!remoteEntry) {
-        // Entry doesn't exist remotely - upload
-        toUpload.push(cachedEntry)
+        // Entry doesn't exist remotely
+        const cachedEntryTime = new Date(cachedEntry.last_updated).getTime()
+        
+        if (cachedManifestTime > remoteManifestTime || cachedEntryTime > remoteManifestTime) {
+          // Local manifest or entry is newer - this is a new entry, upload it
+          toUpload.push(cachedEntry)
+        } else {
+          // Remote manifest is newer and doesn't have this entry - it was deleted remotely
+          // Delete it from cache
+          toDeleteLocally.push(cachedEntry.uuid)
+        }
       } else {
         // Compare timestamps
         const cachedTime = new Date(cachedEntry.last_updated).getTime()
@@ -96,7 +132,7 @@ export default class SyncService {
       }
     }
 
-    return { toDownload, toUpload }
+    return { toDownload, toUpload, toDeleteRemotely, toDeleteLocally }
   }
 
   /**
@@ -185,6 +221,81 @@ export default class SyncService {
     }
 
     return uploaded
+  }
+
+  /**
+   * Delete blobs from remote
+   */
+  private static async deleteBlobsRemotely(
+    notebookId: string,
+    uuids: string[],
+    signal: AbortSignal | undefined,
+    onProgress: (current: number, total: number) => void,
+    errors: string[],
+  ): Promise<number> {
+    let deleted = 0
+
+    for (let i = 0; i < uuids.length; i++) {
+      if (signal?.aborted) {
+        throw new DOMException('Sync cancelled', 'AbortError')
+      }
+
+      const uuid = uuids[i]
+      try {
+        // Delete blob from remote
+        await RemoteService.deleteBlob(notebookId, uuid, signal)
+
+        deleted++
+        onProgress(i + 1, uuids.length)
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') {
+          throw error
+        }
+        const errorMessage = `Failed to delete blob ${uuid} from remote: ${error}`
+        errors.push(errorMessage)
+        onProgress(i + 1, uuids.length)
+      }
+    }
+
+    return deleted
+  }
+
+  /**
+   * Delete blobs from cache
+   */
+  private static async deleteBlobsLocally(
+    lookupHash: string,
+    notebookId: string,
+    uuids: string[],
+    signal: AbortSignal | undefined,
+    onProgress: (current: number, total: number) => void,
+    errors: string[],
+  ): Promise<number> {
+    let deleted = 0
+
+    for (let i = 0; i < uuids.length; i++) {
+      if (signal?.aborted) {
+        throw new DOMException('Sync cancelled', 'AbortError')
+      }
+
+      const uuid = uuids[i]
+      try {
+        // Delete blob from cache
+        await CacheService.deleteBlob(lookupHash, notebookId, uuid)
+
+        deleted++
+        onProgress(i + 1, uuids.length)
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') {
+          throw error
+        }
+        const errorMessage = `Failed to delete blob ${uuid} from cache: ${error}`
+        errors.push(errorMessage)
+        onProgress(i + 1, uuids.length)
+      }
+    }
+
+    return deleted
   }
 
   /**
@@ -289,9 +400,14 @@ export default class SyncService {
       })
 
       // Determine sync actions based on which manifests exist
-      let syncActions: { toDownload: ManifestEntry[]; toUpload: ManifestEntry[] }
+      let syncActions: {
+        toDownload: ManifestEntry[]
+        toUpload: ManifestEntry[]
+        toDeleteRemotely: string[]
+        toDeleteLocally: string[]
+      }
 
-      syncActions = this.compareManifests(cachedManifest, remoteManifest)
+      syncActions = await this.compareManifests(cachedManifest, remoteManifest, lookupHash, notebookId)
 
       this.notifyProgress(onProgress, {
         phase: 'comparing',
@@ -337,7 +453,44 @@ export default class SyncService {
         )
       }
 
-      // Phase 5: Merge manifests and save
+      // Phase 5: Delete blobs from remote
+      let deletedRemotely = 0
+      if (syncActions.toDeleteRemotely.length > 0) {
+        deletedRemotely = await this.deleteBlobsRemotely(
+          notebookId,
+          syncActions.toDeleteRemotely,
+          signal,
+          (current, total) => {
+            this.notifyProgress(onProgress, {
+              phase: 'deleting_remote',
+              current,
+              total,
+            })
+          },
+          errors,
+        )
+      }
+
+      // Phase 6: Delete blobs from cache
+      let deletedLocally = 0
+      if (syncActions.toDeleteLocally.length > 0) {
+        deletedLocally = await this.deleteBlobsLocally(
+          lookupHash,
+          notebookId,
+          syncActions.toDeleteLocally,
+          signal,
+          (current, total) => {
+            this.notifyProgress(onProgress, {
+              phase: 'deleting_local',
+              current,
+              total,
+            })
+          },
+          errors,
+        )
+      }
+
+      // Phase 7: Merge manifests and save
       this.notifyProgress(onProgress, {
         phase: 'saving_manifest',
         current: 0,
@@ -394,6 +547,8 @@ export default class SyncService {
         success: errors.length === 0,
         downloaded,
         uploaded,
+        deletedRemotely,
+        deletedLocally,
         conflicts,
         errors,
         duration,
@@ -421,6 +576,8 @@ export default class SyncService {
         success: false,
         downloaded: 0,
         uploaded: 0,
+        deletedRemotely: 0,
+        deletedLocally: 0,
         conflicts: 0,
         errors,
         duration,
@@ -564,6 +721,8 @@ export default class SyncService {
         success: errors.length === 0,
         downloaded: 0, // Not tracking individual file downloads for root sync
         uploaded: 0, // Not tracking individual file uploads for root sync
+        deletedRemotely: 0, // Root sync doesn't delete blobs
+        deletedLocally: 0, // Root sync doesn't delete blobs
         conflicts,
         errors,
         duration,
@@ -591,6 +750,8 @@ export default class SyncService {
         success: false,
         downloaded: 0,
         uploaded: 0,
+        deletedRemotely: 0,
+        deletedLocally: 0,
         conflicts: 0,
         errors,
         duration,

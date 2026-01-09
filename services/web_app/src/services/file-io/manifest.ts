@@ -146,6 +146,7 @@ export default class ManifestService {
 
   /**
    * Merge two manifests using Last-Write-Wins strategy
+   * Handles deletions by checking manifest-level timestamps
    */
   static merge(
     local: Manifest,
@@ -163,13 +164,23 @@ export default class ManifestService {
     const processedUuids = new Set<string>()
     let conflicts = 0
 
+    // Determine which manifest is newer
+    const localManifestTime = new Date(local.last_updated).getTime()
+    const remoteManifestTime = new Date(remote.last_updated).getTime()
+
     // Process all remote entries
     for (const remoteEntry of remote.entries) {
       const localEntry = localEntries.get(remoteEntry.uuid)
 
       if (!localEntry) {
-        // Entry only exists remotely - add it
-        mergedEntries.push(remoteEntry)
+        // Entry only exists remotely
+        // Only add it if remote manifest is newer or entry is newer than local manifest
+        // (otherwise it was deleted locally)
+        const remoteEntryTime = new Date(remoteEntry.last_updated).getTime()
+        if (remoteManifestTime > localManifestTime || remoteEntryTime > localManifestTime) {
+          mergedEntries.push(remoteEntry)
+        }
+        // Local manifest is newer and doesn't have this entry - it was deleted locally
       } else {
         // Entry exists in both - use Last-Write-Wins
         const localTime = new Date(localEntry.last_updated).getTime()
@@ -199,14 +210,19 @@ export default class ManifestService {
     // Process local entries that don't exist remotely
     for (const localEntry of local.entries) {
       if (!processedUuids.has(localEntry.uuid)) {
-        mergedEntries.push(localEntry)
+        // Entry only exists locally
+        // Only add it if local manifest is newer or entry is newer than remote manifest
+        // (otherwise it was deleted remotely)
+        const localEntryTime = new Date(localEntry.last_updated).getTime()
+        if (localManifestTime > remoteManifestTime || localEntryTime > remoteManifestTime) {
+          mergedEntries.push(localEntry)
+        }
+        // Remote manifest is newer and doesn't have this entry - it was deleted remotely
       }
     }
 
-    // Determine which manifest has the later timestamp
-    const localTime = new Date(local.last_updated).getTime()
-    const remoteTime = new Date(remote.last_updated).getTime()
-    const lastUpdated = remoteTime > localTime ? remote.last_updated : local.last_updated
+    // Use the newer manifest's timestamp
+    const lastUpdated = remoteManifestTime > localManifestTime ? remote.last_updated : local.last_updated
 
     const mergedManifest: Manifest = {
       manifest_version: Math.max(local.manifest_version, remote.manifest_version),
