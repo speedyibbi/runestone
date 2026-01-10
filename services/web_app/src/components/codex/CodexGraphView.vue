@@ -657,10 +657,11 @@ watch(
       <button
         v-if="centerNodeUuid"
         class="graph-filter-back"
-        @click="
+        @click="() => {
           centerNodeUuid = null
-          cleanup()
-          loadGraph()
+            cleanup()
+            loadGraph()
+          }
         "
         title="Back to full view"
       >
