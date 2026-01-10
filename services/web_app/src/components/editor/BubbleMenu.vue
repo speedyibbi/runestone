@@ -132,27 +132,27 @@ function extractHashtagsFromDocument(content: string): Set<string> {
   // Pattern: #tag (word characters and hyphens)
   // Matches at start of line or after whitespace
   const hashtagPattern = /(?:^|\s)#([\w-]+)/g
-  
+
   let match
   while ((match = hashtagPattern.exec(content)) !== null) {
     const hashtag = match[1].toLowerCase() // Normalize to lowercase
     hashtags.add(hashtag)
   }
-  
+
   return hashtags
 }
 
 // Merge available hashtags with new hashtags from document
 const allHashtags = computed(() => {
   const merged = new Map<string, number>(availableHashtags.value)
-  
+
   // Add document hashtags that aren't in available hashtags (new hashtags with count 0)
   documentHashtags.value.forEach((tag) => {
     if (!merged.has(tag)) {
       merged.set(tag, 0) // New hashtags have count 0
     }
   })
-  
+
   return merged
 })
 
@@ -169,15 +169,15 @@ function calculateRuneLinkSelectorPosition(): { top: number; left: number } {
   const linkBracketStart = linkInfo.linkStart // Position of '['
   const linkTextStart = linkInfo.linkStart + 1 // Position after '['
   const linkTextEnd = linkInfo.linkStart + 1 + linkInfo.linkText.length // Position before ']'
-  
+
   // Get coordinates - use bracket start as primary anchor for stability
   const bracketCoords = view.coordsAtPos(linkBracketStart)
   const linkTextStartCoords = view.coordsAtPos(linkTextStart)
   const linkTextEndCoords = view.coordsAtPos(linkTextEnd)
-  
+
   // Get cursor coordinates as fallback
   const cursorCoords = view.coordsAtPos(linkInfo.cursorPos)
-  
+
   // Prefer using bracket or link text coordinates for stability
   if (bracketCoords && linkTextEndCoords) {
     // Use bracket start for horizontal position (more stable)
@@ -205,7 +205,7 @@ function calculateRuneLinkSelectorPosition(): { top: number; left: number } {
       left: cursorCoords.left + window.scrollX + 4,
     }
   }
-  
+
   return { top: 0, left: 0 }
 }
 
@@ -233,10 +233,10 @@ function checkAndShowRuneLinkSelector(view: EditorView): void {
       runeLinkSelectorPosition.value = calculateRuneLinkSelectorPosition()
       lastLinkStart = linkInfo.linkStart
     }
-    
+
     // Always update search query from URL text
     runeLinkSelectorSearchQuery.value = linkInfo.urlText || ''
-    
+
     // Show dropdown only if there are results (component will handle filtering)
     // The component will hide itself if filteredRunes is empty
     showRuneLinkSelector.value = true
@@ -247,10 +247,10 @@ function checkAndShowRuneLinkSelector(view: EditorView): void {
       clearTimeout(typingTimeout)
       typingTimeout = null
     }
-    
+
     // Reset link start tracking
     lastLinkStart = -1
-    
+
     // Only hide if we're not hovering (user might be selecting)
     if (!isHoveringDropdown.value) {
       showRuneLinkSelector.value = false
@@ -301,7 +301,7 @@ function handleRuneSelect(rune: RuneInfo): void {
   while ((match = linkPattern.exec(lineText)) !== null) {
     const matchStart = lineStart + match.index
     const matchEnd = matchStart + match[0].length
-    
+
     // Check if cursor is in this link's URL
     if (linkInfo.cursorPos >= matchStart && linkInfo.cursorPos <= matchEnd) {
       fullLinkStart = matchStart
@@ -317,11 +317,13 @@ function handleRuneSelect(rune: RuneInfo): void {
 
   // Replace the entire markdown link with wiki link
   const wikiLink = `[[${rune.title}]]`
-  const changes: ChangeSpec[] = [{
-    from: fullLinkStart,
-    to: fullLinkEnd,
-    insert: wikiLink,
-  }]
+  const changes: ChangeSpec[] = [
+    {
+      from: fullLinkStart,
+      to: fullLinkEnd,
+      insert: wikiLink,
+    },
+  ]
 
   // Place cursor after the wiki link
   const newPos = fullLinkStart + wikiLink.length
@@ -348,7 +350,7 @@ function calculateHashtagSelectorPosition(): { top: number; left: number } {
   const hashCoords = view.coordsAtPos(hashtagInfo.hashStart)
   const tagEndCoords = view.coordsAtPos(hashtagInfo.tagEnd)
   const cursorCoords = view.coordsAtPos(hashtagInfo.cursorPos)
-  
+
   // Prefer using hashtag coordinates
   if (hashCoords && tagEndCoords) {
     const centerX = (hashCoords.left + tagEndCoords.right) / 2
@@ -365,7 +367,7 @@ function calculateHashtagSelectorPosition(): { top: number; left: number } {
       left: cursorCoords.left + window.scrollX + 4,
     }
   }
-  
+
   return { top: 0, left: 0 }
 }
 
@@ -390,7 +392,7 @@ function updateDocumentHashtags(view: EditorView): void {
 function checkAndShowHashtagSelector(view: EditorView): void {
   // Update document hashtags on every check
   updateDocumentHashtags(view)
-  
+
   const hashtagInfo = isInHashtag(view)
   if (hashtagInfo) {
     // Cursor is in hashtag
@@ -405,15 +407,15 @@ function checkAndShowHashtagSelector(view: EditorView): void {
       hashtagSelectorPosition.value = calculateHashtagSelectorPosition()
       lastHashtagStart = hashtagInfo.hashStart
     }
-    
+
     // Always update search query from tag text
     hashtagSelectorSearchQuery.value = hashtagInfo.tagText || ''
-    
+
     // Fetch hashtags if not already loaded
     if (availableHashtags.value.size === 0) {
       fetchHashtags()
     }
-    
+
     // Show dropdown only if there are results (component will handle filtering)
     showHashtagSelector.value = true
   } else {
@@ -423,10 +425,10 @@ function checkAndShowHashtagSelector(view: EditorView): void {
       clearTimeout(hashtagTypingTimeout)
       hashtagTypingTimeout = null
     }
-    
+
     // Reset hashtag start tracking
     lastHashtagStart = -1
-    
+
     // Only hide if we're not hovering (user might be selecting)
     if (!isHoveringHashtagDropdown.value) {
       showHashtagSelector.value = false
@@ -454,14 +456,16 @@ function handleHashtagSelect(hashtag: string): void {
   }
 
   const { state } = view
-  
+
   // Replace the current hashtag text with the selected one
   // Keep the # symbol, only replace the tag text
-  const changes: ChangeSpec[] = [{
-    from: hashtagInfo.tagStart,
-    to: hashtagInfo.tagEnd,
-    insert: hashtag,
-  }]
+  const changes: ChangeSpec[] = [
+    {
+      from: hashtagInfo.tagStart,
+      to: hashtagInfo.tagEnd,
+      insert: hashtag,
+    },
+  ]
 
   // Place cursor after the hashtag
   const newPos = hashtagInfo.hashStart + 1 + hashtag.length // After # and tag
@@ -797,7 +801,7 @@ function setupBubbleMenu() {
   const checkSelection = () => {
     handleSelectionChange()
   }
-  
+
   // Listen to editor changes for rune link selector and hashtag autocomplete
   const handleEditorChanges = () => {
     if (view && !isInPreviewMode()) {
@@ -915,7 +919,6 @@ function setupBubbleMenu() {
   window.addEventListener('scroll', handleScroll, true)
   window.addEventListener('resize', handleResize)
   window.addEventListener('blur', handleWindowBlur)
-  
 
   // Clean up function
   cleanupFn = () => {
@@ -934,7 +937,7 @@ function setupBubbleMenu() {
     window.removeEventListener('resize', handleResize)
     window.removeEventListener('blur', handleWindowBlur)
     hideBubbleMenu()
-    
+
     // Clear typing timeout
     if (typingTimeout) {
       clearTimeout(typingTimeout)

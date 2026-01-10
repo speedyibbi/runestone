@@ -178,7 +178,10 @@ function handleKeydown(event: KeyboardEvent) {
       break
     case 'ArrowDown':
       event.preventDefault()
-      if (filteredOptions.value.length > 0 && highlightedIndex.value < filteredOptions.value.length - 1) {
+      if (
+        filteredOptions.value.length > 0 &&
+        highlightedIndex.value < filteredOptions.value.length - 1
+      ) {
         highlightedIndex.value++
         scrollToHighlighted()
       }
@@ -207,12 +210,14 @@ function handleSelect(option: AutocompleteOption<T>) {
 // Scroll to highlighted item
 function scrollToHighlighted() {
   if (!dropdownRef.value) return
-  
+
   requestAnimationFrame(() => {
     if (!dropdownRef.value) return
-    const listContainer = dropdownRef.value.querySelector('.editor-autocomplete-list') as HTMLElement
+    const listContainer = dropdownRef.value.querySelector(
+      '.editor-autocomplete-list',
+    ) as HTMLElement
     if (!listContainer) return
-    
+
     const items = listContainer.querySelectorAll('.editor-autocomplete-item')
     const highlightedItem = items[highlightedIndex.value] as HTMLElement
     if (!highlightedItem) return
@@ -220,12 +225,12 @@ function scrollToHighlighted() {
     const containerRect = listContainer.getBoundingClientRect()
     const itemRect = highlightedItem.getBoundingClientRect()
     const containerScrollTop = listContainer.scrollTop
-    
+
     const itemTop = itemRect.top - containerRect.top + containerScrollTop
     const itemBottom = itemTop + itemRect.height
     const visibleTop = containerScrollTop
     const visibleBottom = containerScrollTop + containerRect.height
-    
+
     if (itemTop < visibleTop) {
       listContainer.scrollTop = itemTop - 8
     } else if (itemBottom > visibleBottom) {
@@ -235,9 +240,12 @@ function scrollToHighlighted() {
 }
 
 // Reset highlighted index when options change
-watch(() => filteredOptions.value.length, () => {
-  highlightedIndex.value = 0
-})
+watch(
+  () => filteredOptions.value.length,
+  () => {
+    highlightedIndex.value = 0
+  },
+)
 
 // Handle click outside
 function handleClickOutside(event: MouseEvent) {
@@ -260,7 +268,7 @@ function handleGlobalKeydown(event: KeyboardEvent) {
     }
     return
   }
-  
+
   switch (event.key) {
     case 'Escape':
       event.preventDefault()
@@ -340,7 +348,11 @@ onUnmounted(() => {
           >
             <slot name="option" :option="option" :index="index">
               <span class="editor-autocomplete-item-label">
-                {{ typeof option.render === 'function' ? option.render(option.data) : String(option.data) }}
+                {{
+                  typeof option.render === 'function'
+                    ? option.render(option.data)
+                    : String(option.data)
+                }}
               </span>
             </slot>
           </button>

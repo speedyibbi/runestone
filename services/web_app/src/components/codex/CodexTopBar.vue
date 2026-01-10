@@ -321,23 +321,9 @@ onUnmounted(() => {
           </svg>
         </button>
         <Transition name="dropdown-fade">
-          <div
-            v-if="showExportDropdown"
-            ref="exportDropdownRef"
-            class="export-dropdown"
-          >
-            <button
-              class="export-dropdown-item"
-              @click="handleExportRune"
-            >
-              Export Rune
-            </button>
-            <button
-              class="export-dropdown-item"
-              @click="handleExportCodex"
-            >
-              Export Codex
-            </button>
+          <div v-if="showExportDropdown" ref="exportDropdownRef" class="export-dropdown">
+            <button class="export-dropdown-item" @click="handleExportRune">Export Rune</button>
+            <button class="export-dropdown-item" @click="handleExportCodex">Export Codex</button>
           </div>
         </Transition>
       </div>
@@ -564,7 +550,9 @@ onUnmounted(() => {
 
 .dropdown-fade-enter-active,
 .dropdown-fade-leave-active {
-  transition: opacity 0.15s ease-in-out, transform 0.15s ease-in-out;
+  transition:
+    opacity 0.15s ease-in-out,
+    transform 0.15s ease-in-out;
 }
 
 .dropdown-fade-enter-from,

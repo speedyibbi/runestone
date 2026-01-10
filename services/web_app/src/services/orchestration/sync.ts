@@ -75,7 +75,7 @@ export default class SyncService {
       if (!cachedEntry) {
         // Entry doesn't exist in cache manifest
         const remoteEntryTime = new Date(remoteEntry.last_updated).getTime()
-        
+
         if (remoteManifestTime > cachedManifestTime || remoteEntryTime > cachedManifestTime) {
           // Remote manifest or entry is newer - this is a new entry, download it
           toDownload.push(remoteEntry)
@@ -87,7 +87,7 @@ export default class SyncService {
       } else {
         // Entry exists in manifest - check if blob file actually exists in cache
         const blobExists = await CacheService.getBlob(lookupHash, notebookId, remoteEntry.uuid)
-        
+
         if (!blobExists) {
           // Manifest entry exists but blob file is missing - download
           toDownload.push(remoteEntry)
@@ -111,7 +111,7 @@ export default class SyncService {
       if (!remoteEntry) {
         // Entry doesn't exist remotely
         const cachedEntryTime = new Date(cachedEntry.last_updated).getTime()
-        
+
         if (cachedManifestTime > remoteManifestTime || cachedEntryTime > remoteManifestTime) {
           // Local manifest or entry is newer - this is a new entry, upload it
           toUpload.push(cachedEntry)
@@ -407,7 +407,12 @@ export default class SyncService {
         toDeleteLocally: string[]
       }
 
-      syncActions = await this.compareManifests(cachedManifest, remoteManifest, lookupHash, notebookId)
+      syncActions = await this.compareManifests(
+        cachedManifest,
+        remoteManifest,
+        lookupHash,
+        notebookId,
+      )
 
       this.notifyProgress(onProgress, {
         phase: 'comparing',

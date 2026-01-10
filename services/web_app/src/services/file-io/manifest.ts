@@ -222,7 +222,8 @@ export default class ManifestService {
     }
 
     // Use the newer manifest's timestamp
-    const lastUpdated = remoteManifestTime > localManifestTime ? remote.last_updated : local.last_updated
+    const lastUpdated =
+      remoteManifestTime > localManifestTime ? remote.last_updated : local.last_updated
 
     const mergedManifest: Manifest = {
       manifest_version: Math.max(local.manifest_version, remote.manifest_version),

@@ -72,7 +72,7 @@ function handleOptionClick(option: Option) {
   if (props.multiple) {
     const currentValues = [...selectedValues.value]
     const index = currentValues.indexOf(option.value)
-    
+
     if (index > -1) {
       // Deselect
       currentValues.splice(index, 1)
@@ -80,7 +80,7 @@ function handleOptionClick(option: Option) {
       // Select
       currentValues.push(option.value)
     }
-    
+
     const newValue = currentValues.length > 0 ? currentValues : null
     emit('update:modelValue', newValue)
     emit('change', newValue)
@@ -170,7 +170,9 @@ function highlightNext() {
     if (!currentOption) {
       currentIndex = 0
     } else {
-      const currentEnabledIndex = enabledOptions.findIndex((opt) => opt.value === currentOption.value)
+      const currentEnabledIndex = enabledOptions.findIndex(
+        (opt) => opt.value === currentOption.value,
+      )
       currentIndex = currentEnabledIndex >= 0 ? currentEnabledIndex + 1 : 0
     }
   }
@@ -199,7 +201,9 @@ function highlightPrevious() {
     if (!currentOption) {
       currentIndex = enabledOptions.length - 1
     } else {
-      const currentEnabledIndex = enabledOptions.findIndex((opt) => opt.value === currentOption.value)
+      const currentEnabledIndex = enabledOptions.findIndex(
+        (opt) => opt.value === currentOption.value,
+      )
       currentIndex = currentEnabledIndex >= 0 ? currentEnabledIndex - 1 : enabledOptions.length - 1
     }
   }
@@ -258,7 +262,11 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div ref="dropdownRef" class="dropdown" :class="{ 'dropdown-open': isOpen, 'dropdown-disabled': disabled }">
+  <div
+    ref="dropdownRef"
+    class="dropdown"
+    :class="{ 'dropdown-open': isOpen, 'dropdown-disabled': disabled }"
+  >
     <button
       type="button"
       class="dropdown-trigger"

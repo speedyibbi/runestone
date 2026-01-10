@@ -76,12 +76,12 @@ export default class SearchService {
           // Normal search: handle special characters and escape quotes
           // FTS5 special characters that need quoting: . ( ) { } [ ] : ^ $ -
           const fts5SpecialChars = /[.(){}\[\]:^$\-]/
-          
+
           // Split query into terms, preserving quoted phrases
           const terms: string[] = []
           let currentTerm = ''
           let inQuotes = false
-          
+
           for (let i = 0; i < query.length; i++) {
             const char = query[i]
             if (char === '"' && (i === 0 || query[i - 1] !== '\\')) {
@@ -110,11 +110,11 @@ export default class SearchService {
               currentTerm += char
             }
           }
-          
+
           if (currentTerm.trim()) {
             terms.push(currentTerm.trim())
           }
-          
+
           // Process each term: quote terms with special characters, escape quotes in all terms
           formattedQuery = terms
             .filter((term) => term.length > 0)
@@ -125,13 +125,13 @@ export default class SearchService {
                 const escapedInner = inner.replace(/"/g, '""')
                 return `"${escapedInner}"`
               }
-              
+
               // If contains special characters, quote it (and escape internal quotes)
               if (fts5SpecialChars.test(term)) {
                 const escaped = term.replace(/"/g, '""')
                 return `"${escaped}"`
               }
-              
+
               // Otherwise, just escape any quotes
               return term.replace(/"/g, '""')
             })

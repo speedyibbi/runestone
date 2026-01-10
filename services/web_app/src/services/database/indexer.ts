@@ -268,7 +268,9 @@ export default class IndexerService {
 
     // Call all registered callbacks
     try {
-      const callbacks = this.indexCallbacks.get(JSON.stringify({ indexName, type: isUpdate ? 'update' : 'add' }))
+      const callbacks = this.indexCallbacks.get(
+        JSON.stringify({ indexName, type: isUpdate ? 'update' : 'add' }),
+      )
       if (callbacks) {
         for (const callback of callbacks) {
           callback(blobData)

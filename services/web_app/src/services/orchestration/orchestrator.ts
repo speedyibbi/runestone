@@ -976,15 +976,7 @@ export default class OrchestrationService {
    * Get graph data
    */
   static async getGraph(options: GraphQueryOptions = {}): Promise<GraphData> {
-    const {
-      queryType,
-      fromUuid,
-      toUuid,
-      centerUuid,
-      depth,
-      minConnections,
-      filters,
-    } = options
+    const { queryType, fromUuid, toUuid, centerUuid, depth, minConnections, filters } = options
 
     // Route to shortest path if both fromUuid and toUuid are provided
     if (fromUuid && toUuid) {
@@ -1002,15 +994,15 @@ export default class OrchestrationService {
         },
       }
       const graphData = await GraphService.getGraph(pathOptions)
-      
+
       // Filter nodes to only include those in the path
       const filteredNodes = graphData.nodes.filter((node) => pathSet.has(node.uuid))
-      
+
       // Create edges between consecutive nodes in the path
       // Also include any existing edges between path nodes
       const pathEdges: typeof graphData.edges = []
       const existingEdges = new Set<string>()
-      
+
       // Add existing edges between path nodes
       for (const edge of graphData.edges) {
         if (pathSet.has(edge.source) && pathSet.has(edge.target)) {
@@ -1045,7 +1037,7 @@ export default class OrchestrationService {
     if (queryType === 'hubs' || minConnections !== undefined) {
       const hubNodes = await GraphService.getHubNodes(minConnections ?? 5, filters)
       const hubUuids = new Set(hubNodes.map((node) => node.uuid))
-      
+
       if (hubUuids.size === 0) {
         return { nodes: [], edges: [], hashtags: new Map() }
       }
@@ -1054,7 +1046,7 @@ export default class OrchestrationService {
       const graphData = await GraphService.getGraph({
         filters,
       })
-      
+
       // Filter to only include hub nodes and their connections
       const filteredNodes = graphData.nodes.filter((node) => hubUuids.has(node.uuid))
       const filteredEdges = graphData.edges.filter(

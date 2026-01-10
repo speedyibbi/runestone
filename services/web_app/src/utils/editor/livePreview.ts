@@ -574,12 +574,12 @@ function handleClick(event: MouseEvent, view: EditorView): boolean {
   // Check if we clicked on a wiki link decoration element
   const target = event.target as HTMLElement
   const wikiTarget = target.closest('.cm-wiki-link')?.getAttribute('data-wiki-target')
-  
+
   if (wikiTarget) {
     // Clicked on a wiki link - open the rune
     event.preventDefault()
     event.stopPropagation()
-    
+
     const runeOpener = view.state.facet(runeOpenerFacet)
     if (runeOpener) {
       runeOpener(wikiTarget).catch((error) => {
@@ -609,7 +609,7 @@ function handleClick(event: MouseEvent, view: EditorView): boolean {
   if (runeOpener) {
     // Check for rune:// protocol (markdown links to runes)
     const isRuneProtocol = url.startsWith('rune://')
-    
+
     // For wiki links, the URL is the rune title
     // For markdown links, check if the URL doesn't look like an external URL
     const isExternalUrl =

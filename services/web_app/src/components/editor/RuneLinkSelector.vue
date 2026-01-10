@@ -2,7 +2,9 @@
 import { computed } from 'vue'
 import type { EditorView } from '@codemirror/view'
 import type { RuneInfo } from '@/composables/useCodex'
-import EditorAutocomplete, { type AutocompleteOption } from '@/components/editor/EditorAutocomplete.vue'
+import EditorAutocomplete, {
+  type AutocompleteOption,
+} from '@/components/editor/EditorAutocomplete.vue'
 
 interface Props {
   runes: RuneInfo[]
@@ -38,7 +40,7 @@ function getDisplayTitle(title: string): { path: string; name: string } {
 // Filter runes based on search query from editor
 const filteredRunes = computed(() => {
   const query = (props.searchQuery || '').toLowerCase().trim()
-  
+
   if (!query) {
     return props.runes.filter((rune) => !props.isDirectory(rune.title))
   }
@@ -80,10 +82,7 @@ function handleSelect(option: AutocompleteOption<RuneInfo>) {
   >
     <template #option="{ option }">
       <div class="rune-item-content">
-        <span
-          v-if="getDisplayTitle(option.data.title).path"
-          class="rune-item-path"
-        >
+        <span v-if="getDisplayTitle(option.data.title).path" class="rune-item-path">
           {{ getDisplayTitle(option.data.title).path }}
         </span>
         <span class="rune-item-name">

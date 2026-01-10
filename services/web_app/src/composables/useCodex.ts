@@ -445,23 +445,23 @@ export function useCodex(
       for (const rune of allRunes) {
         try {
           const content = await sessionStore.getRune(rune.uuid)
-          
+
           // Use rune title as file path (titles use '/' as directory separator)
           // Ensure .md extension
           let filePath = rune.title
           if (!filePath.endsWith('.md')) {
             filePath = `${filePath}.md`
           }
-          
+
           // Sanitize path: remove invalid characters but preserve '/' for directory structure
           // Replace invalid filename characters but keep directory separators
           filePath = filePath.replace(/[<>:"|?*\x00-\x1f]/g, '_')
-          
+
           // Ensure path doesn't start with '/' (JSZip doesn't like absolute paths)
           if (filePath.startsWith('/')) {
             filePath = filePath.substring(1)
           }
-          
+
           // Add file to ZIP
           zip.file(filePath, content)
           exportedCount++

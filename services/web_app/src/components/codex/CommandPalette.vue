@@ -487,7 +487,10 @@ onUnmounted(() => {
           />
         </div>
         <div v-if="displayResults.length > 0" class="command-palette-results">
-          <template v-for="(result, index) in displayResults" :key="result.isCommand ? result.id : result.uuid">
+          <template
+            v-for="(result, index) in displayResults"
+            :key="result.isCommand ? result.id : result.uuid"
+          >
             <div
               v-if="index > 0 && !result.isCommand && displayResults[index - 1]?.isCommand"
               class="command-palette-divider"
@@ -512,15 +515,14 @@ onUnmounted(() => {
                   />
                   <span
                     :class="[
-                      result.isCommand ? 'command-palette-item-command' : 'command-palette-item-filename',
+                      result.isCommand
+                        ? 'command-palette-item-command'
+                        : 'command-palette-item-filename',
                     ]"
                     v-html="result.isCommand ? result.title : getDisplayTitle(result.title).name"
                   />
                 </div>
-                <div
-                  v-if="result.description"
-                  class="command-palette-item-description"
-                >
+                <div v-if="result.description" class="command-palette-item-description">
                   {{ result.description }}
                 </div>
                 <div

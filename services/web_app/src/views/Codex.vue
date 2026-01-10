@@ -66,18 +66,19 @@ const sigilResolver = async (sigilId: string): Promise<string> => {
 // Create rune opener function - finds rune by title or UUID and opens it
 const runeOpener = async (runeIdentifier: string): Promise<void> => {
   const normalized = runeIdentifier.trim()
-  
+
   // Check if it's a rune://uuid format
-  const runeProtocolPattern = /^rune:\/\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i
+  const runeProtocolPattern =
+    /^rune:\/\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i
   const uuidMatch = normalized.match(runeProtocolPattern)
-  
+
   if (uuidMatch) {
     // It's a UUID - open directly
     const uuid = uuidMatch[1]
     await openRune(uuid)
     return
   }
-  
+
   // Otherwise, treat it as a title and find by title
   const foundRune = runes.value.find(
     (rune) => rune.title === normalized || rune.title.toLowerCase() === normalized.toLowerCase(),
@@ -94,7 +95,13 @@ const runeOpener = async (runeIdentifier: string): Promise<void> => {
 const previewMode = ref<PreviewMode>('edit')
 
 // Initialize preview editor for split mode (needed for the callback)
-const previewComposable = useEditor(previewElement, undefined, sigilResolver, ref('preview'), runeOpener)
+const previewComposable = useEditor(
+  previewElement,
+  undefined,
+  sigilResolver,
+  ref('preview'),
+  runeOpener,
+)
 const { editorView: previewView } = previewComposable
 
 // Combined update callback for auto-save and preview sync
@@ -680,15 +687,12 @@ watch(hasUnsavedChanges, (unsaved) => {
 })
 
 // Focus the editor when a rune finishes loading
-watch(
-  [isLoadingRune, currentRune],
-  ([loading, rune], [oldLoading]) => {
-    // Focus when loading completes and we have an open rune
-    if (oldLoading && !loading && rune && hasOpenRune.value) {
-      focusEditor()
-    }
-  },
-)
+watch([isLoadingRune, currentRune], ([loading, rune], [oldLoading]) => {
+  // Focus when loading completes and we have an open rune
+  if (oldLoading && !loading && rune && hasOpenRune.value) {
+    focusEditor()
+  }
+})
 
 watch(
   runes,
@@ -717,11 +721,7 @@ async function handleExportRune() {
     setStatusMessage('Rune exported successfully', 'success')
   } catch (err) {
     console.error('Error exporting rune:', err)
-    setStatusMessage(
-      err instanceof Error ? err.message : 'Failed to export rune',
-      'error',
-      5000,
-    )
+    setStatusMessage(err instanceof Error ? err.message : 'Failed to export rune', 'error', 5000)
   }
 }
 
@@ -731,11 +731,7 @@ async function handleExportCodex() {
     setStatusMessage('Codex exported successfully', 'success')
   } catch (err) {
     console.error('Error exporting codex:', err)
-    setStatusMessage(
-      err instanceof Error ? err.message : 'Failed to export codex',
-      'error',
-      5000,
-    )
+    setStatusMessage(err instanceof Error ? err.message : 'Failed to export codex', 'error', 5000)
   }
 }
 
@@ -745,11 +741,7 @@ async function handleSync() {
     setStatusMessage('Codex synced successfully', 'success')
   } catch (err) {
     console.error('Error syncing codex:', err)
-    setStatusMessage(
-      err instanceof Error ? err.message : 'Failed to sync codex',
-      'error',
-      5000,
-    )
+    setStatusMessage(err instanceof Error ? err.message : 'Failed to sync codex', 'error', 5000)
   }
 }
 
@@ -1849,7 +1841,9 @@ onUnmounted(() => {
         :is-loading-rune="isLoadingRune"
         :current-rune-id="currentRune?.uuid ?? null"
         :preview-mode="previewMode"
-        :is-graph-tab="activeTabId !== null && tabs.find((t) => t.id === activeTabId)?.runeId === undefined"
+        :is-graph-tab="
+          activeTabId !== null && tabs.find((t) => t.id === activeTabId)?.runeId === undefined
+        "
         :open-rune="handleOpenRune"
         @update:editor-element="editorElement = $event"
         @update:preview-element="previewElement = $event"
@@ -1868,7 +1862,9 @@ onUnmounted(() => {
         :is-saving="isSavingRune"
         :has-error="!!error"
         :has-unsaved-changes="hasUnsavedChanges"
-        :is-graph-tab="activeTabId !== null && tabs.find((t) => t.id === activeTabId)?.runeId === undefined"
+        :is-graph-tab="
+          activeTabId !== null && tabs.find((t) => t.id === activeTabId)?.runeId === undefined
+        "
       />
     </div>
 

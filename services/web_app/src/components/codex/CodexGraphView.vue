@@ -42,9 +42,19 @@ type ProcessedEdge = GraphEdge & {
   source: GraphNodeWithSimulation
   target: GraphNodeWithSimulation
 }
-let nodeElements: d3.Selection<SVGCircleElement, GraphNodeWithSimulation, SVGGElement, unknown> | null = null
+let nodeElements: d3.Selection<
+  SVGCircleElement,
+  GraphNodeWithSimulation,
+  SVGGElement,
+  unknown
+> | null = null
 let edgeElements: d3.Selection<SVGLineElement, ProcessedEdge, SVGGElement, unknown> | null = null
-let labelElements: d3.Selection<SVGTextElement, GraphNodeWithSimulation, SVGGElement, unknown> | null = null
+let labelElements: d3.Selection<
+  SVGTextElement,
+  GraphNodeWithSimulation,
+  SVGGElement,
+  unknown
+> | null = null
 let zoom: d3.ZoomBehavior<SVGSVGElement, unknown> | null = null
 
 // Physics parameters (Obsidian-style)
@@ -88,17 +98,17 @@ async function loadGraph() {
   try {
     isLoading.value = true
     error.value = null
-    
+
     // Build query options with hashtag filters and title pattern
     // Normalize selectedHashtags to always be an array (handle null from dropdown)
-    const hashtags = Array.isArray(selectedHashtags.value) 
-      ? selectedHashtags.value 
-      : selectedHashtags.value === null 
-        ? [] 
+    const hashtags = Array.isArray(selectedHashtags.value)
+      ? selectedHashtags.value
+      : selectedHashtags.value === null
+        ? []
         : [selectedHashtags.value]
-    
+
     const hasFilters = hashtags.length > 0 || titlePattern.value.trim().length > 0
-    
+
     const queryOptions: GraphQueryOptions = {
       ...(hasFilters
         ? {
@@ -115,7 +125,7 @@ async function loadGraph() {
           }
         : {}),
     }
-    
+
     const graphData = await sessionStore.getGraph(queryOptions)
     nodes = graphData.nodes
     edges = graphData.edges
@@ -133,7 +143,7 @@ async function loadGraph() {
       isLoading.value = false
       return
     }
-    
+
     // Clear any previous error if we have nodes
     error.value = null
 
@@ -144,13 +154,13 @@ async function loadGraph() {
       await nextTick()
       retries++
     }
-    
+
     if (!svgRef.value || !containerRef.value) {
       error.value = 'Failed to initialize graph view'
       isLoading.value = false
       return
     }
-    
+
     initializeGraph()
   } catch (err) {
     console.error('Error loading graph:', err)
@@ -189,277 +199,60 @@ function initializeGraph() {
       simulation.stop()
     }
 
-  // Create SVG
-  svg = d3.select(svgRef.value)
-  svg.selectAll('*').remove()
-  svg.attr('width', width).attr('height', height)
+    // Create SVG
+    svg = d3.select(svgRef.value)
+    svg.selectAll('*').remove()
+    svg.attr('width', width).attr('height', height)
 
-  // Create container group
-  g = svg.append('g')
+    // Create container group
+    g = svg.append('g')
 
-  // Setup zoom
-  zoom = d3
-    .zoom<SVGSVGElement, unknown>()
-    .scaleExtent([0.1, 4])
-    .on('zoom', (event: d3.D3ZoomEvent<SVGSVGElement, unknown>) => {
-      if (g) {
-        const { x, y, k } = event.transform
-        g.attr('transform', `translate(${x},${y}) scale(${k})`)
-      }
-    })
-
-  svg.call(zoom)
-
-  // Initialize node positions randomly
-  nodes.forEach((node) => {
-    node.x = width / 2 + (Math.random() - 0.5) * 200
-    node.y = height / 2 + (Math.random() - 0.5) * 200
-    node.vx = 0
-    node.vy = 0
-    node.fx = undefined
-    node.fy = undefined
-  })
-
-  // Calculate node degree for mass
-  const nodeDegree = new Map<string, number>()
-  nodes.forEach((node) => nodeDegree.set(node.uuid, 0))
-  edges.forEach((edge) => {
-    nodeDegree.set(edge.source, (nodeDegree.get(edge.source) || 0) + 1)
-    nodeDegree.set(edge.target, (nodeDegree.get(edge.target) || 0) + 1)
-  })
-
-  // Create edges container (will be populated after force simulation setup)
-  const edgesContainer = g.append('g').attr('class', 'edges')
-
-  // Create nodes
-  nodeElements = g
-    .append('g')
-    .attr('class', 'nodes')
-    .selectAll<SVGCircleElement, GraphNodeWithSimulation>('circle')
-    .data(nodes)
-    .enter()
-    .append('circle')
-    .attr('r', (d: GraphNodeWithSimulation) => {
-      const degree = nodeDegree.get(d.uuid) || 0
-      return Math.max(4, Math.min(12, 4 + degree * 0.5))
-    })
-    .attr('fill', (d: GraphNodeWithSimulation) => {
-      if (selectedNode.value?.uuid === d.uuid) {
-        return 'var(--color-accent)'
-      }
-      if (hoveredNode.value?.uuid === d.uuid) {
-        return 'var(--color-accent)'
-      }
-      return 'var(--color-muted)'
-    })
-    .attr('fill-opacity', (d: GraphNodeWithSimulation) => {
-      if (selectedNode.value?.uuid === d.uuid) {
-        return 1
-      }
-      if (hoveredNode.value?.uuid === d.uuid) {
-        return 0.8
-      }
-      return 0.5
-    })
-    .attr('stroke', 'var(--color-overlay-border)')
-    .attr('stroke-width', 0.5)
-    .style('cursor', 'grab')
-    .call(dragHandler as any)
-    .on('mouseover', (_event: MouseEvent, d: GraphNodeWithSimulation) => {
-      hoveredNode.value = d
-      updateNodeStyles()
-    })
-    .on('mouseout', () => {
-      hoveredNode.value = null
-      updateNodeStyles()
-    })
-    .on('click', async (event: MouseEvent, d: GraphNodeWithSimulation) => {
-      event.stopPropagation()
-      
-      // Ctrl+click opens the rune
-      if ((event.ctrlKey || event.metaKey) && props.openRune) {
-        try {
-          await props.openRune(d.uuid)
-        } catch (err) {
-          console.error('Error opening rune:', err)
+    // Setup zoom
+    zoom = d3
+      .zoom<SVGSVGElement, unknown>()
+      .scaleExtent([0.1, 4])
+      .on('zoom', (event: d3.D3ZoomEvent<SVGSVGElement, unknown>) => {
+        if (g) {
+          const { x, y, k } = event.transform
+          g.attr('transform', `translate(${x},${y}) scale(${k})`)
         }
-        return
-      }
-      
-      // Regular click selects/deselects the node
-      selectedNode.value = selectedNode.value?.uuid === d.uuid ? null : d
-      updateNodeStyles()
-    })
-    .on('dblclick', (event: MouseEvent, d: GraphNodeWithSimulation) => {
-      event.stopPropagation()
-      // Show neighborhood of this node
-      centerNodeUuid.value = d.uuid
-      cleanup()
-      loadGraph()
+      })
+
+    svg.call(zoom)
+
+    // Initialize node positions randomly
+    nodes.forEach((node) => {
+      node.x = width / 2 + (Math.random() - 0.5) * 200
+      node.y = height / 2 + (Math.random() - 0.5) * 200
+      node.vx = 0
+      node.vy = 0
+      node.fx = undefined
+      node.fy = undefined
     })
 
-  // Create labels
-  labelElements = g
-    .append('g')
-    .attr('class', 'labels')
-    .selectAll<SVGTextElement, GraphNodeWithSimulation>('text')
-    .data(nodes)
-    .enter()
-    .append('text')
-    .attr('text-anchor', 'middle')
-    .attr('dy', (d: GraphNodeWithSimulation) => {
-      const degree = nodeDegree.get(d.uuid) || 0
-      const radius = Math.max(4, Math.min(12, 4 + degree * 0.5))
-      return radius + 14
+    // Calculate node degree for mass
+    const nodeDegree = new Map<string, number>()
+    nodes.forEach((node) => nodeDegree.set(node.uuid, 0))
+    edges.forEach((edge) => {
+      nodeDegree.set(edge.source, (nodeDegree.get(edge.source) || 0) + 1)
+      nodeDegree.set(edge.target, (nodeDegree.get(edge.target) || 0) + 1)
     })
-    .attr('font-size', '0.6875rem')
-    .attr('fill', 'var(--color-muted)')
-    .attr('fill-opacity', 0.8)
-    .text((d: GraphNodeWithSimulation) => {
-      // Strip directory prefix from title (show only filename)
-      const title = d.title
-      if (title.includes('/')) {
-        const parts = title.split('/').filter((p) => p)
-        return parts[parts.length - 1]
-      }
-      return title
-    })
-    .style('pointer-events', 'none')
-    .style('user-select', 'none')
 
-  // Setup force simulation
-  const linkForce = d3
-    .forceLink<GraphNodeWithSimulation, GraphEdge>(edges)
-    .id((d: GraphNodeWithSimulation) => d.uuid)
-    .distance(SPRING_LENGTH)
-    .strength(SPRING_STRENGTH)
+    // Create edges container (will be populated after force simulation setup)
+    const edgesContainer = g.append('g').attr('class', 'edges')
 
-  simulation = d3
-    .forceSimulation<GraphNodeWithSimulation>(nodes)
-    .force('link', linkForce)
-    .force(
-      'charge',
-      d3.forceManyBody<GraphNodeWithSimulation>().strength((d) => {
+    // Create nodes
+    nodeElements = g
+      .append('g')
+      .attr('class', 'nodes')
+      .selectAll<SVGCircleElement, GraphNodeWithSimulation>('circle')
+      .data(nodes)
+      .enter()
+      .append('circle')
+      .attr('r', (d: GraphNodeWithSimulation) => {
         const degree = nodeDegree.get(d.uuid) || 0
-        // Higher degree = more repulsion (heavier nodes)
-        return -REPULSION_STRENGTH * (1 + degree * 0.1)
-      }),
-    )
-    .force('center', d3.forceCenter(width / 2, height / 2).strength(CENTERING_STRENGTH))
-    .force(
-      'collision',
-      d3
-        .forceCollide<GraphNodeWithSimulation>()
-        .radius((d: GraphNodeWithSimulation) => {
-          const degree = nodeDegree.get(d.uuid) || 0
-          return Math.max(4, Math.min(12, 4 + degree * 0.5)) + 2
-        }),
-    )
-    .alpha(1)
-    .alphaDecay(0.02)
-    .velocityDecay(DAMPING)
-    .on('tick', tick)
-
-  // Get the processed links from the force (after source/target are converted to nodes)
-  // forceLink modifies the edges array in place, converting source/target from strings to node objects
-  const processedLinks = linkForce.links() as ProcessedEdge[]
-  
-  // Create edge elements using the processed links
-  edgeElements = edgesContainer
-    .selectAll<SVGLineElement, ProcessedEdge>('line')
-    .data(processedLinks)
-    .enter()
-    .append('line')
-    .attr('stroke', 'var(--color-overlay-border)')
-    .attr('stroke-width', 1)
-
-  // Custom tick function with velocity clamping and minimum threshold
-  function tick() {
-    if (!nodeElements || !edgeElements || !labelElements) return
-
-    // Apply velocity clamping and minimum threshold
-    nodes.forEach((node: GraphNodeWithSimulation) => {
-      const vx = node.vx || 0
-      const vy = node.vy || 0
-      const speed = Math.sqrt(vx * vx + vy * vy)
-
-      if (speed < MIN_VELOCITY_THRESHOLD) {
-        node.vx = 0
-        node.vy = 0
-      } else if (speed > MAX_VELOCITY) {
-        node.vx = (vx / speed) * MAX_VELOCITY
-        node.vy = (vy / speed) * MAX_VELOCITY
-      }
-    })
-
-    // Update edges (d3-force converts source/target from strings to node objects)
-    edgeElements
-      .attr('x1', (d: ProcessedEdge) => {
-        const source = d.source as GraphNodeWithSimulation
-        return source?.x ?? 0
+        return Math.max(4, Math.min(12, 4 + degree * 0.5))
       })
-      .attr('y1', (d: ProcessedEdge) => {
-        const source = d.source as GraphNodeWithSimulation
-        return source?.y ?? 0
-      })
-      .attr('x2', (d: ProcessedEdge) => {
-        const target = d.target as GraphNodeWithSimulation
-        return target?.x ?? 0
-      })
-      .attr('y2', (d: ProcessedEdge) => {
-        const target = d.target as GraphNodeWithSimulation
-        return target?.y ?? 0
-      })
-
-    // Update nodes
-    nodeElements.attr('cx', (d: GraphNodeWithSimulation) => d.x || 0).attr('cy', (d: GraphNodeWithSimulation) => d.y || 0)
-
-    // Update labels
-    labelElements.attr('x', (d: GraphNodeWithSimulation) => d.x || 0).attr('y', (d: GraphNodeWithSimulation) => d.y || 0)
-  }
-
-  // Drag handler
-  function dragHandler(
-    selection: d3.Selection<SVGCircleElement, GraphNodeWithSimulation, SVGGElement, unknown>,
-  ) {
-    const drag = d3
-      .drag<SVGCircleElement, GraphNodeWithSimulation>()
-      .filter((event: MouseEvent) => {
-        // Don't start drag if Ctrl/Cmd is held (allow Ctrl+click to work)
-        return !event.ctrlKey && !event.metaKey
-      })
-      .on('start', (event: d3.D3DragEvent<SVGCircleElement, GraphNodeWithSimulation, GraphNodeWithSimulation>, d: GraphNodeWithSimulation) => {
-        if (!event.active && simulation) {
-          simulation.alphaTarget(0.3).restart()
-        }
-        draggedNode = d
-        d.fx = d.x
-        d.fy = d.y
-        d.vx = 0
-        d.vy = 0
-        d3.select(event.sourceEvent.target as SVGCircleElement).style('cursor', 'grabbing')
-      })
-      .on('drag', (event: d3.D3DragEvent<SVGCircleElement, GraphNodeWithSimulation, GraphNodeWithSimulation>, d: GraphNodeWithSimulation) => {
-        d.fx = event.x
-        d.fy = event.y
-      })
-      .on('end', (event: d3.D3DragEvent<SVGCircleElement, GraphNodeWithSimulation, GraphNodeWithSimulation>, d: GraphNodeWithSimulation) => {
-        if (!event.active && simulation) {
-          simulation.alphaTarget(0)
-        }
-        d.fx = null
-        d.fy = null
-        draggedNode = null
-        d3.select(event.sourceEvent.target as SVGCircleElement).style('cursor', 'grab')
-      })
-
-    selection.call(drag)
-  }
-
-  function updateNodeStyles() {
-    if (!nodeElements) return
-
-    nodeElements
       .attr('fill', (d: GraphNodeWithSimulation) => {
         if (selectedNode.value?.uuid === d.uuid) {
           return 'var(--color-accent)'
@@ -478,23 +271,275 @@ function initializeGraph() {
         }
         return 0.5
       })
-  }
+      .attr('stroke', 'var(--color-overlay-border)')
+      .attr('stroke-width', 0.5)
+      .style('cursor', 'grab')
+      .call(dragHandler as any)
+      .on('mouseover', (_event: MouseEvent, d: GraphNodeWithSimulation) => {
+        hoveredNode.value = d
+        updateNodeStyles()
+      })
+      .on('mouseout', () => {
+        hoveredNode.value = null
+        updateNodeStyles()
+      })
+      .on('click', async (event: MouseEvent, d: GraphNodeWithSimulation) => {
+        event.stopPropagation()
 
-  // Handle window resize
-  function handleResize() {
-    if (!containerRef.value || !svg) return
-    const width = containerRef.value.clientWidth
-    const height = containerRef.value.clientHeight
-    svg.attr('width', width).attr('height', height)
-    if (simulation) {
-      simulation.force('center', d3.forceCenter(width / 2, height / 2).strength(CENTERING_STRENGTH))
+        // Ctrl+click opens the rune
+        if ((event.ctrlKey || event.metaKey) && props.openRune) {
+          try {
+            await props.openRune(d.uuid)
+          } catch (err) {
+            console.error('Error opening rune:', err)
+          }
+          return
+        }
+
+        // Regular click selects/deselects the node
+        selectedNode.value = selectedNode.value?.uuid === d.uuid ? null : d
+        updateNodeStyles()
+      })
+      .on('dblclick', (event: MouseEvent, d: GraphNodeWithSimulation) => {
+        event.stopPropagation()
+        // Show neighborhood of this node
+        centerNodeUuid.value = d.uuid
+        cleanup()
+        loadGraph()
+      })
+
+    // Create labels
+    labelElements = g
+      .append('g')
+      .attr('class', 'labels')
+      .selectAll<SVGTextElement, GraphNodeWithSimulation>('text')
+      .data(nodes)
+      .enter()
+      .append('text')
+      .attr('text-anchor', 'middle')
+      .attr('dy', (d: GraphNodeWithSimulation) => {
+        const degree = nodeDegree.get(d.uuid) || 0
+        const radius = Math.max(4, Math.min(12, 4 + degree * 0.5))
+        return radius + 14
+      })
+      .attr('font-size', '0.6875rem')
+      .attr('fill', 'var(--color-muted)')
+      .attr('fill-opacity', 0.8)
+      .text((d: GraphNodeWithSimulation) => {
+        // Strip directory prefix from title (show only filename)
+        const title = d.title
+        if (title.includes('/')) {
+          const parts = title.split('/').filter((p) => p)
+          return parts[parts.length - 1]
+        }
+        return title
+      })
+      .style('pointer-events', 'none')
+      .style('user-select', 'none')
+
+    // Setup force simulation
+    const linkForce = d3
+      .forceLink<GraphNodeWithSimulation, GraphEdge>(edges)
+      .id((d: GraphNodeWithSimulation) => d.uuid)
+      .distance(SPRING_LENGTH)
+      .strength(SPRING_STRENGTH)
+
+    simulation = d3
+      .forceSimulation<GraphNodeWithSimulation>(nodes)
+      .force('link', linkForce)
+      .force(
+        'charge',
+        d3.forceManyBody<GraphNodeWithSimulation>().strength((d) => {
+          const degree = nodeDegree.get(d.uuid) || 0
+          // Higher degree = more repulsion (heavier nodes)
+          return -REPULSION_STRENGTH * (1 + degree * 0.1)
+        }),
+      )
+      .force('center', d3.forceCenter(width / 2, height / 2).strength(CENTERING_STRENGTH))
+      .force(
+        'collision',
+        d3.forceCollide<GraphNodeWithSimulation>().radius((d: GraphNodeWithSimulation) => {
+          const degree = nodeDegree.get(d.uuid) || 0
+          return Math.max(4, Math.min(12, 4 + degree * 0.5)) + 2
+        }),
+      )
+      .alpha(1)
+      .alphaDecay(0.02)
+      .velocityDecay(DAMPING)
+      .on('tick', tick)
+
+    // Get the processed links from the force (after source/target are converted to nodes)
+    // forceLink modifies the edges array in place, converting source/target from strings to node objects
+    const processedLinks = linkForce.links() as ProcessedEdge[]
+
+    // Create edge elements using the processed links
+    edgeElements = edgesContainer
+      .selectAll<SVGLineElement, ProcessedEdge>('line')
+      .data(processedLinks)
+      .enter()
+      .append('line')
+      .attr('stroke', 'var(--color-overlay-border)')
+      .attr('stroke-width', 1)
+
+    // Custom tick function with velocity clamping and minimum threshold
+    function tick() {
+      if (!nodeElements || !edgeElements || !labelElements) return
+
+      // Apply velocity clamping and minimum threshold
+      nodes.forEach((node: GraphNodeWithSimulation) => {
+        const vx = node.vx || 0
+        const vy = node.vy || 0
+        const speed = Math.sqrt(vx * vx + vy * vy)
+
+        if (speed < MIN_VELOCITY_THRESHOLD) {
+          node.vx = 0
+          node.vy = 0
+        } else if (speed > MAX_VELOCITY) {
+          node.vx = (vx / speed) * MAX_VELOCITY
+          node.vy = (vy / speed) * MAX_VELOCITY
+        }
+      })
+
+      // Update edges (d3-force converts source/target from strings to node objects)
+      edgeElements
+        .attr('x1', (d: ProcessedEdge) => {
+          const source = d.source as GraphNodeWithSimulation
+          return source?.x ?? 0
+        })
+        .attr('y1', (d: ProcessedEdge) => {
+          const source = d.source as GraphNodeWithSimulation
+          return source?.y ?? 0
+        })
+        .attr('x2', (d: ProcessedEdge) => {
+          const target = d.target as GraphNodeWithSimulation
+          return target?.x ?? 0
+        })
+        .attr('y2', (d: ProcessedEdge) => {
+          const target = d.target as GraphNodeWithSimulation
+          return target?.y ?? 0
+        })
+
+      // Update nodes
+      nodeElements
+        .attr('cx', (d: GraphNodeWithSimulation) => d.x || 0)
+        .attr('cy', (d: GraphNodeWithSimulation) => d.y || 0)
+
+      // Update labels
+      labelElements
+        .attr('x', (d: GraphNodeWithSimulation) => d.x || 0)
+        .attr('y', (d: GraphNodeWithSimulation) => d.y || 0)
     }
-  }
 
-  window.addEventListener('resize', handleResize)
-  resizeHandler = handleResize
+    // Drag handler
+    function dragHandler(
+      selection: d3.Selection<SVGCircleElement, GraphNodeWithSimulation, SVGGElement, unknown>,
+    ) {
+      const drag = d3
+        .drag<SVGCircleElement, GraphNodeWithSimulation>()
+        .filter((event: MouseEvent) => {
+          // Don't start drag if Ctrl/Cmd is held (allow Ctrl+click to work)
+          return !event.ctrlKey && !event.metaKey
+        })
+        .on(
+          'start',
+          (
+            event: d3.D3DragEvent<
+              SVGCircleElement,
+              GraphNodeWithSimulation,
+              GraphNodeWithSimulation
+            >,
+            d: GraphNodeWithSimulation,
+          ) => {
+            if (!event.active && simulation) {
+              simulation.alphaTarget(0.3).restart()
+            }
+            draggedNode = d
+            d.fx = d.x
+            d.fy = d.y
+            d.vx = 0
+            d.vy = 0
+            d3.select(event.sourceEvent.target as SVGCircleElement).style('cursor', 'grabbing')
+          },
+        )
+        .on(
+          'drag',
+          (
+            event: d3.D3DragEvent<
+              SVGCircleElement,
+              GraphNodeWithSimulation,
+              GraphNodeWithSimulation
+            >,
+            d: GraphNodeWithSimulation,
+          ) => {
+            d.fx = event.x
+            d.fy = event.y
+          },
+        )
+        .on(
+          'end',
+          (
+            event: d3.D3DragEvent<
+              SVGCircleElement,
+              GraphNodeWithSimulation,
+              GraphNodeWithSimulation
+            >,
+            d: GraphNodeWithSimulation,
+          ) => {
+            if (!event.active && simulation) {
+              simulation.alphaTarget(0)
+            }
+            d.fx = null
+            d.fy = null
+            draggedNode = null
+            d3.select(event.sourceEvent.target as SVGCircleElement).style('cursor', 'grab')
+          },
+        )
 
-  isLoading.value = false
+      selection.call(drag)
+    }
+
+    function updateNodeStyles() {
+      if (!nodeElements) return
+
+      nodeElements
+        .attr('fill', (d: GraphNodeWithSimulation) => {
+          if (selectedNode.value?.uuid === d.uuid) {
+            return 'var(--color-accent)'
+          }
+          if (hoveredNode.value?.uuid === d.uuid) {
+            return 'var(--color-accent)'
+          }
+          return 'var(--color-muted)'
+        })
+        .attr('fill-opacity', (d: GraphNodeWithSimulation) => {
+          if (selectedNode.value?.uuid === d.uuid) {
+            return 1
+          }
+          if (hoveredNode.value?.uuid === d.uuid) {
+            return 0.8
+          }
+          return 0.5
+        })
+    }
+
+    // Handle window resize
+    function handleResize() {
+      if (!containerRef.value || !svg) return
+      const width = containerRef.value.clientWidth
+      const height = containerRef.value.clientHeight
+      svg.attr('width', width).attr('height', height)
+      if (simulation) {
+        simulation.force(
+          'center',
+          d3.forceCenter(width / 2, height / 2).strength(CENTERING_STRENGTH),
+        )
+      }
+    }
+
+    window.addEventListener('resize', handleResize)
+    resizeHandler = handleResize
+
+    isLoading.value = false
   } catch (err) {
     console.error('Error initializing graph:', err)
     error.value = err instanceof Error ? err.message : 'Failed to initialize graph'
@@ -551,18 +596,22 @@ const hashtagOptions = computed(() => {
 })
 
 // Reload graph when hashtag filter changes
-watch(selectedHashtags, (newValue) => {
-  // Normalize to array if null (when all deselected)
-  if (newValue === null) {
-    selectedHashtags.value = []
-    return // The next watch will trigger with the empty array
-  }
-  if (sessionStore.hasOpenCodex) {
-    // Note: Dropdown component should handle its own focus, but we'll ensure it stays visible
-    cleanup()
-    loadGraph()
-  }
-}, { deep: true })
+watch(
+  selectedHashtags,
+  (newValue) => {
+    // Normalize to array if null (when all deselected)
+    if (newValue === null) {
+      selectedHashtags.value = []
+      return // The next watch will trigger with the empty array
+    }
+    if (sessionStore.hasOpenCodex) {
+      // Note: Dropdown component should handle its own focus, but we'll ensure it stays visible
+      cleanup()
+      loadGraph()
+    }
+  },
+  { deep: true },
+)
 
 // Reload graph when title pattern changes (with debounce)
 watch(titlePattern, () => {
@@ -601,14 +650,18 @@ watch(
 <template>
   <div ref="containerRef" class="graph-view">
     <svg ref="svgRef" class="graph-svg"></svg>
-    
+
     <!-- Graph Filters -->
     <div class="graph-filters">
       <!-- Back to Full View Button (when in neighborhood view) -->
       <button
         v-if="centerNodeUuid"
         class="graph-filter-back"
-        @click="centerNodeUuid = null; cleanup(); loadGraph()"
+        @click="
+          centerNodeUuid = null
+          cleanup()
+          loadGraph()
+        "
         title="Back to full view"
       >
         <svg
@@ -626,7 +679,7 @@ watch(
         </svg>
         Back
       </button>
-      
+
       <!-- Title Search -->
       <div class="graph-filter-search">
         <svg
@@ -652,7 +705,7 @@ watch(
           :disabled="isLoading"
         />
       </div>
-      
+
       <!-- Hashtag Filter -->
       <div class="graph-filter-dropdown">
         <Dropdown
@@ -665,7 +718,7 @@ watch(
         />
       </div>
     </div>
-    
+
     <div v-if="isLoading" class="overlay-state">
       <Loader message="Loading graph..." />
     </div>
@@ -708,7 +761,9 @@ watch(
 }
 
 :deep(.nodes circle) {
-  transition: fill 0.15s ease, fill-opacity 0.15s ease;
+  transition:
+    fill 0.15s ease,
+    fill-opacity 0.15s ease;
 }
 
 :deep(.edges line) {

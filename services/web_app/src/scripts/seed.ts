@@ -1,6 +1,6 @@
 /**
  * Seeder script for creating test data
- * 
+ *
  * This script:
  * 1. Signs up an account
  * 2. Creates a Codex
@@ -9,7 +9,7 @@
  * 5. Creates 3 runes in one directory and 2 in the other
  * 6. Creates a web of relations between runes
  * 7. Creates a disconnected web of 2-3 runes
- * 
+ *
  * Usage: Import and call seed() function
  */
 
@@ -65,7 +65,7 @@ export async function seed(): Promise<void> {
 
   // Step 4: Create all runes first (so they exist for linking)
   console.log('📄 Step 4: Creating all runes...')
-  
+
   // Create 10 root level runes
   const rootRunes: RuneInfo[] = []
   for (let i = 1; i <= 10; i++) {
@@ -144,7 +144,7 @@ export async function seed(): Promise<void> {
 
   // Step 5: Update rune contents with links to create relations
   console.log('🔗 Step 5: Adding relations via rune content...')
-  
+
   // Update root runes with links (main web)
   const rootRuneContents = [
     // Root Rune 1 -> Root Rune 2, 3
@@ -228,14 +228,16 @@ export async function seed(): Promise<void> {
 
   for (let i = 0; i < disconnectedRunes.length; i++) {
     try {
-      await sessionStore.updateRune(disconnectedRunes[i].uuid, { content: disconnectedRuneContents[i] })
+      await sessionStore.updateRune(disconnectedRunes[i].uuid, {
+        content: disconnectedRuneContents[i],
+      })
       console.log(`  ✅ Updated ${disconnectedRunes[i].title} with links`)
     } catch (error) {
       console.error(`  ❌ Failed to update ${disconnectedRunes[i].title}:`, error)
       throw error
     }
   }
-  
+
   sessionStore.teardown()
 
   console.log('✅ All relations created via rune content')
@@ -249,9 +251,10 @@ export async function seed(): Promise<void> {
   console.log(`   - Directory 1 runes: ${dir1Runes.length}`)
   console.log(`   - Directory 2 runes: ${dir2Runes.length}`)
   console.log(`   - Disconnected runes: ${disconnectedRunes.length}`)
-  console.log(`   - Total runes: ${rootRunes.length + dir1Runes.length + dir2Runes.length + disconnectedRunes.length + directories.length}`)
+  console.log(
+    `   - Total runes: ${rootRunes.length + dir1Runes.length + dir2Runes.length + disconnectedRunes.length + directories.length}`,
+  )
 }
-
 
 /**
  * Export for use in browser console or other contexts

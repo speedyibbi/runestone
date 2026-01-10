@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { EditorView } from '@codemirror/view'
-import EditorAutocomplete, { type AutocompleteOption } from '@/components/editor/EditorAutocomplete.vue'
+import EditorAutocomplete, {
+  type AutocompleteOption,
+} from '@/components/editor/EditorAutocomplete.vue'
 
 interface Props {
   hashtags: Map<string, number> // hashtag -> count
@@ -36,7 +38,7 @@ const hashtagList = computed(() => {
 // Filter hashtags based on search query from editor
 const filteredHashtags = computed(() => {
   const query = (props.searchQuery || '').toLowerCase().trim()
-  
+
   if (!query) {
     return hashtagList.value
   }
