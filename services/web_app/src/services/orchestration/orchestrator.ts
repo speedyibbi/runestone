@@ -558,9 +558,6 @@ export default class OrchestrationService {
     // Step 4: Delete all files from cache and update map in parallel
     await Promise.all([
       // Delete from cache
-      // CacheService.deleteNotebookMeta(lookupHash, notebookId),
-      // CacheService.deleteManifest(lookupHash, notebookId),
-      // ...blobUuids.map((uuid) => CacheService.deleteBlob(lookupHash, notebookId, uuid)),
       CacheService.deleteNotebookDirectory(lookupHash, notebookId),
       // Update map in cache
       CacheService.upsertMap(lookupHash, encryptedMap),
@@ -662,6 +659,19 @@ export default class OrchestrationService {
     const hashArray = Array.from(new Uint8Array(hashBuffer))
     const hash = `sha256-${hashArray.map((b) => b.toString(16).padStart(2, '0')).join('')}`
     const size = dataBuffer.byteLength
+
+    // Check if a media entry with this hash already exists
+    const existingEntry = manifest.entries.find(
+      (entry) => entry.type === 'image' && entry.hash === hash,
+    )
+
+    if (existingEntry) {
+      // Already exists, return the existing entry
+      return {
+        uuid: existingEntry.uuid,
+        manifest: manifest,
+      }
+    }
 
     // Step 2: Encrypt blob with FEK
     const encryptedBlob = await CryptoService.encryptAndPack(data, fek)
@@ -852,6 +862,93 @@ export default class OrchestrationService {
   }
 
   /**
+   * Delete orphaned blobs
+   * Uses FTS index to efficiently find blob references
+   */
+  static async deleteOrphanedBlobs(
+    notebookId: string,
+    lookupHash: string,
+    fek: CryptoKey,
+    manifest: Manifest,
+  ): Promise<{
+    deleted: string[]
+    manifest: Manifest
+  }> {
+    // Early return if database is not ready
+    if (!DatabaseService.isReady()) {
+      return { deleted: [], manifest }
+    }
+
+    // Step 1: Query FTS index for entry contents that contain sigil references
+    const referencedUuids = new Set<string>()
+
+    try {
+      const promiser = DatabaseService.getPromiser()
+
+      // Query entries from the index that contain "sigil://"
+      const searchResponse = await promiser('exec', {
+        sql: `
+          SELECT content
+          FROM blob_index
+          WHERE type = 'note' AND blob_index MATCH '"sigil://"'
+        `,
+        returnValue: 'resultRows',
+      })
+
+      const rows = searchResponse.result?.resultRows ?? searchResponse.resultRows ?? []
+
+      // Step 2: Extract sigil UUIDs from content
+      const sigilPattern =
+        /!\[[^\]]*\]\(sigil:\/\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\)/gi
+
+      for (const row of rows) {
+        const content = row.content ?? row[0] ?? ''
+        if (!content) continue
+
+        // Extract sigil references
+        let match
+        while ((match = sigilPattern.exec(content)) !== null) {
+          referencedUuids.add(match[1])
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to query FTS index for orphan check:', error)
+      // Fallback: return empty result if index query fails
+      return { deleted: [], manifest }
+    }
+
+    // Step 3: Find all media entries in manifest
+    const entries = manifest.entries.filter((entry) => entry.type === 'image')
+
+    // Step 4: Identify orphaned entries (in manifest but not referenced)
+    const orphanedUuids: string[] = []
+    for (const entry of entries) {
+      if (!referencedUuids.has(entry.uuid)) {
+        orphanedUuids.push(entry.uuid)
+      }
+    }
+
+    // Step 5: Delete orphaned blobs
+    let updatedManifest = manifest
+    const deleted: string[] = []
+
+    for (const orphanUuid of orphanedUuids) {
+      try {
+        const result = await this.deleteBlob(notebookId, orphanUuid, lookupHash, fek, updatedManifest)
+        updatedManifest = result.manifest
+        deleted.push(orphanUuid)
+      } catch (error) {
+        console.error(`Failed to delete orphaned blob ${orphanUuid}:`, error)
+      }
+    }
+
+    return {
+      deleted,
+      manifest: updatedManifest,
+    }
+  }
+
+  /**
    * Initialize indexes for a notebook
    * Creates FTS5 tables in the active database and optionally builds indexes in background
    */
@@ -871,7 +968,11 @@ export default class OrchestrationService {
       // Always trigger background build if manifest is available
       if (manifest) {
         // Trigger background build (non-blocking)
-        this.buildIndexes(notebookId, manifest, lookupHash, fek).catch((error) => {
+        this.buildIndexes(notebookId, manifest, lookupHash, fek).then(() => {
+          this.deleteOrphanedBlobs(notebookId, lookupHash, fek, manifest).catch((error) => {
+            console.warn('Failed to delete orphaned blobs:', error)
+          })
+        }).catch((error) => {
           console.warn('Failed to build indexes:', error)
         })
       }
