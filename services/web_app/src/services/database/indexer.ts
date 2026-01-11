@@ -214,10 +214,6 @@ export default class IndexerService {
     let isUpdate = false
 
     try {
-      // Start transaction
-      await promiser('exec', { sql: 'BEGIN TRANSACTION;' })
-
-      try {
         // Get primary key value
         const primaryKeyValue = String(blobData[schema.primaryKey])
         const escapedPrimaryKey = this.escapeSql(primaryKeyValue)
@@ -253,14 +249,6 @@ export default class IndexerService {
             sql: `INSERT INTO ${indexName}(${columnsStr}) VALUES (${valuesStr})`,
           })
         }
-
-        // Commit transaction
-        await promiser('exec', { sql: 'COMMIT;' })
-      } catch (error) {
-        // Rollback on error
-        await promiser('exec', { sql: 'ROLLBACK;' })
-        throw error
-      }
     } catch (error) {
       console.error(`Error adding blob to index ${indexName}:`, error, { data: blobData })
       throw error
@@ -319,10 +307,6 @@ export default class IndexerService {
     const promiser = DatabaseService.getPromiser()
 
     try {
-      // Start transaction
-      await promiser('exec', { sql: 'BEGIN TRANSACTION;' })
-
-      try {
         const rowid = await this.getRowid(indexName, schema.primaryKey, primaryKeyValue)
 
         if (rowid !== null) {
@@ -330,14 +314,6 @@ export default class IndexerService {
             sql: `DELETE FROM ${indexName} WHERE rowid = ${rowid}`,
           })
         }
-
-        // Commit transaction
-        await promiser('exec', { sql: 'COMMIT;' })
-      } catch (error) {
-        // Rollback on error
-        await promiser('exec', { sql: 'ROLLBACK;' })
-        throw error
-      }
     } catch (error) {
       console.error(`Error removing blob from index ${indexName}:`, error, { id: primaryKeyValue })
       throw error
