@@ -1,6 +1,6 @@
 import type { RootMeta, NotebookMeta } from '@/interfaces/meta'
 import type { Map } from '@/interfaces/map'
-import type { Manifest } from '@/interfaces/manifest'
+import type { Manifest, ManifestEntryType } from '@/interfaces/manifest'
 
 /**
  * Result of initialize operation
@@ -93,6 +93,6 @@ export interface DeleteBlobResult {
  * Blob metadata for update operations
  */
 export interface BlobMetadata {
-  type: 'note' | 'image'
+  type: ManifestEntryType
   title: string
 }

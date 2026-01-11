@@ -1,3 +1,4 @@
+import { ManifestEntryType } from '@/interfaces/manifest'
 import DatabaseService from '@/services/database/db'
 import IndexerService, { type DefaultBlobData } from '@/services/database/indexer'
 import LinkExtractorService, {
@@ -33,7 +34,7 @@ export default class GraphIndexerService {
       const ids = Array.isArray(data) ? data : [data]
 
       for (const id of ids) {
-        if (id.type !== 'note') {
+        if (id.type !== ManifestEntryType.NOTE) {
           continue // Only index notes
         }
 
@@ -50,7 +51,7 @@ export default class GraphIndexerService {
       const ids = Array.isArray(data) ? data : [data]
 
       for (const id of ids) {
-        if (id.type !== 'note') {
+        if (id.type !== ManifestEntryType.NOTE) {
           continue // Only index notes
         }
 
@@ -90,7 +91,7 @@ export default class GraphIndexerService {
       const response = await promiser('exec', {
         sql: `
           SELECT id FROM ${this.DEFAULT_INDEXER_TABLE}
-          WHERE type = 'note' AND title = '${this.escapeSql(title)}'
+          WHERE type = '${ManifestEntryType.NOTE}' AND title = '${this.escapeSql(title)}'
           LIMIT 1
         `,
         returnValue: 'resultRows',
@@ -123,7 +124,7 @@ export default class GraphIndexerService {
       const response = await promiser('exec', {
         sql: `
           SELECT title FROM ${this.DEFAULT_INDEXER_TABLE}
-          WHERE type = 'note' AND id = '${this.escapeSql(uuid)}'
+          WHERE type = '${ManifestEntryType.NOTE}' AND id = '${this.escapeSql(uuid)}'
           LIMIT 1
         `,
         returnValue: 'resultRows',

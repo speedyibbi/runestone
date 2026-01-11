@@ -1,5 +1,6 @@
 import DatabaseService from '@/services/database/db'
 import type { SearchResult, SearchOptions, SearchServiceResult } from '@/interfaces/search'
+import { ManifestEntryType } from '@/interfaces/manifest'
 
 /**
  * SearchService handles full-text search using SQLite FTS5
@@ -164,7 +165,7 @@ export default class SearchService {
       // Execute search with BM25 ranking
       // BM25 considers term frequency, inverse document frequency, and document length
       // Custom weights allow prioritizing title matches over content matches
-      // Filter by type = 'note' to search only notes
+      // Search only notes
 
       const searchResponse = await promiser('exec', {
         sql: `
@@ -174,7 +175,7 @@ export default class SearchService {
             snippet(${this.DEFAULT_INDEXER_TABLE}, 3, '<mark>', '</mark>', '...', 32) as snippet,
             ${bm25Function} as rank
           FROM ${this.DEFAULT_INDEXER_TABLE}
-          WHERE type = 'note' AND ${this.DEFAULT_INDEXER_TABLE} MATCH '${escapedQuery}'
+          WHERE type = '${ManifestEntryType.NOTE}' AND ${this.DEFAULT_INDEXER_TABLE} MATCH '${escapedQuery}'
           ORDER BY ${bm25Function}
           LIMIT ${limit} OFFSET ${offset};
         `,
@@ -235,7 +236,7 @@ export default class SearchService {
         total = results.length
       } else {
         const countResponse = await promiser('exec', {
-          sql: `SELECT COUNT(*) as count FROM ${this.DEFAULT_INDEXER_TABLE} WHERE type = 'note' AND ${this.DEFAULT_INDEXER_TABLE} MATCH '${escapedQuery}';`,
+          sql: `SELECT COUNT(*) as count FROM ${this.DEFAULT_INDEXER_TABLE} WHERE type = '${ManifestEntryType.NOTE}' AND ${this.DEFAULT_INDEXER_TABLE} MATCH '${escapedQuery}';`,
           returnValue: 'resultRows',
         })
         total =

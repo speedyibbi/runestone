@@ -2,7 +2,7 @@ import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import OrchestrationService from '@/services/orchestration/orchestrator'
 import type { Map } from '@/interfaces/map'
-import type { Manifest } from '@/interfaces/manifest'
+import { ManifestEntryType, MediaEntryType, type Manifest } from '@/interfaces/manifest'
 import type { SyncProgress, SyncResult } from '@/interfaces/sync'
 import type { SearchServiceResult, SearchOptions } from '@/interfaces/search'
 import type { GraphData, GraphQueryOptions } from '@/interfaces/graph'
@@ -340,7 +340,7 @@ export const useSessionStore = defineStore('session', () => {
 
     // Filter for note entries only
     return notebook.value.manifest.entries
-      .filter((entry) => entry.type === 'note')
+      .filter((entry) => entry.type === ManifestEntryType.NOTE)
       .map((entry) => ({
         uuid: entry.uuid,
         title: entry.title,
@@ -372,8 +372,8 @@ export const useSessionStore = defineStore('session', () => {
       throw new Error(`Rune with ID ${runeId} not found`)
     }
 
-    if (entry.type !== 'note') {
-      throw new Error(`Blob with ID ${runeId} is not a rune (note)`)
+    if (entry.type !== ManifestEntryType.NOTE) {
+      throw new Error(`Blob with ID ${runeId} is not a rune`)
     }
 
     // Get blob data
@@ -412,11 +412,11 @@ export const useSessionStore = defineStore('session', () => {
     const encoder = new TextEncoder()
     const data = encoder.encode(content)
 
-    // Create blob with type 'note'
+    // Create note blob
     const result = await OrchestrationService.createBlob(
       codexId,
       data,
-      { type: 'note', title },
+      { type: ManifestEntryType.NOTE, title },
       lookupHash.value!,
       notebook.value.fek,
       notebook.value.manifest,
@@ -455,8 +455,8 @@ export const useSessionStore = defineStore('session', () => {
       throw new Error(`Rune with ID ${runeId} not found`)
     }
 
-    if (entry.type !== 'note') {
-      throw new Error(`Blob with ID ${runeId} is not a rune (note)`)
+    if (entry.type !== ManifestEntryType.NOTE) {
+      throw new Error(`Blob with ID ${runeId} is not a rune`)
     }
 
     // Determine what data to use
@@ -485,7 +485,7 @@ export const useSessionStore = defineStore('session', () => {
       codexId,
       runeId,
       data,
-      { type: 'note', title },
+      { type: ManifestEntryType.NOTE, title },
       lookupHash.value!,
       notebook.value.fek,
       notebook.value.manifest,
@@ -519,8 +519,8 @@ export const useSessionStore = defineStore('session', () => {
       throw new Error(`Rune with ID ${runeId} not found`)
     }
 
-    if (entry.type !== 'note') {
-      throw new Error(`Blob with ID ${runeId} is not a rune (note)`)
+    if (entry.type !== ManifestEntryType.NOTE) {
+      throw new Error(`Blob with ID ${runeId} is not a rune`)
     }
 
     // Delete blob
@@ -536,7 +536,7 @@ export const useSessionStore = defineStore('session', () => {
     notebook.value.manifest = result.manifest
   }
 
-  // ==================== Sigil (Image) Operations ====================
+  // ==================== Sigil (Media) Operations ====================
 
   /**
    * List all sigils in the currently open codex
@@ -550,9 +550,9 @@ export const useSessionStore = defineStore('session', () => {
       throw new Error('Manifest is not loaded')
     }
 
-    // Filter for image entries only
+    // Filter for media entries only
     return notebook.value.manifest.entries
-      .filter((entry) => entry.type === 'image')
+      .filter((entry) => Object.values(MediaEntryType).includes(entry.type as MediaEntryType))
       .map((entry) => ({
         uuid: entry.uuid,
         title: entry.title,
@@ -578,14 +578,14 @@ export const useSessionStore = defineStore('session', () => {
 
     const codexId = notebook.value.manifest.notebook_id
 
-    // Verify sigil exists and is an image
+    // Verify sigil exists and is a media entry
     const entry = notebook.value.manifest.entries.find((e) => e.uuid === sigilId)
     if (!entry) {
       throw new Error(`Sigil with ID ${sigilId} not found`)
     }
 
-    if (entry.type !== 'image') {
-      throw new Error(`Blob with ID ${sigilId} is not a sigil (image)`)
+    if (!(Object.values(MediaEntryType).includes(entry.type as MediaEntryType))) {
+      throw new Error(`Blob with ID ${sigilId} is not a sigil`)
     }
 
     // Get blob data
@@ -602,7 +602,7 @@ export const useSessionStore = defineStore('session', () => {
   /**
    * Create a new sigil
    */
-  async function createSigil(title: string, data: ArrayBuffer): Promise<string> {
+  async function createSigil(title: string, data: ArrayBuffer, type?: MediaEntryType): Promise<string> {
     if (!hasOpenCodex.value) {
       throw new Error('No codex is currently open')
     }
@@ -617,11 +617,11 @@ export const useSessionStore = defineStore('session', () => {
 
     const codexId = notebook.value.manifest.notebook_id
 
-    // Create blob with type 'image'
+    // Create media blob
     const result = await OrchestrationService.createBlob(
       codexId,
       data,
-      { type: 'image', title },
+      { type: type ?? MediaEntryType.IMAGE, title },
       lookupHash.value!,
       notebook.value.fek,
       notebook.value.manifest,
@@ -651,14 +651,14 @@ export const useSessionStore = defineStore('session', () => {
 
     const codexId = notebook.value.manifest.notebook_id
 
-    // Verify sigil exists and is an image
+    // Verify sigil exists and is a media entry
     const entry = notebook.value.manifest.entries.find((e) => e.uuid === sigilId)
     if (!entry) {
       throw new Error(`Sigil with ID ${sigilId} not found`)
     }
 
-    if (entry.type !== 'image') {
-      throw new Error(`Blob with ID ${sigilId} is not a sigil (image)`)
+    if (!(Object.values(MediaEntryType).includes(entry.type as MediaEntryType))) {
+      throw new Error(`Blob with ID ${sigilId} is not a sigil`)
     }
 
     // Revoke blob URL if cached
@@ -697,14 +697,14 @@ export const useSessionStore = defineStore('session', () => {
 
     const codexId = notebook.value.manifest.notebook_id
 
-    // Verify sigil exists and is an image
+    // Verify sigil exists and is a media entry
     const entry = notebook.value.manifest.entries.find((e) => e.uuid === sigilId)
     if (!entry) {
       throw new Error(`Sigil with ID ${sigilId} not found`)
     }
 
-    if (entry.type !== 'image') {
-      throw new Error(`Blob with ID ${sigilId} is not a sigil (image)`)
+    if (!(Object.values(MediaEntryType).includes(entry.type as MediaEntryType))) {
+      throw new Error(`Blob with ID ${sigilId} is not a sigil`)
     }
 
     // If we already have a URL for this sigil, return it
@@ -749,6 +749,21 @@ export const useSessionStore = defineStore('session', () => {
         break
       case 'ico':
         mimeType = 'image/x-icon'
+        break
+      case 'mp3':
+        mimeType = 'audio/mpeg'
+        break
+      case 'wav':
+        mimeType = 'audio/wav'
+        break
+      case 'ogg':
+        mimeType = 'audio/ogg'
+        break
+      case 'mp4':
+        mimeType = 'video/mp4'
+        break
+      case 'webm':
+        mimeType = 'video/webm'
         break
     }
 

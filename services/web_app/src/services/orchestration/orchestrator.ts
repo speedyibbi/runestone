@@ -25,7 +25,7 @@ import type {
   BlobMetadata,
 } from '@/interfaces/orchestrator'
 import type { Map } from '@/interfaces/map'
-import type { Manifest } from '@/interfaces/manifest'
+import { ManifestEntryType, MediaEntryType, type Manifest } from '@/interfaces/manifest'
 import type { SyncProgress, SyncResult } from '@/interfaces/sync'
 import type { GraphData, GraphQueryOptions } from '@/interfaces/graph'
 import type { SearchServiceResult, SearchOptions } from '@/interfaces/search'
@@ -601,11 +601,11 @@ export default class OrchestrationService {
     if (manifest) {
       const entry = ManifestService.findEntry(manifest, uuid)
       if (entry) {
-        if (entry.type === 'note') {
+        if (entry.type === ManifestEntryType.NOTE) {
           const content = new TextDecoder().decode(data)
           IndexerService.addBlob({
             id: uuid,
-            type: 'note',
+            type: ManifestEntryType.NOTE,
             title: entry.title,
             content,
             metadata: JSON.stringify({
@@ -614,19 +614,19 @@ export default class OrchestrationService {
           }).catch((error) => {
             console.warn('Failed to index note:', error)
           })
-        } else if (entry.type === 'image') {
-          // Index image metadata (not content)
+        } else {
+          // Index metadata (not content)
           IndexerService.addBlob({
             id: uuid,
-            type: 'image',
+            type: entry.type,
             title: entry.title,
-            content: '', // Images don't have text content
+            content: '', // Empty content
             metadata: JSON.stringify({
               filename: entry.title,
               hash: entry.hash,
             }),
           }).catch((error) => {
-            console.warn('Failed to index image:', error)
+            console.warn('Failed to index entry:', error)
           })
         }
       }
@@ -661,8 +661,9 @@ export default class OrchestrationService {
     const size = dataBuffer.byteLength
 
     // Check if a media entry with this hash already exists
+    const mediaEntryTypes = Object.values(MediaEntryType)
     const existingEntry = manifest.entries.find(
-      (entry) => entry.type === 'image' && entry.hash === hash,
+      (entry) => mediaEntryTypes.includes(entry.type as MediaEntryType) && entry.hash === hash,
     )
 
     if (existingEntry) {
@@ -697,11 +698,11 @@ export default class OrchestrationService {
     ])
 
     // Step 6: Index blob (non-blocking)
-    if (metadata.type === 'note') {
+    if (metadata.type === ManifestEntryType.NOTE) {
       const content = new TextDecoder().decode(dataBuffer)
       IndexerService.addBlob({
         id: uuid,
-        type: 'note',
+        type: ManifestEntryType.NOTE,
         title: metadata.title,
         content,
         metadata: JSON.stringify({
@@ -710,19 +711,19 @@ export default class OrchestrationService {
       }).catch((error) => {
         console.warn('Failed to index note:', error)
       })
-    } else if (metadata.type === 'image') {
-      // Index image metadata (not content)
+    } else {
+      // Index metadata (not content)
       IndexerService.addBlob({
         id: uuid,
-        type: 'image',
+        type: metadata.type,
         title: metadata.title,
-        content: '', // Images don't have text content
+        content: '', // Empty content
         metadata: JSON.stringify({
           filename: metadata.title,
           hash,
         }),
       }).catch((error) => {
-        console.warn('Failed to index image:', error)
+        console.warn('Failed to index entry:', error)
       })
     }
 
@@ -784,11 +785,11 @@ export default class OrchestrationService {
     ])
 
     // Step 7: Index blob (non-blocking)
-    if (metadata.type === 'note') {
+    if (metadata.type === ManifestEntryType.NOTE) {
       const content = new TextDecoder().decode(dataBuffer)
       IndexerService.addBlob({
         id: uuid,
-        type: 'note',
+        type: ManifestEntryType.NOTE,
         title: metadata.title,
         content,
         metadata: JSON.stringify({
@@ -797,19 +798,19 @@ export default class OrchestrationService {
       }).catch((error) => {
         console.warn('Failed to index note:', error)
       })
-    } else if (metadata.type === 'image') {
-      // Index image metadata (not content)
+    } else {
+      // Index metadata (not content)
       IndexerService.addBlob({
         id: uuid,
-        type: 'image',
+        type: metadata.type,
         title: metadata.title,
-        content: '', // Images don't have text content
+        content: '', // Empty content
         metadata: JSON.stringify({
           filename: metadata.title,
           hash,
         }),
       }).catch((error) => {
-        console.warn('Failed to index image:', error)
+        console.warn('Failed to index entry:', error)
       })
     }
 
@@ -879,7 +880,7 @@ export default class OrchestrationService {
       return { deleted: [], manifest }
     }
 
-    // Step 1: Query FTS index for entry contents that contain sigil references
+    // Step 1: Query FTS index for entry contents that contain references
     const referencedUuids = new Set<string>()
 
     try {
@@ -890,14 +891,14 @@ export default class OrchestrationService {
         sql: `
           SELECT content
           FROM blob_index
-          WHERE type = 'note' AND blob_index MATCH '"sigil://"'
+          WHERE type = '${ManifestEntryType.NOTE}' AND blob_index MATCH '"sigil://"'
         `,
         returnValue: 'resultRows',
       })
 
       const rows = searchResponse.result?.resultRows ?? searchResponse.resultRows ?? []
 
-      // Step 2: Extract sigil UUIDs from content
+      // Step 2: Extract UUIDs from content
       const sigilPattern =
         /!\[[^\]]*\]\(sigil:\/\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\)/gi
 
@@ -905,7 +906,7 @@ export default class OrchestrationService {
         const content = row.content ?? row[0] ?? ''
         if (!content) continue
 
-        // Extract sigil references
+        // Extract references
         let match
         while ((match = sigilPattern.exec(content)) !== null) {
           referencedUuids.add(match[1])
@@ -918,7 +919,8 @@ export default class OrchestrationService {
     }
 
     // Step 3: Find all media entries in manifest
-    const entries = manifest.entries.filter((entry) => entry.type === 'image')
+    const mediaEntryTypes = Object.values(MediaEntryType)
+    const entries = manifest.entries.filter((entry) => mediaEntryTypes.includes(entry.type as MediaEntryType))
 
     // Step 4: Identify orphaned entries (in manifest but not referenced)
     const orphanedUuids: string[] = []
@@ -1015,24 +1017,24 @@ export default class OrchestrationService {
           // Get blob content (without manifest to skip individual indexing)
           const blobResult = await this.getBlob(notebookId, entry.uuid, lookupHash, fek)
 
-          if (entry.type === 'note') {
+          if (entry.type === ManifestEntryType.NOTE) {
             const content = new TextDecoder().decode(blobResult.data)
             blobsToIndex.push({
               id: entry.uuid,
-              type: 'note',
+              type: ManifestEntryType.NOTE,
               title: entry.title,
               content,
               metadata: JSON.stringify({
                 hash: entry.hash,
               }),
             })
-          } else if (entry.type === 'image') {
-            // Index image metadata (not content)
+          } else {
+            // Index metadata (not content)
             blobsToIndex.push({
               id: entry.uuid,
-              type: 'image',
+              type: entry.type,
               title: entry.title,
-              content: '', // Images don't have text content
+              content: '', // Empty content
               metadata: JSON.stringify({
                 filename: entry.title,
                 hash: entry.hash,
@@ -1040,7 +1042,7 @@ export default class OrchestrationService {
             })
           }
         } catch (error) {
-          console.warn(`Failed to fetch blob ${entry.uuid} during build:`, error)
+          console.warn(`Failed to fetch entry ${entry.uuid} during build:`, error)
         }
       }
 
