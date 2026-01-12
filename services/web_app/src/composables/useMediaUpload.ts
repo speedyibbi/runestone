@@ -1,35 +1,36 @@
 /**
- * useImageUpload - Composable for handling image uploads in the editor
+ * useMediaUpload - Composable for handling image, video, and audio uploads in the editor
  * Handles file uploads, drag & drop, and paste events
- * Creates sigils (encrypted images) and inserts markdown references
+ * Creates sigils (encrypted media) and inserts markdown references
  */
 
 import { ref, type Ref } from 'vue'
 import { EditorView } from '@codemirror/view'
 import { useSessionStore } from '@/stores/session'
 import { useToast } from '@/composables/useToast'
+import { MediaEntryType } from '@/interfaces/manifest'
 
-export interface UseImageUploadOptions {
+export interface UseMediaUploadOptions {
   editorView?: Ref<EditorView | null>
   showNotifications?: boolean
-  onImageInserted?: (sigilId: string, filename: string) => void
+  onMediaInserted?: (sigilId: string, filename: string) => void
 }
 
-export interface UseImageUploadReturn {
+export interface UseMediaUploadReturn {
   isUploading: Ref<boolean>
   uploadProgress: Ref<number>
   handleFileUpload: (file: File) => Promise<string | null>
   handleFilesUpload: (files: FileList | File[]) => Promise<void>
-  insertImageMarkdown: (sigilId: string, filename: string, position?: number) => void
+  insertMediaMarkdown: (sigilId: string, filename: string, position?: number) => void
   setupDragAndDrop: () => () => void
   setupPasteHandler: () => () => void
 }
 
 /**
- * Composable for handling image uploads in the editor
+ * Composable for handling media uploads in the editor
  */
-export function useImageUpload(options: UseImageUploadOptions = {}): UseImageUploadReturn {
-  const { editorView, showNotifications = false, onImageInserted } = options
+export function useMediaUpload(options: UseMediaUploadOptions = {}): UseMediaUploadReturn {
+  const { editorView, showNotifications = false, onMediaInserted } = options
 
   const sessionStore = useSessionStore()
   const toast = useToast()
@@ -39,25 +40,33 @@ export function useImageUpload(options: UseImageUploadOptions = {}): UseImageUpl
   const uploadProgress = ref(0)
 
   /**
-   * Validate that a file is an image
+   * Validate that a file is a supported media type (image, video, or audio)
+   * Returns the MediaEntryType if valid, null otherwise
    */
-  function validateImageFile(file: File): boolean {
+  function validateMediaFile(file: File): MediaEntryType | null {
     // Check MIME type
-    if (!file.type.startsWith('image/')) {
-      if (showNotifications) {
-        toast.error(`File must be an image: ${file.name}`)
-      }
-      return false
+    if (file.type.startsWith('video/')) {
+      return MediaEntryType.VIDEO
+    }
+    if (file.type.startsWith('audio/')) {
+      return MediaEntryType.AUDIO
+    }
+    if (file.type.startsWith('image/')) {
+      return MediaEntryType.IMAGE
     }
 
-    return true
+    if (showNotifications) {
+      toast.error(`File must be an image, video, or audio: ${file.name}`)
+    }
+    return null
   }
 
   /**
    * Upload a single file and return the sigil ID
    */
   async function handleFileUpload(file: File): Promise<string | null> {
-    if (!validateImageFile(file)) {
+    const mediaType = validateMediaFile(file)
+    if (!mediaType) {
       return null
     }
 
@@ -76,8 +85,8 @@ export function useImageUpload(options: UseImageUploadOptions = {}): UseImageUpl
       const arrayBuffer = await file.arrayBuffer()
       uploadProgress.value = 50
 
-      // Create sigil (encrypted image)
-      const sigilId = await sessionStore.createSigil(file.name, arrayBuffer)
+      // Create sigil (encrypted media) with the detected type
+      const sigilId = await sessionStore.createSigil(file.name, arrayBuffer, mediaType)
       uploadProgress.value = 100
 
       if (showNotifications) {
@@ -86,7 +95,7 @@ export function useImageUpload(options: UseImageUploadOptions = {}): UseImageUpl
 
       return sigilId
     } catch (error) {
-      console.error('Failed to upload image:', error)
+      console.error('Failed to upload media:', error)
       if (showNotifications) {
         toast.error(`Failed to upload: ${file.name}`)
       }
@@ -106,16 +115,16 @@ export function useImageUpload(options: UseImageUploadOptions = {}): UseImageUpl
     for (const file of fileArray) {
       const sigilId = await handleFileUpload(file)
       if (sigilId) {
-        insertImageMarkdown(sigilId, file.name)
-        onImageInserted?.(sigilId, file.name)
+        insertMediaMarkdown(sigilId, file.name)
+        onMediaInserted?.(sigilId, file.name)
       }
     }
   }
 
   /**
-   * Insert image markdown at the current cursor position or specified position
+   * Insert media markdown at the current cursor position or specified position
    */
-  function insertImageMarkdown(sigilId: string, filename: string, position?: number): void {
+  function insertMediaMarkdown(sigilId: string, filename: string, position?: number): void {
     if (!editorView?.value) return
 
     const view = editorView.value
@@ -186,20 +195,25 @@ export function useImageUpload(options: UseImageUploadOptions = {}): UseImageUpl
       const pos = currentView.posAtCoords({ x: e.clientX, y: e.clientY })
       const dropPos = pos ?? currentView.state.selection.main.head
 
-      // Upload and insert images
-      const fileArray = Array.from(files).filter((file) => file.type.startsWith('image/'))
+      // Upload and insert media files (images, videos, audio)
+      const fileArray = Array.from(files).filter(
+        (file) =>
+          file.type.startsWith('image/') ||
+          file.type.startsWith('video/') ||
+          file.type.startsWith('audio/'),
+      )
       if (fileArray.length === 0) {
         return
       }
 
-      // Upload all images and insert at drop position
+      // Upload all media files and insert at drop position
       let currentPos = dropPos
       fileArray.forEach((file) => {
         handleFileUpload(file).then((sigilId) => {
           if (sigilId) {
-            insertImageMarkdown(sigilId, file.name, currentPos)
-            onImageInserted?.(sigilId, file.name)
-            // Update position for next image (add length of inserted markdown + newline)
+            insertMediaMarkdown(sigilId, file.name, currentPos)
+            onMediaInserted?.(sigilId, file.name)
+            // Update position for next media (add length of inserted markdown + newline)
             currentPos += `![${file.name}](sigil://${sigilId})\n`.length
           }
         })
@@ -233,26 +247,30 @@ export function useImageUpload(options: UseImageUploadOptions = {}): UseImageUpl
       const items = e.clipboardData?.items
       if (!items) return
 
-      // Check if there are any image files in clipboard
-      const imageFiles: File[] = []
+      // Check if there are any media files in clipboard (images, videos, audio)
+      const mediaFiles: File[] = []
       for (let i = 0; i < items.length; i++) {
         const item = items[i]
-        if (item.type.startsWith('image/')) {
+        if (
+          item.type.startsWith('image/') ||
+          item.type.startsWith('video/') ||
+          item.type.startsWith('audio/')
+        ) {
           const file = item.getAsFile()
           if (file) {
-            imageFiles.push(file)
+            mediaFiles.push(file)
           }
         }
       }
 
-      if (imageFiles.length === 0) return
+      if (mediaFiles.length === 0) return
 
-      // Prevent default paste behavior for images
+      // Prevent default paste behavior for media
       e.preventDefault()
       e.stopPropagation()
 
-      // Upload and insert images at cursor position
-      handleFilesUpload(imageFiles)
+      // Upload and insert media at cursor position
+      handleFilesUpload(mediaFiles)
     }
 
     editorDom.addEventListener('paste', handlePaste)
@@ -268,7 +286,7 @@ export function useImageUpload(options: UseImageUploadOptions = {}): UseImageUpl
     uploadProgress,
     handleFileUpload,
     handleFilesUpload,
-    insertImageMarkdown,
+    insertMediaMarkdown,
     setupDragAndDrop,
     setupPasteHandler,
   }

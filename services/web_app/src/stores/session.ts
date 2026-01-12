@@ -803,6 +803,32 @@ export const useSessionStore = defineStore('session', () => {
     sigilUrlCache.value.clear()
   }
 
+  /**
+   * Get the manifest entry type for a sigil ID
+   */
+  function getSigilEntryType(sigilId: string): MediaEntryType | null {
+    if (!hasOpenCodex.value) {
+      return null
+    }
+
+    if (!notebook.value.manifest) {
+      return null
+    }
+
+    // Find the entry in the manifest
+    const entry = notebook.value.manifest.entries.find((e) => e.uuid === sigilId)
+    if (!entry) {
+      return null
+    }
+
+    // Check if it's a media entry type
+    if (Object.values(MediaEntryType).includes(entry.type as MediaEntryType)) {
+      return entry.type as MediaEntryType
+    }
+
+    return null
+  }
+
   // ==================== Sync Operations ====================
 
   /**
@@ -966,6 +992,7 @@ export const useSessionStore = defineStore('session', () => {
     getSigilUrl,
     revokeSigilUrl,
     revokeAllSigilUrls,
+    getSigilEntryType,
 
     // Sync Operations
     syncCurrentCodex,

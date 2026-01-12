@@ -6,7 +6,8 @@ import { syntaxTree } from '@codemirror/language'
 import { useEditor, type PreviewMode } from '@/composables/useEditor'
 import { useCodex, type RuneInfo } from '@/composables/useCodex'
 import { useSessionStore } from '@/stores/session'
-import { useImageUpload } from '@/composables/useImageUpload'
+import { useMediaUpload } from '@/composables/useMediaUpload'
+import { MediaEntryType } from '@/interfaces/manifest'
 import KeyboardShortcuts from '@/components/editor/KeyboardShortcuts.vue'
 import BubbleMenu from '@/components/editor/BubbleMenu.vue'
 import CodexRibbon from '@/components/codex/CodexRibbon.vue'
@@ -58,9 +59,17 @@ const {
 
 const autoSaveCallback = createAutoSaveCallback()
 
+// Get session store for manifest entry type resolver
+const sessionStore = useSessionStore()
+
 // Create sigil resolver function
 const sigilResolver = async (sigilId: string): Promise<string> => {
   return await getSigilUrl(sigilId)
+}
+
+// Create manifest entry type resolver function
+const manifestEntryTypeResolver = (sigilId: string): MediaEntryType | null => {
+  return sessionStore.getSigilEntryType(sigilId)
 }
 
 // Create rune opener function - finds rune by title or UUID and opens it
@@ -101,6 +110,7 @@ const previewComposable = useEditor(
   sigilResolver,
   ref('preview'),
   runeOpener,
+  manifestEntryTypeResolver,
 )
 const { editorView: previewView } = previewComposable
 
@@ -138,11 +148,12 @@ const editorComposable = useEditor(
   sigilResolver,
   previewMode,
   runeOpener,
+  manifestEntryTypeResolver,
 )
 const { editorView, togglePreview, applyPreviewMode } = editorComposable
 
-// Image upload handler
-const imageUploadHandler = useImageUpload({
+// Media upload handler
+const mediaUploadHandler = useMediaUpload({
   editorView: editorViewRef,
   showNotifications: false, // Status shown in status bar instead
 })
@@ -173,8 +184,8 @@ function setupUploadHandlers() {
 
   // Only setup if editor view is available
   if (editorView.value) {
-    dragDropCleanup = imageUploadHandler.setupDragAndDrop()
-    pasteCleanup = imageUploadHandler.setupPasteHandler()
+    dragDropCleanup = mediaUploadHandler.setupDragAndDrop()
+    pasteCleanup = mediaUploadHandler.setupPasteHandler()
   }
 }
 

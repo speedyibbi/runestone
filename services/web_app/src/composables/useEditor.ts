@@ -17,6 +17,7 @@ import {
   previewModeExtension,
   sigilResolverFacet,
   runeOpenerFacet,
+  manifestEntryTypeFacet,
 } from '@/utils/editor/livePreview'
 import {
   markdownHeadingFolding,
@@ -25,6 +26,7 @@ import {
 } from '@/utils/editor/folding'
 import { createKeyboardShortcuts } from '@/utils/editor/keyboardShortcuts'
 import type { SigilUrlResolver } from '@/utils/editor/widgets'
+import { MediaEntryType } from '@/interfaces/manifest'
 
 export type PreviewMode = 'edit' | 'preview' | 'split'
 
@@ -34,6 +36,7 @@ export function useEditor(
   sigilResolver?: SigilUrlResolver,
   previewMode?: Ref<PreviewMode>,
   runeOpener?: (runeTitle: string) => Promise<void>,
+  manifestEntryTypeResolver?: (sigilId: string) => MediaEntryType | null,
 ) {
   const editorView = ref<EditorView | null>(null)
   // Use shared preview mode state if provided, otherwise create local one
@@ -70,6 +73,9 @@ export function useEditor(
 
         // Rune opener facet - provide the function to open runes by title
         runeOpenerFacet.of(runeOpener || null),
+
+        // Manifest entry type resolver facet - provide the function to get media entry type
+        manifestEntryTypeFacet.of(manifestEntryTypeResolver || null),
 
         // Use tabs instead of spaces
         indentUnit.of('\t'),

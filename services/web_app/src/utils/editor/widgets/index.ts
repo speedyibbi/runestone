@@ -3,6 +3,8 @@
  */
 
 export { ImageWidget, type SigilUrlResolver } from './ImageWidget'
+export { VideoWidget } from './VideoWidget'
+export { AudioWidget } from './AudioWidget'
 export { CheckboxWidget } from './CheckboxWidget'
 export { TableWidget, type TableData } from './TableWidget'
 export { InlineMathWidget, BlockMathWidget } from './MathWidget'

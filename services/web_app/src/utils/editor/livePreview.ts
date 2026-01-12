@@ -24,6 +24,8 @@ import { syntaxTree } from '@codemirror/language'
 // Import widgets
 import {
   ImageWidget,
+  VideoWidget,
+  AudioWidget,
   CheckboxWidget,
   TableWidget,
   InlineMathWidget,
@@ -36,6 +38,7 @@ import {
 
 // Import utilities
 import { getChildText, getLinkAtPos, parseTable } from './utils'
+import { MediaEntryType } from '@/interfaces/manifest'
 
 /**
  * Facet to provide sigil URL resolver function
@@ -51,6 +54,17 @@ export const sigilResolverFacet = Facet.define<SigilUrlResolver | null, SigilUrl
 export const runeOpenerFacet = Facet.define<
   ((runeTitle: string) => Promise<void>) | null,
   ((runeTitle: string) => Promise<void>) | null
+>({
+  combine: (values) => values[values.length - 1] ?? null,
+})
+
+/**
+ * Facet to provide manifest entry type resolver function
+ * Takes a sigil ID and returns the MediaEntryType or null
+ */
+export const manifestEntryTypeFacet = Facet.define<
+  ((sigilId: string) => MediaEntryType | null) | null,
+  ((sigilId: string) => MediaEntryType | null) | null
 >({
   combine: (values) => values[values.length - 1] ?? null,
 })
@@ -81,6 +95,9 @@ function buildDecorations(view: EditorView, isPreviewMode = false): DecorationSe
 
   // Get sigil resolver from facet
   const sigilResolver = view.state.facet(sigilResolverFacet)
+  
+  // Get manifest entry type resolver from facet
+  const manifestEntryTypeResolver = view.state.facet(manifestEntryTypeFacet)
 
   // Get the line number where the cursor is
   // In preview mode, set cursorLine to -1 so all syntax is hidden
@@ -356,29 +373,48 @@ function buildDecorations(view: EditorView, isPreviewMode = false): DecorationSe
           return false
         }
 
-        // Handle images
+        // Handle images, videos, and audio
         if (nodeType === 'Image') {
           const imageNode = node.node
           const alt = getChildText(imageNode, 'LinkLabel', view).replace(/^\[|\]$/g, '')
           const url = getChildText(imageNode, 'URL', view).replace(/^\(|\)$/g, '')
 
           if (url) {
-            // Create ImageWidget with sigil resolver if available
-            const imageWidget = new ImageWidget(url, alt, sigilResolver || undefined)
+            // Determine which widget to use based on manifest entry type
+            let widget: ImageWidget | VideoWidget | AudioWidget
+            
+            // Check if it's a sigil:// URL and we have a type resolver
+            if ((url.startsWith('sigil://') || url.startsWith('sigil:')) && manifestEntryTypeResolver) {
+              const sigilId = url.replace(/^sigil:\/\//, '').replace(/^sigil:/, '')
+              const entryType = manifestEntryTypeResolver(sigilId)
+              
+              // Create appropriate widget based on entry type
+              if (entryType === MediaEntryType.VIDEO) {
+                widget = new VideoWidget(url, alt, sigilResolver || undefined)
+              } else if (entryType === MediaEntryType.AUDIO) {
+                widget = new AudioWidget(url, alt, sigilResolver || undefined)
+              } else {
+                // Default to ImageWidget for IMAGE or unknown types
+                widget = new ImageWidget(url, alt, sigilResolver || undefined)
+              }
+            } else {
+              // Not a sigil:// URL or no resolver - default to ImageWidget
+              widget = new ImageWidget(url, alt, sigilResolver || undefined)
+            }
 
             if (onCursorLine && onImageLine) {
-              // On cursor line: show markdown AND image below it
+              // On cursor line: show markdown AND media below it
               decorations.push(
                 Decoration.widget({
-                  widget: imageWidget,
+                  widget: widget,
                   side: 1,
                 }).range(node.to),
               )
             } else if (!onCursorLine) {
-              // Off cursor line: replace markdown with image
+              // Off cursor line: replace markdown with media
               decorations.push(
                 Decoration.replace({
-                  widget: imageWidget,
+                  widget: widget,
                 }).range(node.from, node.to),
               )
             }
