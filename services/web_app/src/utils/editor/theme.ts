@@ -776,6 +776,325 @@ export const minimalTheme = EditorView.theme(
       fontSize: '0.875rem',
       border: '1px dashed var(--color-error-border)',
     },
+
+    // Video widget wrapper
+    '.cm-video-wrapper': {
+      margin: '0.5rem 0',
+      width: '100%',
+    },
+
+    // Video widget container
+    '.cm-video-widget': {
+      position: 'relative',
+      width: '100%',
+      backgroundColor: 'var(--color-overlay-subtle)',
+      border: '1px solid var(--color-overlay-border)',
+      borderRadius: '8px',
+      overflow: 'hidden',
+      transition: 'opacity 0.2s ease',
+    },
+
+    // Video element
+    '.cm-video-widget .cm-video': {
+      display: 'block',
+      width: '100%',
+      height: 'auto',
+      maxWidth: '100%',
+    },
+
+    // Video controls overlay
+    '.cm-video-controls-overlay': {
+      position: 'absolute',
+      bottom: '0',
+      left: '0',
+      right: '0',
+      background: 'linear-gradient(to top, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0.4) 50%, transparent 100%)',
+      padding: '1rem 1rem 0.875rem',
+      opacity: '0',
+      transition: 'opacity 0.2s ease',
+      pointerEvents: 'none',
+    },
+
+    '.cm-video-controls-overlay.visible': {
+      opacity: '1',
+      pointerEvents: 'auto',
+    },
+
+    // Video controls container
+    '.cm-video-controls': {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '0.875rem',
+      width: '100%',
+    },
+
+    // Play/pause button
+    '.cm-video-play-pause': {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '2.125rem',
+      height: '2.125rem',
+      minWidth: '2.125rem',
+      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+      backdropFilter: 'blur(4px)',
+      border: 'none',
+      borderRadius: '6px',
+      color: 'var(--color-foreground)',
+      cursor: 'pointer',
+      padding: '0',
+      transition: 'background-color 0.15s ease, transform 0.1s ease',
+      outline: 'none',
+    },
+
+    '.cm-video-play-pause:hover': {
+      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    },
+
+    '.cm-video-play-pause:active': {
+      transform: 'scale(0.96)',
+      backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    },
+
+    '.cm-video-play-pause svg': {
+      width: '1.125rem',
+      height: '1.125rem',
+      stroke: 'currentColor',
+      strokeLinecap: 'round',
+      strokeLinejoin: 'round',
+    },
+
+    // Progress container
+    '.cm-video-progress-container': {
+      flex: '1',
+      display: 'flex',
+      alignItems: 'center',
+      minWidth: '0',
+    },
+
+    '.cm-video-progress-bar': {
+      position: 'relative',
+      width: '100%',
+      height: '0.375rem',
+      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+      borderRadius: '3px',
+      cursor: 'pointer',
+      overflow: 'hidden',
+    },
+
+    '.cm-video-progress-track': {
+      position: 'absolute',
+      left: '0',
+      top: '0',
+      height: '100%',
+      backgroundColor: 'var(--color-foreground)',
+      borderRadius: '3px',
+      transition: 'width 0.1s linear',
+    },
+
+    // Disable transition during dragging for instant response
+    '.cm-video-progress-bar.dragging .cm-video-progress-track': {
+      transition: 'none',
+    },
+
+    '.cm-video-progress-thumb': {
+      position: 'absolute',
+      right: '0',
+      top: '50%',
+      transform: 'translate(50%, -50%)',
+      width: '0.8125rem',
+      height: '0.8125rem',
+      backgroundColor: 'var(--color-foreground)',
+      borderRadius: '50%',
+      opacity: '0',
+      transition: 'opacity 0.15s ease, transform 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
+      pointerEvents: 'none',
+      boxShadow: '0 0 0 2px var(--color-background), 0 1px 2px rgba(0, 0, 0, 0.3)',
+    },
+
+    '.cm-video-progress-bar:hover .cm-video-progress-thumb': {
+      opacity: '1',
+      transform: 'translate(50%, -50%) scale(1.35)',
+    },
+
+    '.cm-video-progress-bar:active .cm-video-progress-thumb': {
+      opacity: '1',
+      transform: 'translate(50%, -50%) scale(1.5)',
+    },
+
+    '.cm-video-progress-bar.dragging .cm-video-progress-thumb': {
+      opacity: '1',
+      transform: 'translate(50%, -50%) scale(1.5)',
+    },
+
+    // Time display
+    '.cm-video-time': {
+      fontSize: '0.75rem',
+      color: 'var(--color-foreground)',
+      fontFamily: 'var(--font-code)',
+      whiteSpace: 'nowrap',
+      minWidth: '5.5rem',
+      textAlign: 'right',
+      letterSpacing: '0.01em',
+      textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)',
+    },
+
+    // Volume container
+    '.cm-video-volume-container': {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '0.625rem',
+      position: 'relative',
+    },
+
+    '.cm-video-volume-btn': {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '1.875rem',
+      height: '1.875rem',
+      minWidth: '1.875rem',
+      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+      backdropFilter: 'blur(4px)',
+      border: 'none',
+      borderRadius: '6px',
+      color: 'var(--color-foreground)',
+      cursor: 'pointer',
+      padding: '0',
+      transition: 'background-color 0.15s ease, transform 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
+      outline: 'none',
+    },
+
+    '.cm-video-volume-btn:hover': {
+      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+      transform: 'scale(1.15)',
+    },
+
+    '.cm-video-volume-btn:active': {
+      transform: 'scale(1.08)',
+      backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    },
+
+    '.cm-video-volume-btn svg': {
+      width: '1.0625rem',
+      height: '1.0625rem',
+      stroke: 'currentColor',
+      strokeLinecap: 'round',
+      strokeLinejoin: 'round',
+    },
+
+    '.cm-video-volume-slider': {
+      position: 'relative',
+      maxWidth: '0',
+      width: '4rem',
+      height: '0.375rem',
+      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+      borderRadius: '3px',
+      cursor: 'pointer',
+      overflow: 'hidden',
+      opacity: '0',
+      transition: 'opacity 0.15s ease, max-width 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
+      pointerEvents: 'none',
+    },
+
+    '.cm-video-volume-container:hover .cm-video-volume-slider': {
+      maxWidth: '4rem',
+      opacity: '1',
+      pointerEvents: 'auto',
+    },
+
+    '.cm-video-volume-track': {
+      position: 'absolute',
+      left: '0',
+      top: '0',
+      height: '100%',
+      backgroundColor: 'var(--color-foreground)',
+      borderRadius: '3px',
+      transition: 'width 0.1s linear',
+    },
+
+    // Disable transition during dragging for instant response
+    '.cm-video-volume-slider.dragging .cm-video-volume-track': {
+      transition: 'none',
+    },
+
+    '.cm-video-volume-thumb': {
+      position: 'absolute',
+      right: '0',
+      top: '50%',
+      transform: 'translate(50%, -50%)',
+      width: '0.6875rem',
+      height: '0.6875rem',
+      backgroundColor: 'var(--color-foreground)',
+      borderRadius: '50%',
+      opacity: '0',
+      transition: 'opacity 0.15s ease, transform 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
+      pointerEvents: 'none',
+      boxShadow: '0 0 0 2px var(--color-background), 0 1px 2px rgba(0, 0, 0, 0.3)',
+    },
+
+    '.cm-video-volume-slider:hover .cm-video-volume-thumb': {
+      opacity: '1',
+      transform: 'translate(50%, -50%) scale(1.35)',
+    },
+
+    '.cm-video-volume-slider:active .cm-video-volume-thumb': {
+      opacity: '1',
+      transform: 'translate(50%, -50%) scale(1.5)',
+    },
+
+    '.cm-video-volume-slider.dragging .cm-video-volume-thumb': {
+      opacity: '1',
+      transform: 'translate(50%, -50%) scale(1.5)',
+    },
+
+    // Fullscreen button
+    '.cm-video-fullscreen': {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '1.875rem',
+      height: '1.875rem',
+      minWidth: '1.875rem',
+      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+      backdropFilter: 'blur(4px)',
+      border: 'none',
+      borderRadius: '6px',
+      color: 'var(--color-foreground)',
+      cursor: 'pointer',
+      padding: '0',
+      transition: 'background-color 0.15s ease, transform 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
+      outline: 'none',
+    },
+
+    '.cm-video-fullscreen:hover': {
+      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+      transform: 'scale(1.15)',
+    },
+
+    '.cm-video-fullscreen:active': {
+      transform: 'scale(1.08)',
+      backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    },
+
+    '.cm-video-fullscreen svg': {
+      width: '1.0625rem',
+      height: '1.0625rem',
+      stroke: 'currentColor',
+      strokeLinecap: 'round',
+      strokeLinejoin: 'round',
+    },
+
+    // Video error fallback
+    '.cm-video-error': {
+      display: 'inline-block',
+      padding: '0.5rem 1rem',
+      backgroundColor: 'var(--color-error-bg)',
+      color: 'var(--color-muted)',
+      borderRadius: '4px',
+      fontSize: '0.875rem',
+      border: '1px dashed var(--color-error-border)',
+    },
   },
   { dark: true },
 )
