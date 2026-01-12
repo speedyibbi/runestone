@@ -887,11 +887,12 @@ export default class OrchestrationService {
       const promiser = DatabaseService.getPromiser()
 
       // Query entries from the index that contain "sigil://"
+      const indexTableName = IndexerService.getDefaultTableName()
       const searchResponse = await promiser('exec', {
         sql: `
           SELECT content
-          FROM blob_index
-          WHERE type = '${ManifestEntryType.NOTE}' AND blob_index MATCH '"sigil://"'
+          FROM ${indexTableName}
+          WHERE type = '${ManifestEntryType.NOTE}' AND ${indexTableName} MATCH '"sigil://"'
         `,
         returnValue: 'resultRows',
       })

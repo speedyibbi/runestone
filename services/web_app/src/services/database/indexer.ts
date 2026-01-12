@@ -16,7 +16,7 @@ export interface IndexSchema<T = Record<string, any>> {
 export type IndexCallbackType = 'add' | 'update' | 'remove'
 
 /**
- * Default blob_index table data structure
+ * Default index table data structure
  */
 export interface DefaultBlobData {
   id: string // unique identifier (uuid)
@@ -43,12 +43,19 @@ const DEFAULT_SCHEMA: IndexSchema<DefaultBlobData> = {
 
 /**
  * IndexerService manages FTS5 index creation and operations
- * Supports both a default blob_index table and custom registered indexes
+ * Supports both a default index table and custom registered indexes
  */
 export default class IndexerService {
   private static indexes = new Map<string, IndexSchema>()
   private static indexCallbacks = new Map<string, Array<(data?: any) => void>>()
   private static defaultTableRegistered = false
+
+  /**
+   * Get the default index table name
+   */
+  static getDefaultTableName(): string {
+    return DEFAULT_TABLE_NAME
+  }
 
   /**
    * Register an index schema
@@ -58,7 +65,7 @@ export default class IndexerService {
   }
 
   /**
-   * Register an index callback for the default blob_index table
+   * Register an index callback for the default index table
    */
   static registerIndexCallback<T>(type: IndexCallbackType, callback: (data: T) => void): void
   /**
@@ -96,7 +103,7 @@ export default class IndexerService {
   }
 
   /**
-   * Ensure default blob_index table is registered
+   * Ensure default index table is registered
    */
   private static ensureDefaultTableRegistered(): void {
     if (!this.defaultTableRegistered) {
@@ -177,7 +184,7 @@ export default class IndexerService {
   }
 
   /**
-   * Add or update a blob in the default blob_index table (upsert behavior)
+   * Add or update a blob in the default index table (upsert behavior)
    */
   static async addBlob(data: DefaultBlobData): Promise<void>
   /**
@@ -271,7 +278,7 @@ export default class IndexerService {
   }
 
   /**
-   * Remove a blob from the default blob_index table
+   * Remove a blob from the default index table
    */
   static async removeBlob(id: string): Promise<void>
   /**
@@ -334,7 +341,7 @@ export default class IndexerService {
   }
 
   /**
-   * Batch add or update blobs in the default blob_index table (upsert behavior)
+   * Batch add or update blobs in the default index table (upsert behavior)
    */
   static async addBlobs(blobs: DefaultBlobData[]): Promise<void>
   /**
@@ -512,7 +519,7 @@ export default class IndexerService {
   }
 
   /**
-   * Batch remove blobs from the default blob_index table
+   * Batch remove blobs from the default index table
    */
   static async removeBlobs(ids: string[]): Promise<void>
   /**
@@ -604,7 +611,7 @@ export default class IndexerService {
   }
 
   /**
-   * Clear a specific index (defaults to blob_index)
+   * Clear a specific index (defaults to index)
    */
   static async clear(indexName: string = DEFAULT_TABLE_NAME): Promise<void> {
     if (!DatabaseService.isReady()) {
@@ -642,7 +649,7 @@ export default class IndexerService {
   }
 
   /**
-   * Optimize FTS5 segments for a specific index (defaults to blob_index)
+   * Optimize FTS5 segments for a specific index (defaults to index)
    */
   static async optimize(indexName: string = DEFAULT_TABLE_NAME): Promise<void> {
     if (!DatabaseService.isReady()) {

@@ -15,7 +15,6 @@ import LinkExtractorService, {
 export default class GraphIndexerService {
   private static indexingInProgress = new Set<string>()
   private static pendingIndexOperations = new Map<string, { title: string; content: string }>()
-  private static readonly DEFAULT_INDEXER_TABLE = 'blob_index'
 
   /**
    * Initialize graph tables and register callbacks
@@ -90,7 +89,7 @@ export default class GraphIndexerService {
     try {
       const response = await promiser('exec', {
         sql: `
-          SELECT id FROM ${this.DEFAULT_INDEXER_TABLE}
+          SELECT id FROM ${IndexerService.getDefaultTableName()}
           WHERE type = '${ManifestEntryType.NOTE}' AND title = '${this.escapeSql(title)}'
           LIMIT 1
         `,
@@ -123,7 +122,7 @@ export default class GraphIndexerService {
     try {
       const response = await promiser('exec', {
         sql: `
-          SELECT title FROM ${this.DEFAULT_INDEXER_TABLE}
+          SELECT title FROM ${IndexerService.getDefaultTableName()}
           WHERE type = '${ManifestEntryType.NOTE}' AND id = '${this.escapeSql(uuid)}'
           LIMIT 1
         `,

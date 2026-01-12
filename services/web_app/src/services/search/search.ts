@@ -1,4 +1,5 @@
 import DatabaseService from '@/services/database/db'
+import IndexerService from '@/services/database/indexer'
 import type { SearchResult, SearchOptions, SearchServiceResult } from '@/interfaces/search'
 import { ManifestEntryType } from '@/interfaces/manifest'
 
@@ -6,7 +7,6 @@ import { ManifestEntryType } from '@/interfaces/manifest'
  * SearchService handles full-text search using SQLite FTS5
  */
 export default class SearchService {
-  private static readonly DEFAULT_INDEXER_TABLE = 'blob_index'
   private static readonly FEATURE_FTS_SEARCH = __APP_CONFIG__.global.featureFlags.ftsSearch
 
   /**
@@ -153,7 +153,7 @@ export default class SearchService {
 
     // Build BM25 function call with weights
     // bm25(default_indexer_table, id_weight, type_weight, title_weight, content_weight, metadata_weight)
-    const bm25Function = `bm25(${this.DEFAULT_INDEXER_TABLE}, 0, 0, ${titleWeight}, ${contentWeight}, 0)`
+    const bm25Function = `bm25(${IndexerService.getDefaultTableName()}, 0, 0, ${titleWeight}, ${contentWeight}, 0)`
 
     try {
       const promiser = DatabaseService.getPromiser()
@@ -167,15 +167,16 @@ export default class SearchService {
       // Custom weights allow prioritizing title matches over content matches
       // Search only notes
 
+      const indexTableName = IndexerService.getDefaultTableName()
       const searchResponse = await promiser('exec', {
         sql: `
           SELECT 
             id as uuid,
             title,
-            snippet(${this.DEFAULT_INDEXER_TABLE}, 3, '<mark>', '</mark>', '...', 32) as snippet,
+            snippet(${indexTableName}, 3, '<mark>', '</mark>', '...', 32) as snippet,
             ${bm25Function} as rank
-          FROM ${this.DEFAULT_INDEXER_TABLE}
-          WHERE type = '${ManifestEntryType.NOTE}' AND ${this.DEFAULT_INDEXER_TABLE} MATCH '${escapedQuery}'
+          FROM ${indexTableName}
+          WHERE type = '${ManifestEntryType.NOTE}' AND ${indexTableName} MATCH '${escapedQuery}'
           ORDER BY ${bm25Function}
           LIMIT ${limit} OFFSET ${offset};
         `,
@@ -236,7 +237,7 @@ export default class SearchService {
         total = results.length
       } else {
         const countResponse = await promiser('exec', {
-          sql: `SELECT COUNT(*) as count FROM ${this.DEFAULT_INDEXER_TABLE} WHERE type = '${ManifestEntryType.NOTE}' AND ${this.DEFAULT_INDEXER_TABLE} MATCH '${escapedQuery}';`,
+          sql: `SELECT COUNT(*) as count FROM ${indexTableName} WHERE type = '${ManifestEntryType.NOTE}' AND ${indexTableName} MATCH '${escapedQuery}';`,
           returnValue: 'resultRows',
         })
         total =
