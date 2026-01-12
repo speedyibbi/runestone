@@ -13,6 +13,7 @@ import type { SyncProgress, SyncResult, SyncOptions, RootSyncOptions } from '@/i
  * Uses Last-Write-Wins conflict resolution strategy
  */
 export default class SyncService {
+  private static readonly FEATURE_SYNC = __APP_CONFIG__.global.featureFlags.sync
   /**
    * Notify progress callback if provided
    */
@@ -303,6 +304,19 @@ export default class SyncService {
    * Syncs notebook meta, manifest, and blobs
    */
   static async sync(options: SyncOptions): Promise<SyncResult> {
+    if (!this.FEATURE_SYNC) {
+      return {
+        success: false,
+        downloaded: 0,
+        uploaded: 0,
+        deletedRemotely: 0,
+        deletedLocally: 0,
+        conflicts: 0,
+        errors: ['Sync feature is disabled'],
+        duration: 0,
+      }
+    }
+
     const { notebookId, lookupHash, fek, onProgress, signal } = options
     const startTime = Date.now()
     const errors: string[] = []
@@ -595,6 +609,19 @@ export default class SyncService {
    * Root meta is unencrypted JSON, map is encrypted with MEK
    */
   static async syncRoot(options: RootSyncOptions): Promise<SyncResult> {
+    if (!this.FEATURE_SYNC) {
+      return {
+        success: false,
+        downloaded: 0,
+        uploaded: 0,
+        deletedRemotely: 0,
+        deletedLocally: 0,
+        conflicts: 0,
+        errors: ['Sync feature is disabled'],
+        duration: 0,
+      }
+    }
+
     const { lookupHash, mek, onProgress, signal } = options
     const startTime = Date.now()
     const errors: string[] = []

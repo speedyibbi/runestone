@@ -6,6 +6,8 @@ import type { RuneInfo } from '@/composables/useCodex'
 import type { PreviewMode } from '@/composables/useEditor'
 import type { SearchServiceResult, SearchOptions } from '@/interfaces/search'
 
+const isSyncEnabled = __APP_CONFIG__.global.featureFlags.sync
+
 interface Props {
   tabs: Tab[]
   activeTabId: string | null
@@ -272,6 +274,7 @@ onUnmounted(() => {
         </svg>
       </button>
       <button
+        v-if="isSyncEnabled"
         class="icon-button"
         :class="{ active: isSyncing }"
         :disabled="isSyncing"
