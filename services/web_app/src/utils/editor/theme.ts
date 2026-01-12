@@ -514,6 +514,268 @@ export const minimalTheme = EditorView.theme(
     '.cm-hashtag:hover': {
       backgroundColor: 'var(--color-overlay-hover)',
     },
+
+    // Audio widget wrapper
+    '.cm-audio-wrapper': {
+      margin: '0.5rem 0',
+      width: '100%',
+    },
+
+    // Audio widget container
+    '.cm-audio-widget': {
+      display: 'flex',
+      flexDirection: 'column',
+      width: '100%',
+      backgroundColor: 'var(--color-overlay-subtle)',
+      border: '1px solid var(--color-overlay-border)',
+      borderRadius: '999px',
+      padding: '0.45rem 1rem',
+      gap: '0.875rem',
+      transition: 'opacity 0.2s ease',
+    },
+
+    // Hide native audio element
+    '.cm-audio-widget .cm-audio': {
+      display: 'none',
+    },
+
+    // Audio controls container
+    '.cm-audio-controls': {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '0.875rem',
+      width: '100%',
+    },
+
+    // Play/pause button
+    '.cm-audio-play-pause': {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '2.125rem',
+      height: '2.125rem',
+      minWidth: '2.125rem',
+      backgroundColor: 'transparent',
+      border: 'none',
+      borderRadius: '6px',
+      color: 'var(--color-foreground)',
+      cursor: 'pointer',
+      padding: '0',
+      transition: 'background-color 0.15s ease, transform 0.1s ease',
+      outline: 'none',
+    },
+
+    '.cm-audio-play-pause:hover': {
+      backgroundColor: 'var(--color-overlay-light)',
+    },
+
+    '.cm-audio-play-pause:active': {
+      transform: 'scale(0.96)',
+      backgroundColor: 'var(--color-overlay-medium)',
+    },
+
+    '.cm-audio-play-pause svg': {
+      width: '1.125rem',
+      height: '1.125rem',
+      stroke: 'currentColor',
+      strokeLinecap: 'round',
+      strokeLinejoin: 'round',
+    },
+
+    // Progress container
+    '.cm-audio-progress-container': {
+      flex: '1',
+      display: 'flex',
+      alignItems: 'center',
+      minWidth: '0',
+    },
+
+    '.cm-audio-progress-bar': {
+      position: 'relative',
+      width: '100%',
+      height: '0.375rem',
+      backgroundColor: 'var(--color-overlay-medium)',
+      borderRadius: '3px',
+      cursor: 'pointer',
+      overflow: 'hidden',
+    },
+
+    '.cm-audio-progress-track': {
+      position: 'absolute',
+      left: '0',
+      top: '0',
+      height: '100%',
+      backgroundColor: 'var(--color-accent)',
+      borderRadius: '3px',
+      transition: 'width 0.1s linear',
+    },
+
+    // Disable transition during dragging for instant response
+    '.cm-audio-progress-bar.dragging .cm-audio-progress-track': {
+      transition: 'none',
+    },
+
+    '.cm-audio-progress-thumb': {
+      position: 'absolute',
+      right: '0',
+      top: '50%',
+      transform: 'translate(50%, -50%)',
+      width: '0.8125rem',
+      height: '0.8125rem',
+      backgroundColor: 'var(--color-foreground)',
+      borderRadius: '50%',
+      opacity: '0',
+      transition: 'opacity 0.15s ease, transform 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
+      pointerEvents: 'none',
+      boxShadow: '0 0 0 2px var(--color-background), 0 1px 2px rgba(0, 0, 0, 0.3)',
+    },
+
+    '.cm-audio-progress-bar:hover .cm-audio-progress-thumb': {
+      opacity: '1',
+      transform: 'translate(50%, -50%) scale(1.35)',
+    },
+
+    '.cm-audio-progress-bar:active .cm-audio-progress-thumb': {
+      opacity: '1',
+      transform: 'translate(50%, -50%) scale(1.5)',
+    },
+
+    // Keep thumb visible while dragging (using class added via JS if needed)
+    '.cm-audio-progress-bar.dragging .cm-audio-progress-thumb': {
+      opacity: '1',
+      transform: 'translate(50%, -50%) scale(1.5)',
+    },
+
+    // Time display
+    '.cm-audio-time': {
+      fontSize: '0.75rem',
+      color: 'var(--color-muted)',
+      fontFamily: 'var(--font-code)',
+      whiteSpace: 'nowrap',
+      minWidth: '5.5rem',
+      textAlign: 'right',
+      letterSpacing: '0.01em',
+    },
+
+    // Volume container
+    '.cm-audio-volume-container': {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '0.625rem',
+      position: 'relative',
+    },
+
+    '.cm-audio-volume-btn': {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '1.875rem',
+      height: '1.875rem',
+      minWidth: '1.875rem',
+      backgroundColor: 'transparent',
+      border: 'none',
+      borderRadius: '6px',
+      color: 'var(--color-foreground)',
+      cursor: 'pointer',
+      padding: '0',
+      transition: 'background-color 0.15s ease, transform 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
+      outline: 'none',
+    },
+
+    '.cm-audio-volume-btn:hover': {
+      backgroundColor: 'var(--color-overlay-light)',
+      transform: 'scale(1.15)',
+    },
+
+    '.cm-audio-volume-btn:active': {
+      transform: 'scale(1.08)',
+      backgroundColor: 'var(--color-overlay-medium)',
+    },
+
+    '.cm-audio-volume-btn svg': {
+      width: '1.0625rem',
+      height: '1.0625rem',
+      stroke: 'currentColor',
+      strokeLinecap: 'round',
+      strokeLinejoin: 'round',
+    },
+
+    '.cm-audio-volume-slider': {
+      position: 'relative',
+      maxWidth: '0',
+      width: '4rem',
+      height: '0.375rem',
+      backgroundColor: 'var(--color-overlay-medium)',
+      borderRadius: '3px',
+      cursor: 'pointer',
+      overflow: 'hidden',
+      opacity: '0',
+      transition: 'opacity 0.15s ease, max-width 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
+      pointerEvents: 'none',
+    },
+
+    '.cm-audio-volume-container:hover .cm-audio-volume-slider': {
+      maxWidth: '4rem',
+      opacity: '1',
+      pointerEvents: 'auto',
+    },
+
+    '.cm-audio-volume-track': {
+      position: 'absolute',
+      left: '0',
+      top: '0',
+      height: '100%',
+      backgroundColor: 'var(--color-accent)',
+      borderRadius: '3px',
+      transition: 'width 0.1s linear',
+    },
+
+    // Disable transition during dragging for instant response
+    '.cm-audio-volume-slider.dragging .cm-audio-volume-track': {
+      transition: 'none',
+    },
+
+    '.cm-audio-volume-thumb': {
+      position: 'absolute',
+      right: '0',
+      top: '50%',
+      transform: 'translate(50%, -50%)',
+      width: '0.6875rem',
+      height: '0.6875rem',
+      backgroundColor: 'var(--color-foreground)',
+      borderRadius: '50%',
+      opacity: '0',
+      transition: 'opacity 0.15s ease, transform 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
+      pointerEvents: 'none',
+      boxShadow: '0 0 0 2px var(--color-background), 0 1px 2px rgba(0, 0, 0, 0.3)',
+    },
+
+    '.cm-audio-volume-slider:hover .cm-audio-volume-thumb': {
+      opacity: '1',
+      transform: 'translate(50%, -50%) scale(1.35)',
+    },
+
+    '.cm-audio-volume-slider:active .cm-audio-volume-thumb': {
+      opacity: '1',
+      transform: 'translate(50%, -50%) scale(1.5)',
+    },
+
+    // Keep thumb visible while dragging
+    '.cm-audio-volume-slider.dragging .cm-audio-volume-thumb': {
+      opacity: '1',
+      transform: 'translate(50%, -50%) scale(1.5)',
+    },
+
+    // Audio error fallback
+    '.cm-audio-error': {
+      display: 'inline-block',
+      padding: '0.5rem 1rem',
+      backgroundColor: 'var(--color-error-bg)',
+      color: 'var(--color-muted)',
+      borderRadius: '4px',
+      fontSize: '0.875rem',
+      border: '1px dashed var(--color-error-border)',
+    },
   },
   { dark: true },
 )
