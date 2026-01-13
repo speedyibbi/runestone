@@ -19,6 +19,7 @@ export interface UseMediaUploadOptions {
 export interface UseMediaUploadReturn {
   isUploading: Ref<boolean>
   uploadProgress: Ref<number>
+  isDraggingOver: Ref<boolean>
   handleFileUpload: (file: File) => Promise<string | null>
   handleFilesUpload: (files: FileList | File[]) => Promise<void>
   insertMediaMarkdown: (sigilId: string, filename: string, position?: number) => void
@@ -38,6 +39,7 @@ export function useMediaUpload(options: UseMediaUploadOptions = {}): UseMediaUpl
   // State
   const isUploading = ref(false)
   const uploadProgress = ref(0)
+  const isDraggingOver = ref(false)
 
   /**
    * Validate that a file is a supported media type (image, video, or audio)
@@ -167,6 +169,28 @@ export function useMediaUpload(options: UseMediaUploadOptions = {}): UseMediaUpl
     // Use contentDOM for drag & drop - this is the actual editable content area
     const editorDom = view.contentDOM
 
+    function handleDragEnter(e: DragEvent) {
+      // Only track if dragging files (not text or other content)
+      if (e.dataTransfer?.types.includes('Files')) {
+        // Set to true if we're entering the editor DOM or any of its children
+        const target = e.target as Node | null
+        if (target && (target === editorDom || editorDom.contains(target))) {
+          isDraggingOver.value = true
+        }
+      }
+    }
+
+    function handleDragLeave(e: DragEvent) {
+      // Only clear if we're actually leaving the editor area
+      if (e.dataTransfer?.types.includes('Files')) {
+        const relatedTarget = e.relatedTarget as Node | null
+        // If relatedTarget is null or not within editor, we're leaving
+        if (!relatedTarget || !editorDom.contains(relatedTarget)) {
+          isDraggingOver.value = false
+        }
+      }
+    }
+
     function handleDragOver(e: DragEvent) {
       // Allow drop
       e.preventDefault()
@@ -180,6 +204,9 @@ export function useMediaUpload(options: UseMediaUploadOptions = {}): UseMediaUpl
     function handleDrop(e: DragEvent) {
       e.preventDefault()
       e.stopPropagation()
+
+      // Reset drag state
+      isDraggingOver.value = false
 
       const files = e.dataTransfer?.files
       if (!files || files.length === 0) {
@@ -220,13 +247,49 @@ export function useMediaUpload(options: UseMediaUploadOptions = {}): UseMediaUpl
       })
     }
 
+    function handleDragEnd() {
+      // Reset drag state when drag ends (e.g., user cancels by dragging outside)
+      isDraggingOver.value = false
+    }
+
+    function handleDocumentDragLeave(e: DragEvent) {
+      // If we drag outside the document/window, clear the state
+      // relatedTarget will be null when leaving the document
+      if (!e.relatedTarget) {
+        isDraggingOver.value = false
+      }
+    }
+
+    function handleMouseUp() {
+      // Fallback: if mouse is released, drag is definitely over
+      // This catches cases where dragend doesn't fire (e.g., dragging outside window)
+      if (isDraggingOver.value) {
+        isDraggingOver.value = false
+      }
+    }
+
+    editorDom.addEventListener('dragenter', handleDragEnter)
+    editorDom.addEventListener('dragleave', handleDragLeave)
     editorDom.addEventListener('dragover', handleDragOver)
     editorDom.addEventListener('drop', handleDrop)
+    // Listen on document for dragleave to catch when leaving the page
+    document.addEventListener('dragleave', handleDocumentDragLeave)
+    // Listen on window for dragend to catch cancelled drags
+    window.addEventListener('dragend', handleDragEnd)
+    // Fallback: listen for mouseup to catch cases where dragend doesn't fire
+    document.addEventListener('mouseup', handleMouseUp)
 
     // Return cleanup function
     return () => {
+      editorDom.removeEventListener('dragenter', handleDragEnter)
+      editorDom.removeEventListener('dragleave', handleDragLeave)
       editorDom.removeEventListener('dragover', handleDragOver)
       editorDom.removeEventListener('drop', handleDrop)
+      document.removeEventListener('dragleave', handleDocumentDragLeave)
+      window.removeEventListener('dragend', handleDragEnd)
+      document.removeEventListener('mouseup', handleMouseUp)
+      // Reset state on cleanup
+      isDraggingOver.value = false
     }
   }
 
@@ -284,6 +347,7 @@ export function useMediaUpload(options: UseMediaUploadOptions = {}): UseMediaUpl
   return {
     isUploading,
     uploadProgress,
+    isDraggingOver,
     handleFileUpload,
     handleFilesUpload,
     insertMediaMarkdown,

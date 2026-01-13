@@ -157,6 +157,7 @@ const mediaUploadHandler = useMediaUpload({
   editorView: editorViewRef,
   showNotifications: false, // Status shown in status bar instead
 })
+const { isDraggingOver } = mediaUploadHandler
 
 watch(hasOpenRune, (isOpen) => {
   if (!isOpen) {
@@ -1855,6 +1856,7 @@ onUnmounted(() => {
         :is-graph-tab="
           activeTabId !== null && tabs.find((t) => t.id === activeTabId)?.runeId === undefined
         "
+        :is-dragging-over="isDraggingOver"
         :open-rune="handleOpenRune"
         @update:editor-element="editorElement = $event"
         @update:preview-element="previewElement = $event"

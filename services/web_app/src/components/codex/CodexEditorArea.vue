@@ -11,6 +11,7 @@ interface Props {
   currentRuneId?: string | null
   previewMode: PreviewMode
   isGraphTab?: boolean
+  isDraggingOver?: boolean
   openRune?: (runeId: string) => Promise<void>
 }
 
@@ -80,6 +81,7 @@ watch(
         class="editor-container"
         :class="{
           'split-view': previewMode === 'split',
+          'drag-over': isDraggingOver,
         }"
       >
         <div
@@ -150,6 +152,36 @@ watch(
 .editor-container.split-view {
   justify-content: stretch;
   gap: 0;
+}
+
+.editor-container.drag-over {
+  position: relative;
+}
+
+.editor-container.drag-over::before {
+  content: '';
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  right: 0.5rem;
+  bottom: 0.5rem;
+  border: 2px dashed var(--color-accent);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+  pointer-events: none;
+  z-index: 10;
+  animation: dragPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes dragPulse {
+  0%, 100% {
+    opacity: 0.6;
+    border-color: var(--color-accent);
+  }
+  50% {
+    opacity: 1;
+    border-color: var(--color-accent);
+  }
 }
 
 .editor {
