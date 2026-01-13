@@ -59,7 +59,7 @@ defineExpose({
 <template>
   <Modal
     v-model:show="showModal"
-    title="Keyboard Shortcuts"
+    title="Editor Keyboard Shortcuts"
     max-width="48rem"
     :confirm-text="''"
     :cancel-text="''"
