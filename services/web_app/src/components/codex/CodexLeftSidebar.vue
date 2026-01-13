@@ -32,6 +32,7 @@ interface Props {
   editingState: EditingState
   isRenamingCodex?: boolean
   searchRunes?: (query: string, options?: SearchOptions) => Promise<SearchServiceResult>
+  dragOverRuneId?: string | null
 }
 
 interface Emits {
@@ -50,10 +51,15 @@ interface Emits {
   (e: 'codex-title-edit-submit', value: string): void
   (e: 'codex-title-edit-cancel'): void
   (e: 'openGraph'): void
+  (e: 'drag-start', rune: RuneInfo | null, event: DragEvent): void
+  (e: 'drag-end', event: DragEvent): void
+  (e: 'drag-over', rune: RuneInfo | null, event: DragEvent): void
+  (e: 'drop', rune: RuneInfo | null, event: DragEvent): void
 }
 
 const props = withDefaults(defineProps<Props>(), {
   isRenamingCodex: false,
+  dragOverRuneId: null,
 })
 
 const emit = defineEmits<Emits>()
@@ -148,6 +154,7 @@ function handleKeydown(event: KeyboardEvent) {
           :selected-directory="selectedDirectory"
           :is-directory="isDirectory"
           :editing-state="editingState"
+          :drag-over-rune-id="dragOverRuneId"
           @rune-click="(rune: RuneInfo, event?: MouseEvent) => emit('runeClick', rune, event)"
           @rune-double-click="emit('runeDoubleClick', $event)"
           @rune-context-menu="
@@ -160,6 +167,10 @@ function handleKeydown(event: KeyboardEvent) {
           @sort="emit('sort')"
           @edit-submit="emit('edit-submit', $event)"
           @edit-cancel="emit('edit-cancel')"
+          @drag-start="(rune, event) => emit('drag-start', rune, event)"
+          @drag-end="(event) => emit('drag-end', event)"
+          @drag-over="(rune, event) => emit('drag-over', rune, event)"
+          @drop="(rune, event) => emit('drop', rune, event)"
         />
         <CodexSearchPanel
           v-else-if="activePanel === 'search'"

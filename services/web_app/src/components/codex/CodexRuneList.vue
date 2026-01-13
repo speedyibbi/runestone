@@ -19,6 +19,7 @@ interface Props {
   selectedDirectory: string
   isDirectory: (title: string) => boolean
   editingState: EditingState
+  dragOverRuneId?: string | null
 }
 
 interface Emits {
@@ -32,6 +33,10 @@ interface Emits {
   (e: 'sort'): void
   (e: 'edit-submit', value: string): void
   (e: 'edit-cancel'): void
+  (e: 'drag-start', rune: RuneInfo | null, event: DragEvent): void
+  (e: 'drag-end', event: DragEvent): void
+  (e: 'drag-over', rune: RuneInfo | null, event: DragEvent): void
+  (e: 'drop', rune: RuneInfo | null, event: DragEvent): void
 }
 
 const props = defineProps<Props>()
@@ -61,6 +66,21 @@ function handleSort() {
 
 function handleCollapse() {
   emit('collapseAll')
+}
+
+function handleRootDragOver(event: DragEvent) {
+  event.preventDefault()
+  event.stopPropagation()
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move'
+  }
+}
+
+function handleRootDrop(event: DragEvent) {
+  event.preventDefault()
+  event.stopPropagation()
+  // Emit with null rune to indicate root-level drop
+  emit('drop', null, event)
 }
 </script>
 
@@ -105,7 +125,11 @@ function handleCollapse() {
         </div>
       </div>
     </div>
-    <div class="rune-list">
+    <div
+      class="rune-list"
+      @dragover="handleRootDragOver"
+      @drop="handleRootDrop"
+    >
       <TransitionGroup name="rune-item-fade" tag="div" class="rune-tree-container">
         <CodexRuneTreeNode
           v-for="node in runeTree"
@@ -116,11 +140,16 @@ function handleCollapse() {
           :selected-directory="selectedDirectory"
           :is-directory="isDirectory"
           :editing-state="editingState"
+          :drag-over-rune-id="dragOverRuneId"
           @rune-click="(rune, event) => emit('runeClick', rune, event)"
           @rune-double-click="emit('runeDoubleClick', $event)"
           @rune-context-menu="(event, rune) => emit('runeContextMenu', event, rune)"
           @edit-submit="emit('edit-submit', $event)"
           @edit-cancel="emit('edit-cancel')"
+          @drag-start="(rune, event) => emit('drag-start', rune, event)"
+          @drag-end="(event) => emit('drag-end', event)"
+          @drag-over="(rune, event) => emit('drag-over', rune, event)"
+          @drop="(rune, event) => emit('drop', rune, event)"
         />
       </TransitionGroup>
       <!-- Placeholder for creating at root level -->
@@ -139,6 +168,10 @@ function handleCollapse() {
           :parent-path="''"
           @edit-submit="emit('edit-submit', $event)"
           @edit-cancel="emit('edit-cancel')"
+          @drag-start="(rune, event) => emit('drag-start', rune, event)"
+          @drag-end="(event) => emit('drag-end', event)"
+          @drag-over="(rune, event) => emit('drag-over', rune, event)"
+          @drop="(rune, event) => emit('drop', rune, event)"
         />
       </Transition>
       <div v-if="runeTree.length === 0 && !editingState" class="empty-rune-list">

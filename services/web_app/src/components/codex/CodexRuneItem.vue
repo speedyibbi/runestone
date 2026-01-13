@@ -14,6 +14,7 @@ interface Props {
   isEditing?: boolean
   isCreating?: boolean
   parentPath?: string
+  dragOver?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -25,6 +26,7 @@ const props = withDefaults(defineProps<Props>(), {
   isEditing: false,
   isCreating: false,
   parentPath: '',
+  dragOver: false,
 })
 
 interface Emits {
@@ -33,6 +35,10 @@ interface Emits {
   (e: 'contextmenu', event: MouseEvent, rune: RuneInfo | null): void
   (e: 'edit-submit', value: string): void
   (e: 'edit-cancel'): void
+  (e: 'drag-start', rune: RuneInfo | null, event: DragEvent): void
+  (e: 'drag-end', event: DragEvent): void
+  (e: 'drag-over', rune: RuneInfo | null, event: DragEvent): void
+  (e: 'drop', rune: RuneInfo | null, event: DragEvent): void
 }
 
 const emit = defineEmits<Emits>()
@@ -135,6 +141,60 @@ function handleInput(event: Event) {
     inputValue.value = target.value
   }
 }
+
+function handleDragStart(event: DragEvent) {
+  if (props.isEditing || props.isCreating || !props.rune) return
+  
+  event.stopPropagation()
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', props.rune.uuid)
+    // Add a visual indicator
+    if (event.dataTransfer.setDragImage) {
+      const dragImage = document.createElement('div')
+      dragImage.textContent = props.displayName || props.rune.title
+      dragImage.style.position = 'absolute'
+      dragImage.style.top = '-1000px'
+      document.body.appendChild(dragImage)
+      event.dataTransfer.setDragImage(dragImage, 0, 0)
+      setTimeout(() => document.body.removeChild(dragImage), 0)
+    }
+  }
+  emit('drag-start', props.rune, event)
+}
+
+function handleDragEnd(event: DragEvent) {
+  emit('drag-end', event)
+}
+
+function handleDragOver(event: DragEvent) {
+  // Only allow dropping on directories (not files)
+  if (!props.isDirectory || props.isEditing || props.isCreating) {
+    return
+  }
+  
+  // Prevent default to allow drop
+  event.preventDefault()
+  event.stopPropagation()
+  
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move'
+  }
+  
+  emit('drag-over', props.rune, event)
+}
+
+function handleDrop(event: DragEvent) {
+  // Only allow dropping on directories (not files)
+  if (!props.isDirectory || props.isEditing || props.isCreating) {
+    return
+  }
+  
+  event.preventDefault()
+  event.stopPropagation()
+  
+  emit('drop', props.rune, event)
+}
 </script>
 
 <template>
@@ -146,6 +206,7 @@ function handleInput(event: Event) {
       selected,
       editing: isEditing,
       creating: isCreating,
+      'drag-over': dragOver,
     }"
     :style="{ paddingLeft: `${0.875 + level * 1.25}rem` }"
     :title="
@@ -155,9 +216,14 @@ function handleInput(event: Event) {
           ? 'Click to expand/collapse • Double-click to select for creating items'
           : undefined
     "
+    :draggable="!isEditing && !isCreating && rune !== null"
     @click="handleClick"
     @dblclick="handleDoubleClick"
     @contextmenu="handleContextMenu($event, rune)"
+    @dragstart="handleDragStart"
+    @dragend="handleDragEnd"
+    @dragover="handleDragOver"
+    @drop="handleDrop"
   >
     <!-- Expand/collapse icon for directories - always visible for directories -->
     <span v-if="isDirectory && !isEditing && !isCreating" class="expand-icon">
@@ -265,6 +331,20 @@ function handleInput(event: Event) {
   background: var(--color-overlay-light);
   border: 1px solid var(--color-accent);
   box-shadow: 0 0 0 1px var(--color-selection);
+}
+
+.rune-item[draggable='true'] {
+  cursor: grab;
+}
+
+.rune-item[draggable='true']:active {
+  cursor: grabbing;
+}
+
+.rune-item.drag-over {
+  background: var(--color-overlay-light);
+  border: 2px dashed var(--color-accent);
+  box-shadow: 0 0 0 2px var(--color-selection);
 }
 
 .expand-icon {

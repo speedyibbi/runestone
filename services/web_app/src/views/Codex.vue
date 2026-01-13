@@ -1178,6 +1178,10 @@ const editingState = ref<EditingState>(null)
 const selectedRuneForAction = ref<RuneInfo | null>(null)
 const isRenamingCodex = ref(false)
 
+// Drag and drop state
+const draggedRune = ref<RuneInfo | null>(null)
+const dragOverRune = ref<RuneInfo | null>(null)
+
 const showContextMenu = ref(false)
 const contextMenuX = ref(0)
 const contextMenuY = ref(0)
@@ -1454,6 +1458,139 @@ function handleSort() {
 function handleCollapseAll() {
   expandedDirectories.value.clear()
   expandedDirectories.value = new Set()
+}
+
+// Drag and drop handlers
+function handleDragStart(rune: RuneInfo | null, event: DragEvent) {
+  if (!rune) return
+  draggedRune.value = rune
+}
+
+function handleDragEnd(event: DragEvent) {
+  draggedRune.value = null
+  dragOverRune.value = null
+}
+
+function handleDragOver(rune: RuneInfo | null, event: DragEvent) {
+  // Only allow dragging over directories (not files)
+  if (!rune || !isDirectory(rune.title)) {
+    dragOverRune.value = null
+    return
+  }
+  
+  // Don't allow dropping on self or on a child directory
+  if (draggedRune.value) {
+    const draggedTitle = draggedRune.value.title
+    const targetTitle = rune.title
+    
+    // Can't drop on self
+    if (draggedTitle === targetTitle) {
+      dragOverRune.value = null
+      return
+    }
+    
+    // Can't drop a directory on its own child
+    if (isDirectory(draggedTitle) && targetTitle.startsWith(draggedTitle)) {
+      dragOverRune.value = null
+      return
+    }
+  }
+  
+  dragOverRune.value = rune
+}
+
+async function handleDrop(targetRune: RuneInfo | null, event: DragEvent) {
+  event.preventDefault()
+  event.stopPropagation()
+  
+  if (!draggedRune.value) {
+    dragOverRune.value = null
+    return
+  }
+  
+  const sourceRune = draggedRune.value
+  const sourceTitle = sourceRune.title
+  const isSourceDir = isDirectory(sourceTitle)
+  
+  // Determine target directory path
+  let targetPath = ''
+  if (targetRune && isDirectory(targetRune.title)) {
+    targetPath = targetRune.title
+  } else {
+    // Dropping at root level
+    targetPath = ''
+  }
+  
+  // Can't drop on self
+  if (targetRune && sourceTitle === targetRune.title) {
+    dragOverRune.value = null
+    draggedRune.value = null
+    return
+  }
+  
+  // Can't drop a directory on its own child
+  if (isSourceDir && targetRune && targetRune.title.startsWith(sourceTitle)) {
+    dragOverRune.value = null
+    draggedRune.value = null
+    return
+  }
+  
+  try {
+    // Extract the base name from the source title
+    const baseName = getBaseName(sourceTitle)
+    
+    // Build the new title
+    let newTitle: string
+    if (targetPath === '') {
+      // Moving to root
+      newTitle = isSourceDir && !baseName.endsWith('/') ? `${baseName}/` : baseName
+    } else {
+      // Moving to a directory
+      const targetDir = targetPath.endsWith('/') ? targetPath : `${targetPath}/`
+      newTitle = isSourceDir && !baseName.endsWith('/') 
+        ? `${targetDir}${baseName}/` 
+        : `${targetDir}${baseName}`
+    }
+    
+    // Check if the new title already exists
+    const existingRune = runes.value.find(
+      (r) => r.title === newTitle && r.uuid !== sourceRune.uuid
+    )
+    if (existingRune) {
+      setStatusMessage(
+        `A ${isSourceDir ? 'directory' : 'file'} with that name already exists in the target location`,
+        'error',
+        5000,
+      )
+      dragOverRune.value = null
+      draggedRune.value = null
+      return
+    }
+    
+    // Perform the move by renaming
+    await renameRune(sourceRune.uuid, newTitle)
+    
+    // Expand the target directory if it's a directory
+    if (targetRune && isDirectory(targetRune.title)) {
+      expandedDirectories.value.add(targetRune.title)
+      expandedDirectories.value = new Set(expandedDirectories.value)
+    }
+    
+    setStatusMessage(
+      `${isSourceDir ? 'Directory' : 'File'} moved successfully`,
+      'success',
+    )
+  } catch (err) {
+    console.error('Error moving rune:', err)
+    setStatusMessage(
+      err instanceof Error ? err.message : 'Error moving file/directory',
+      'error',
+      5000,
+    )
+  } finally {
+    dragOverRune.value = null
+    draggedRune.value = null
+  }
 }
 
 function handleCodexTitleContextMenu(event: MouseEvent) {
@@ -1799,6 +1936,7 @@ onUnmounted(() => {
       :is-directory="isDirectory"
       :editing-state="editingState"
       :search-runes="searchRunes"
+      :drag-over-rune-id="dragOverRune?.uuid || null"
       @update:collapsed="leftSidebarCollapsed = $event"
       @rune-click="handleRuneClick"
       @rune-double-click="handleRuneDoubleClick"
@@ -1815,6 +1953,10 @@ onUnmounted(() => {
       @codex-title-edit-submit="handleCodexTitleEditSubmit"
       @codex-title-edit-cancel="handleCodexTitleEditCancel"
       @open-graph="handleOpenGraph"
+      @drag-start="handleDragStart"
+      @drag-end="handleDragEnd"
+      @drag-over="handleDragOver"
+      @drop="handleDrop"
     />
 
     <!-- Main Content Area -->
