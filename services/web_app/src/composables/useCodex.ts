@@ -4,6 +4,7 @@ import { useToast } from '@/composables/useToast'
 import { EditorView, type ViewUpdate } from '@codemirror/view'
 import type { SyncProgress, SyncResult } from '@/interfaces/sync'
 import type { SearchServiceResult, SearchOptions } from '@/interfaces/search'
+import { MediaEntryType } from '@/interfaces/manifest'
 import JSZip from 'jszip'
 
 // ==================== Interfaces ====================
@@ -419,8 +420,25 @@ export function useCodex(
   }
 
   /**
+   * Get default file extension for a media type
+   */
+  function getDefaultExtension(mediaType: MediaEntryType | null): string {
+    switch (mediaType) {
+      case MediaEntryType.IMAGE:
+        return '.png'
+      case MediaEntryType.AUDIO:
+        return '.mp3'
+      case MediaEntryType.VIDEO:
+        return '.mp4'
+      default:
+        return '.bin'
+    }
+  }
+
+  /**
    * Export the entire codex as a ZIP archive
    * Maintains directory structure based on rune titles (using '/' as path separator)
+   * Also exports all sigils to a sigils/ folder
    */
   async function exportCodex(): Promise<void> {
     clearError()
@@ -432,16 +450,17 @@ export function useCodex(
 
       // Get all non-directory runes (directories are just for structure)
       const allRunes = runes.value.filter((rune) => !isDirectory(rune.title))
+      const allSigils = sigils.value
 
-      if (allRunes.length === 0) {
-        throw new Error('No runes to export')
+      if (allRunes.length === 0 && allSigils.length === 0) {
+        throw new Error('No runes or sigils to export')
       }
 
       // Create a new ZIP file
       const zip = new JSZip()
 
       // Fetch all rune contents and add to ZIP with proper paths
-      let exportedCount = 0
+      let exportedRuneCount = 0
       for (const rune of allRunes) {
         try {
           const content = await sessionStore.getRune(rune.uuid)
@@ -464,15 +483,45 @@ export function useCodex(
 
           // Add file to ZIP
           zip.file(filePath, content)
-          exportedCount++
+          exportedRuneCount++
         } catch (err) {
           console.warn(`Failed to fetch rune ${rune.title}:`, err)
           // Continue with other runes even if one fails
         }
       }
 
-      if (exportedCount === 0) {
-        throw new Error('Failed to fetch any rune contents')
+      // Fetch all sigil contents and add to ZIP in sigils/ folder
+      let exportedSigilCount = 0
+      for (const sigil of allSigils) {
+        try {
+          const sigilData = await sessionStore.getSigil(sigil.uuid)
+          const sigilType = sessionStore.getSigilEntryType(sigil.uuid)
+
+          // Use sigil title as filename, preserving extension if present
+          let fileName = sigil.title
+
+          // If title doesn't have an extension, add one based on media type
+          if (!fileName.includes('.')) {
+            const extension = getDefaultExtension(sigilType)
+            fileName = `${fileName}${extension}`
+          }
+
+          // Sanitize filename: remove invalid characters
+          fileName = fileName.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_')
+
+          // Add sigil to ZIP in sigils/ folder
+          const sigilPath = `sigils/${fileName}`
+          zip.file(sigilPath, sigilData)
+          exportedSigilCount++
+        } catch (err) {
+          console.warn(`Failed to fetch sigil ${sigil.title}:`, err)
+          // Continue with other sigils even if one fails
+        }
+      }
+
+      const totalExported = exportedRuneCount + exportedSigilCount
+      if (totalExported === 0) {
+        throw new Error('Failed to fetch any rune or sigil contents')
       }
 
       // Generate ZIP file as blob
@@ -491,7 +540,14 @@ export function useCodex(
       URL.revokeObjectURL(url)
 
       if (showNotifications) {
-        toast.success(`Exported codex: ${currentCodex.value.title} (${exportedCount} files)`)
+        const parts: string[] = []
+        if (exportedRuneCount > 0) {
+          parts.push(`${exportedRuneCount} rune${exportedRuneCount !== 1 ? 's' : ''}`)
+        }
+        if (exportedSigilCount > 0) {
+          parts.push(`${exportedSigilCount} sigil${exportedSigilCount !== 1 ? 's' : ''}`)
+        }
+        toast.success(`Exported codex: ${currentCodex.value.title} (${parts.join(', ')})`)
       }
     } catch (err) {
       setError(err as Error)
