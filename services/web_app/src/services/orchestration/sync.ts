@@ -703,18 +703,125 @@ export default class SyncService {
         total: 4,
       })
 
-      // Merge maps and save
+      // Phase 2.5: Detect and delete codexes that were deleted locally
+      // If local map is newer and doesn't have a codex that remote has, it was deleted locally
+      // We need to remove these from remote map BEFORE merging, so they don't get added back
+      let cleanedRemoteMap: Map | null = remoteMap
+      if (remoteMap && cachedMap) {
+        const localTime = new Date(cachedMap.last_updated).getTime()
+        const remoteTime = new Date(remoteMap.last_updated).getTime()
+
+        if (localTime > remoteTime) {
+          // Local map is newer - check for codexes that exist remotely but not locally
+          const localCodexIds = new Set(cachedMap.entries.map((e) => e.uuid))
+          const remoteOnlyCodexes = remoteMap.entries.filter((e) => !localCodexIds.has(e.uuid))
+
+          if (remoteOnlyCodexes.length > 0) {
+            // Remove deleted codexes from remote map before merging
+            const cleanedRemoteEntries = remoteMap.entries.filter((e) =>
+              localCodexIds.has(e.uuid),
+            )
+            cleanedRemoteMap = {
+              ...remoteMap,
+              entries: cleanedRemoteEntries,
+            }
+
+            // Delete all remote-only codexes from remote storage in parallel
+            await Promise.all(
+              remoteOnlyCodexes.map(async (codexEntry) => {
+                const notebookId = codexEntry.uuid
+                try {
+                  // Try to fetch notebook meta and manifest from remote to get all blob UUIDs
+                  let remoteNotebookMeta: NotebookMeta | null = null
+                  let remoteManifestEncrypted: ArrayBuffer | null = null
+
+                  try {
+                    remoteNotebookMeta = await RemoteService.getNotebookMeta(notebookId, signal)
+                  } catch {
+                    // Meta doesn't exist - skip
+                  }
+
+                  try {
+                    remoteManifestEncrypted = await RemoteService.getManifest(notebookId, signal)
+                  } catch {
+                    // Manifest doesn't exist - skip blob deletion
+                  }
+
+                  if (remoteNotebookMeta && remoteManifestEncrypted) {
+                    // Derive FKEK and decrypt FEK to decrypt manifest
+                    const fkek = await CryptoService.deriveFKEK(lookupHash, remoteNotebookMeta.kdf)
+                    const fek = await CryptoService.decryptKey(
+                      remoteNotebookMeta.encrypted_fek,
+                      fkek,
+                    )
+
+                    // Decrypt manifest to get all blob UUIDs
+                    const manifestDecrypted = await CryptoService.unpackAndDecrypt(
+                      remoteManifestEncrypted,
+                      fek,
+                    )
+                    const manifestText = new TextDecoder().decode(manifestDecrypted)
+                    const manifest = JSON.parse(manifestText) as Manifest
+
+                    // Delete all blobs, manifest, and meta in parallel
+                    const blobUuids = manifest.entries.map((entry) => entry.uuid)
+                    await Promise.all([
+                      // Delete all blobs
+                      ...blobUuids.map((uuid) =>
+                        RemoteService.deleteBlob(notebookId, uuid, signal).catch((error) => {
+                          console.warn(`Failed to delete blob ${uuid} from remote:`, error)
+                        }),
+                      ),
+                      // Delete manifest
+                      RemoteService.deleteManifest(notebookId, signal).catch((error) => {
+                        console.warn(`Failed to delete manifest for ${notebookId}:`, error)
+                      }),
+                      // Delete notebook meta
+                      RemoteService.deleteNotebookMeta(notebookId, signal).catch((error) => {
+                        console.warn(`Failed to delete notebook meta for ${notebookId}:`, error)
+                      }),
+                    ])
+                  } else if (remoteNotebookMeta || remoteManifestEncrypted) {
+                    // Only one exists - delete what we can
+                    await Promise.all([
+                      remoteNotebookMeta
+                        ? RemoteService.deleteNotebookMeta(notebookId, signal).catch((error) => {
+                            console.warn(
+                              `Failed to delete notebook meta for ${notebookId}:`,
+                              error,
+                            )
+                          })
+                        : Promise.resolve(),
+                      remoteManifestEncrypted
+                        ? RemoteService.deleteManifest(notebookId, signal).catch((error) => {
+                            console.warn(`Failed to delete manifest for ${notebookId}:`, error)
+                          })
+                        : Promise.resolve(),
+                    ])
+                  }
+                } catch (error) {
+                  const errorMessage = `Failed to delete codex ${codexEntry.title} (${notebookId}) from remote: ${error instanceof Error ? error.message : String(error)}`
+                  errors.push(errorMessage)
+                  console.warn(errorMessage)
+                }
+              }),
+            )
+          }
+        }
+      }
+
+      // Merge maps and save (using cleaned remote map that excludes deleted codexes)
       let finalMap: Map
       let conflicts = 0
 
-      if (remoteMap && cachedMap) {
+      if (cleanedRemoteMap && cachedMap) {
         // Both exist - merge them
-        const mergeResult = MapService.merge(cachedMap, remoteMap)
+        const mergeResult = MapService.merge(cachedMap, cleanedRemoteMap)
         finalMap = mergeResult.map
         conflicts = mergeResult.conflicts
-      } else if (remoteMap) {
+      } else if (cleanedRemoteMap) {
         // Only remote exists
-        finalMap = remoteMap
+        finalMap = cleanedRemoteMap
       } else if (cachedMap) {
         // Only cache exists
         finalMap = cachedMap
