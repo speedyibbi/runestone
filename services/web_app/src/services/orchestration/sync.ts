@@ -3,8 +3,10 @@ import CacheService from '@/services/l2-storage/cache'
 import CryptoService from '@/services/cryptography/crypto'
 import ManifestService from '@/services/file-io/manifest'
 import MapService from '@/services/file-io/map'
+import SettingsService from '@/services/file-io/settings'
 import type { Manifest, ManifestEntry } from '@/interfaces/manifest'
 import type { Map } from '@/interfaces/map'
+import type { Settings } from '@/interfaces/settings'
 import type { RootMeta, NotebookMeta } from '@/interfaces/meta'
 import type { SyncProgress, SyncResult, SyncOptions, RootSyncOptions } from '@/interfaces/sync'
 
@@ -630,7 +632,7 @@ export default class SyncService {
       this.notifyProgress(onProgress, {
         phase: 'syncing_root',
         current: 0,
-        total: 4,
+        total: 5,
       })
 
       // Phase 1: Fetch root meta from both sources
@@ -844,7 +846,87 @@ export default class SyncService {
       this.notifyProgress(onProgress, {
         phase: 'syncing_root',
         current: 4,
-        total: 4,
+        total: 5,
+      })
+
+      // Phase 3: Sync settings
+      let remoteSettingsEncrypted: ArrayBuffer | null = null
+      let cachedSettingsEncrypted: ArrayBuffer | null = null
+
+      try {
+        remoteSettingsEncrypted = await RemoteService.getSettings(signal)
+      } catch {
+        // Remote settings don't exist - will upload from cache
+      }
+
+      cachedSettingsEncrypted = await CacheService.getSettings(lookupHash)
+
+      // Decrypt settings if they exist
+      let remoteSettings: Settings | null = null
+      if (remoteSettingsEncrypted) {
+        try {
+          const remoteSettingsDecrypted = await CryptoService.unpackAndDecrypt(
+            remoteSettingsEncrypted,
+            mek,
+          )
+          const remoteSettingsText = new TextDecoder().decode(remoteSettingsDecrypted)
+          const remoteSettingsObj = JSON.parse(remoteSettingsText)
+          remoteSettings = SettingsService.deserialize(remoteSettingsObj)
+        } catch (error) {
+          // Decryption failed - treat as if it doesn't exist
+          console.warn('Failed to decrypt remote settings:', error)
+        }
+      }
+
+      let cachedSettings: Settings | null = null
+      if (cachedSettingsEncrypted) {
+        try {
+          const cachedSettingsDecrypted = await CryptoService.unpackAndDecrypt(
+            cachedSettingsEncrypted,
+            mek,
+          )
+          const cachedSettingsText = new TextDecoder().decode(cachedSettingsDecrypted)
+          const cachedSettingsObj = JSON.parse(cachedSettingsText)
+          cachedSettings = SettingsService.deserialize(cachedSettingsObj)
+        } catch (error) {
+          // Decryption failed - treat as if it doesn't exist
+          console.warn('Failed to decrypt cached settings:', error)
+        }
+      }
+
+      // Merge settings using Last-Write-Wins
+      let finalSettings: Settings
+
+      if (remoteSettings && cachedSettings) {
+        // Both exist - merge them
+        finalSettings = SettingsService.merge(cachedSettings, remoteSettings)
+      } else if (remoteSettings) {
+        // Only remote exists
+        finalSettings = remoteSettings
+      } else if (cachedSettings) {
+        // Only cache exists
+        finalSettings = cachedSettings
+      } else {
+        // Neither exists - create defaults
+        finalSettings = SettingsService.create()
+      }
+
+      // Encrypt and save final settings to both locations
+      const finalSettingsText = JSON.stringify(SettingsService.serialize(finalSettings), null, 2)
+      const finalSettingsBytes = new TextEncoder().encode(finalSettingsText)
+      const encryptedFinalSettings = await CryptoService.encryptAndPack(finalSettingsBytes, mek)
+
+      await Promise.all([
+        RemoteService.upsertSettings(encryptedFinalSettings, signal).catch((error) => {
+          console.warn('Failed to save settings to remote:', error)
+        }),
+        CacheService.upsertSettings(lookupHash, encryptedFinalSettings),
+      ])
+
+      this.notifyProgress(onProgress, {
+        phase: 'syncing_root',
+        current: 5,
+        total: 5,
       })
 
       const duration = Date.now() - startTime

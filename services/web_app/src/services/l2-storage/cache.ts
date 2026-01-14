@@ -40,14 +40,14 @@ export default class CacheService {
         return [opfsRoot, 'meta.json']
       case 'map':
         return [opfsRoot, 'map.json.enc']
+      case 'settings':
+        return [opfsRoot, 'settings.json.enc']
       case 'notebookMeta':
         return [opfsRoot, notebookId!, 'meta.json']
       case 'manifest':
         return [opfsRoot, notebookId!, 'manifest.json.enc']
       case 'blob':
         return [opfsRoot, notebookId!, 'blobs', `${uuid}.enc`]
-      case 'searchIndex':
-        return [opfsRoot, notebookId!, 'search.db.enc']
     }
   }
 
@@ -217,34 +217,6 @@ export default class CacheService {
   }
 
   /**
-   * Get encrypted search index from cache
-   */
-  static async getSearchIndex(lookupHash: string, notebookId: string): Promise<ArrayBuffer | null> {
-    const path = this.buildPath(lookupHash, { type: 'searchIndex', notebookId })
-    return await OPFSService.getFile(path)
-  }
-
-  /**
-   * Upsert encrypted search index to cache
-   */
-  static async upsertSearchIndex(
-    lookupHash: string,
-    notebookId: string,
-    encryptedDb: ArrayBuffer | Uint8Array,
-  ): Promise<void> {
-    const path = this.buildPath(lookupHash, { type: 'searchIndex', notebookId })
-    await OPFSService.upsertFile(path, encryptedDb)
-  }
-
-  /**
-   * Delete search index from cache
-   */
-  static async deleteSearchIndex(lookupHash: string, notebookId: string): Promise<boolean> {
-    const path = this.buildPath(lookupHash, { type: 'searchIndex', notebookId })
-    return await OPFSService.deleteFile(path)
-  }
-
-  /**
    * Delete entire notebook directory from cache
    * Removes the notebook directory and all its contents
    */
@@ -252,5 +224,32 @@ export default class CacheService {
     const opfsRoot = this.computeOPFSRoot(lookupHash)
     const path = [opfsRoot, notebookId]
     return await OPFSService.deleteDirectory(path)
+  }
+
+  /**
+   * Get encrypted settings.json.enc from cache
+   */
+  static async getSettings(lookupHash: string): Promise<ArrayBuffer | null> {
+    const path = this.buildPath(lookupHash, { type: 'settings' })
+    return await OPFSService.getFile(path)
+  }
+
+  /**
+   * Upsert encrypted settings.json.enc to cache
+   */
+  static async upsertSettings(
+    lookupHash: string,
+    encryptedSettings: ArrayBuffer | Uint8Array,
+  ): Promise<void> {
+    const path = this.buildPath(lookupHash, { type: 'settings' })
+    await OPFSService.upsertFile(path, encryptedSettings)
+  }
+
+  /**
+   * Delete settings.json.enc from cache
+   */
+  static async deleteSettings(lookupHash: string): Promise<boolean> {
+    const path = this.buildPath(lookupHash, { type: 'settings' })
+    return await OPFSService.deleteFile(path)
   }
 }

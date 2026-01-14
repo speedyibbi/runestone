@@ -19,6 +19,8 @@ export default class RemoteService {
         return 'meta.json'
       case 'map':
         return 'map.json.enc'
+      case 'settings':
+        return 'settings.json.enc'
       case 'notebookMeta':
         return `${notebookId}/meta.json`
       case 'manifest':
@@ -188,6 +190,36 @@ export default class RemoteService {
    */
   static async deleteBlob(notebookId: string, uuid: string, signal?: AbortSignal): Promise<void> {
     const path = this.buildPath({ type: 'blob', notebookId, uuid })
+    await FileService.deleteFile(path, signal)
+  }
+
+  /**
+   * Get settings.json.enc (returns encrypted data)
+   */
+  static async getSettings(signal?: AbortSignal): Promise<ArrayBuffer> {
+    const path = this.buildPath({ type: 'settings' })
+    const response = await FileService.getFile(path, signal)
+    return await response.arrayBuffer()
+  }
+
+  /**
+   * Upsert settings.json.enc (upload encrypted data)
+   */
+  static async upsertSettings(
+    encryptedSettings: ArrayBuffer | Uint8Array,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const path = this.buildPath({ type: 'settings' })
+    const buffer = toArrayBuffer(encryptedSettings)
+    const blob = new Blob([buffer], { type: 'application/octet-stream' })
+    await FileService.upsertFile(path, blob as File, signal)
+  }
+
+  /**
+   * Delete settings.json.enc
+   */
+  static async deleteSettings(signal?: AbortSignal): Promise<void> {
+    const path = this.buildPath({ type: 'settings' })
     await FileService.deleteFile(path, signal)
   }
 }
