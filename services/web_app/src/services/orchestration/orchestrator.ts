@@ -2,6 +2,7 @@ import { sha256 } from '@noble/hashes/sha2'
 import CryptoService from '@/services/cryptography/crypto'
 import MetaService from '@/services/file-io/meta'
 import MapService from '@/services/file-io/map'
+import SettingsService from '@/services/file-io/settings'
 import ManifestService from '@/services/file-io/manifest'
 import CacheService from '@/services/l2-storage/cache'
 import RemoteService from '@/services/l2-storage/remote'
@@ -29,6 +30,7 @@ import { ManifestEntryType, MediaEntryType, type Manifest } from '@/interfaces/m
 import type { SyncProgress, SyncResult } from '@/interfaces/sync'
 import type { GraphData, GraphQueryOptions } from '@/interfaces/graph'
 import type { SearchServiceResult, SearchOptions } from '@/interfaces/search'
+import type { Settings } from '@/interfaces/settings'
 
 /**
  * OrchestrationService handles high-level operations for notebook management
@@ -98,16 +100,26 @@ export default class OrchestrationService {
     const mapBytes = new TextEncoder().encode(mapText)
     const encryptedMap = await CryptoService.encryptAndPack(mapBytes, mek)
 
-    // Step 7: Cache both locally in parallel
+    // Step 7: Create empty settings
+    const settings = SettingsService.create()
+
+    // Step 8: Encrypt settings with MEK
+    const settingsText = JSON.stringify(settings, null, 2)
+    const settingsBytes = new TextEncoder().encode(settingsText)
+    const encryptedSettings = await CryptoService.encryptAndPack(settingsBytes, mek)
+
+    // Step 9: Cache locally in parallel
     await Promise.all([
       CacheService.upsertRootMeta(lookupHash, rootMeta),
       CacheService.upsertMap(lookupHash, encryptedMap),
+      CacheService.upsertSettings(lookupHash, encryptedSettings),
     ])
 
     return {
       rootMeta,
       map,
       mek,
+      settings,
     }
   }
 
@@ -119,6 +131,7 @@ export default class OrchestrationService {
     // Step 1: Fetch root meta and map from cache (fail if this fails)
     const rootMeta = await CacheService.getRootMeta(lookupHash)
     const encryptedMap = await CacheService.getMap(lookupHash)
+    const encryptedSettings = await CacheService.getSettings(lookupHash)
 
     if (!rootMeta) {
       throw new Error('Root meta not found in cache')
@@ -153,10 +166,27 @@ export default class OrchestrationService {
       )
     }
 
+    // Step 5: Decrypt settings with MEK
+    let settings
+    try {
+      if (!encryptedSettings) {
+        settings = SettingsService.create()
+      } else {
+        const decryptedSettingsBuffer = await CryptoService.unpackAndDecrypt(encryptedSettings, mek)
+        const settingsText = new TextDecoder().decode(decryptedSettingsBuffer)
+        settings = JSON.parse(settingsText) as Settings
+      }
+    } catch (error) {
+      throw new Error(
+        `Failed to decrypt settings: ${error instanceof Error ? error.message : String(error)}`,
+      )
+    }
+
     return {
       rootMeta,
       map,
       mek,
+      settings,
     }
   }
 
@@ -169,9 +199,10 @@ export default class OrchestrationService {
     signal?: AbortSignal,
   ): Promise<BootstrapResult> {
     // Step 1: Fetch root meta and map from remote (fail if this fails)
-    const [rootMeta, encryptedMap] = await Promise.all([
+    const [rootMeta, encryptedMap, encryptedSettings] = await Promise.all([
       RemoteService.getRootMeta(signal),
       RemoteService.getMap(signal),
+      RemoteService.getSettings(signal),
     ])
 
     if (!rootMeta) {
@@ -207,16 +238,45 @@ export default class OrchestrationService {
       )
     }
 
-    // Step 5: Cache both locally for future use
-    await Promise.all([
-      CacheService.upsertRootMeta(lookupHash, rootMeta),
-      CacheService.upsertMap(lookupHash, encryptedMap),
-    ])
+    // Step 5: Decrypt settings with MEK
+    let settings
+    try {
+      if (!encryptedSettings) {
+        settings = SettingsService.create()
+      } else {
+        const decryptedSettingsBuffer = await CryptoService.unpackAndDecrypt(encryptedSettings, mek)
+        const settingsText = new TextDecoder().decode(decryptedSettingsBuffer)
+        settings = JSON.parse(settingsText) as Settings
+      }
+    } catch (error) {
+      throw new Error(
+        `Failed to decrypt settings: ${error instanceof Error ? error.message : String(error)}`,
+      )
+    }
+
+    // Step 6: Cache locally in parallel
+    if (!encryptedSettings) {
+      const settingsText = JSON.stringify(settings, null, 2)
+      const settingsBytes = new TextEncoder().encode(settingsText)
+      const encryptedDefaultSettings = await CryptoService.encryptAndPack(settingsBytes, mek)
+      await Promise.all([
+        CacheService.upsertRootMeta(lookupHash, rootMeta),
+        CacheService.upsertMap(lookupHash, encryptedMap),
+        CacheService.upsertSettings(lookupHash, encryptedDefaultSettings),
+      ])
+    } else {
+      await Promise.all([
+        CacheService.upsertRootMeta(lookupHash, rootMeta),
+        CacheService.upsertMap(lookupHash, encryptedMap),
+        CacheService.upsertSettings(lookupHash, encryptedSettings),
+      ])
+    }
 
     return {
       rootMeta,
       map,
       mek,
+      settings,
     }
   }
 
@@ -256,6 +316,28 @@ export default class OrchestrationService {
     } catch {
       return false
     }
+  }
+
+  /**
+   * Save settings
+   */
+  static async saveSettings(
+    settings: Settings,
+    lookupHash: string,
+    mek: CryptoKey,
+  ): Promise<Settings> {
+    // Step 1: Update settings
+    const updatedSettings = SettingsService.update(settings, { last_updated: new Date().toISOString() })
+
+    // Step 2: Encrypt settings
+    const settingsText = JSON.stringify(SettingsService.serialize(updatedSettings), null, 2)
+    const settingsBytes = new TextEncoder().encode(settingsText)
+    const encryptedSettings = await CryptoService.encryptAndPack(settingsBytes, mek)
+
+    // Step 3: Save to cache
+    await CacheService.upsertSettings(lookupHash, encryptedSettings)
+
+    return updatedSettings
   }
 
   /**

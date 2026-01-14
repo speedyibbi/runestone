@@ -1,6 +1,7 @@
 import type { RootMeta, NotebookMeta } from '@/interfaces/meta'
 import type { Map } from '@/interfaces/map'
 import type { Manifest, ManifestEntryType } from '@/interfaces/manifest'
+import type { Settings } from '@/interfaces/settings'
 
 /**
  * Result of initialize operation
@@ -9,6 +10,7 @@ export interface InitializeResult {
   rootMeta: RootMeta
   map: Map
   mek: CryptoKey
+  settings: Settings
 }
 
 /**
@@ -18,6 +20,7 @@ export interface BootstrapResult {
   rootMeta: RootMeta
   map: Map
   mek: CryptoKey
+  settings: Settings
 }
 
 /**

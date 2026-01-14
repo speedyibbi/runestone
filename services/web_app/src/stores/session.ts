@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 import OrchestrationService from '@/services/orchestration/orchestrator'
 import type { Map } from '@/interfaces/map'
 import { ManifestEntryType, MediaEntryType, type Manifest } from '@/interfaces/manifest'
+import type { Settings } from '@/interfaces/settings'
 import type { SyncProgress, SyncResult } from '@/interfaces/sync'
 import type { SearchServiceResult, SearchOptions } from '@/interfaces/search'
 import type { GraphData, GraphQueryOptions } from '@/interfaces/graph'
@@ -18,9 +19,11 @@ export const useSessionStore = defineStore('session', () => {
   const root = ref<{
     mek: CryptoKey | null
     map: Map | null
+    settings: Settings | null
   }>({
     mek: null,
     map: null,
+    settings: null,
   })
 
   const notebook = ref<{
@@ -81,6 +84,7 @@ export const useSessionStore = defineStore('session', () => {
         // Update state
         root.value.mek = result.mek
         root.value.map = result.map
+        root.value.settings = result.settings
       } else {
         // Cache is empty - check if user exists remotely
         const existsRemotely = await OrchestrationService.existsRemotely(signal)
@@ -97,6 +101,7 @@ export const useSessionStore = defineStore('session', () => {
           // Update state
           root.value.mek = result.mek
           root.value.map = result.map
+          root.value.settings = result.settings
         } else {
           // User does not exist
           if (mode === 'login') {
@@ -109,6 +114,7 @@ export const useSessionStore = defineStore('session', () => {
           // Update state
           root.value.mek = result.mek
           root.value.map = result.map
+          root.value.settings = result.settings
         }
       }
     } catch (error) {
@@ -130,6 +136,7 @@ export const useSessionStore = defineStore('session', () => {
     root.value = {
       mek: null,
       map: null,
+      settings: null,
     }
     notebook.value = {
       fek: null,
@@ -142,6 +149,53 @@ export const useSessionStore = defineStore('session', () => {
    */
   function getLookupHash(): string | null {
     return lookupHash.value
+  }
+
+  // ==================== Settings Operations ====================
+
+  /**
+   * Get current settings
+   */
+  function getSettings(): Settings {
+    if (!isActive.value) {
+      throw new Error('Session is not active')
+    }
+
+    if (!root.value.settings) {
+      throw new Error('Settings not loaded')
+    }
+    return root.value.settings
+  }
+
+  /**
+   * Update settings
+   */
+  async function saveSettings(partialSettings: Partial<Settings>): Promise<void> {
+    if (!isActive.value) {
+      throw new Error('Session is not active')
+    }
+
+    if (!lookupHash.value) {
+      throw new Error('Lookup hash is not set')
+    }
+
+    if (!root.value.mek) {
+      throw new Error('MEK is not available')
+    }
+
+    if (!root.value.settings) {
+      throw new Error('Settings not loaded')
+    }
+
+    // Merge partial updates with current settings
+    const updatedSettings = await OrchestrationService.saveSettings(
+      { ...root.value.settings, ...partialSettings },
+      lookupHash.value,
+      root.value.mek,
+    )
+
+    // Update state
+    root.value.settings = updatedSettings
   }
 
   // ==================== Codex (Notebook) Operations ====================
@@ -967,6 +1021,10 @@ export const useSessionStore = defineStore('session', () => {
     setup,
     teardown,
     getLookupHash,
+
+    // Settings Operations
+    getSettings,
+    saveSettings,
 
     // Codex Operations
     listCodexes,
