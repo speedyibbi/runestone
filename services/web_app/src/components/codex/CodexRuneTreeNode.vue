@@ -110,10 +110,10 @@ function handleRuneContextMenu(event: MouseEvent, rune: RuneInfo | null) {
       @contextmenu="handleRuneContextMenu"
       @edit-submit="emit('edit-submit', $event)"
       @edit-cancel="emit('edit-cancel')"
-      @drag-start="(rune, event) => emit('drag-start', rune, event)"
-      @drag-end="(event) => emit('drag-end', event)"
-      @drag-over="(rune, event) => emit('drag-over', rune, event)"
-      @drop="(rune, event) => emit('drop', rune, event)"
+      @drag-start="(rune: RuneInfo | null, event: DragEvent) => emit('drag-start', rune, event)"
+      @drag-end="(event: DragEvent) => emit('drag-end', event)"
+      @drag-over="(rune: RuneInfo | null, event: DragEvent) => emit('drag-over', rune, event)"
+      @drop="(rune: RuneInfo | null, event: DragEvent) => emit('drop', rune, event)"
     />
     <!-- Recursively render children if directory is expanded -->
     <Transition name="directory-expand">
@@ -130,15 +130,15 @@ function handleRuneContextMenu(event: MouseEvent, rune: RuneInfo | null) {
               :is-directory="isDirectory"
               :editing-state="editingState"
               :drag-over-rune-id="dragOverRuneId"
-              @rune-click="(rune, event) => emit('runeClick', rune, event)"
+              @rune-click="(rune: RuneInfo, event?: MouseEvent) => emit('runeClick', rune, event)"
               @rune-double-click="emit('runeDoubleClick', $event)"
-              @rune-context-menu="(event, rune) => emit('runeContextMenu', event, rune)"
+              @rune-context-menu="(event: MouseEvent, rune: RuneInfo) => emit('runeContextMenu', event, rune)"
               @edit-submit="emit('edit-submit', $event)"
               @edit-cancel="emit('edit-cancel')"
-              @drag-start="(rune, event) => emit('drag-start', rune, event)"
-              @drag-end="(event) => emit('drag-end', event)"
-              @drag-over="(rune, event) => emit('drag-over', rune, event)"
-              @drop="(rune, event) => emit('drop', rune, event)"
+              @drag-start="(rune: RuneInfo | null, event: DragEvent) => emit('drag-start', rune, event)"
+              @drag-end="(event: DragEvent) => emit('drag-end', event)"
+              @drag-over="(rune: RuneInfo | null, event: DragEvent) => emit('drag-over', rune, event)"
+              @drop="(rune: RuneInfo | null, event: DragEvent) => emit('drop', rune, event)"
             />
           </TransitionGroup>
           <!-- Placeholder for creating new item in this directory -->
@@ -153,10 +153,10 @@ function handleRuneContextMenu(event: MouseEvent, rune: RuneInfo | null) {
               :parent-path="node.rune.title"
               @edit-submit="emit('edit-submit', $event)"
               @edit-cancel="emit('edit-cancel')"
-              @drag-start="(rune, event) => emit('drag-start', rune, event)"
-              @drag-end="(event) => emit('drag-end', event)"
-              @drag-over="(rune, event) => emit('drag-over', rune, event)"
-              @drop="(rune, event) => emit('drop', rune, event)"
+              @drag-start="(rune: RuneInfo | null, event: DragEvent) => emit('drag-start', rune, event)"
+              @drag-end="(event: DragEvent) => emit('drag-end', event)"
+              @drag-over="(rune: RuneInfo | null, event: DragEvent) => emit('drag-over', rune, event)"
+              @drop="(rune: RuneInfo | null, event: DragEvent) => emit('drop', rune, event)"
             />
           </Transition>
         </div>

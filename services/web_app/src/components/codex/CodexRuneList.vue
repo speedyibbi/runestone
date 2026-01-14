@@ -141,15 +141,15 @@ function handleRootDrop(event: DragEvent) {
           :is-directory="isDirectory"
           :editing-state="editingState"
           :drag-over-rune-id="dragOverRuneId"
-          @rune-click="(rune, event) => emit('runeClick', rune, event)"
+          @rune-click="(rune: RuneInfo, event?: MouseEvent) => emit('runeClick', rune, event)"
           @rune-double-click="emit('runeDoubleClick', $event)"
-          @rune-context-menu="(event, rune) => emit('runeContextMenu', event, rune)"
+          @rune-context-menu="(event: MouseEvent, rune: RuneInfo) => emit('runeContextMenu', event, rune)"
           @edit-submit="emit('edit-submit', $event)"
           @edit-cancel="emit('edit-cancel')"
-          @drag-start="(rune, event) => emit('drag-start', rune, event)"
-          @drag-end="(event) => emit('drag-end', event)"
-          @drag-over="(rune, event) => emit('drag-over', rune, event)"
-          @drop="(rune, event) => emit('drop', rune, event)"
+          @drag-start="(rune: RuneInfo | null, event: DragEvent) => emit('drag-start', rune, event)"
+          @drag-end="(event: DragEvent) => emit('drag-end', event)"
+          @drag-over="(rune: RuneInfo | null, event: DragEvent) => emit('drag-over', rune, event)"
+          @drop="(rune: RuneInfo | null, event: DragEvent) => emit('drop', rune, event)"
         />
       </TransitionGroup>
       <!-- Placeholder for creating at root level -->
@@ -168,10 +168,10 @@ function handleRootDrop(event: DragEvent) {
           :parent-path="''"
           @edit-submit="emit('edit-submit', $event)"
           @edit-cancel="emit('edit-cancel')"
-          @drag-start="(rune, event) => emit('drag-start', rune, event)"
-          @drag-end="(event) => emit('drag-end', event)"
-          @drag-over="(rune, event) => emit('drag-over', rune, event)"
-          @drop="(rune, event) => emit('drop', rune, event)"
+          @drag-start="(rune: RuneInfo | null, event: DragEvent) => emit('drag-start', rune, event)"
+          @drag-end="(event: DragEvent) => emit('drag-end', event)"
+          @drag-over="(rune: RuneInfo | null, event: DragEvent) => emit('drag-over', rune, event)"
+          @drop="(rune: RuneInfo | null, event: DragEvent) => emit('drop', rune, event)"
         />
       </Transition>
       <div v-if="runeTree.length === 0 && !editingState" class="empty-rune-list">

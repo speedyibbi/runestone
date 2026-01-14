@@ -167,10 +167,10 @@ function handleKeydown(event: KeyboardEvent) {
           @sort="emit('sort')"
           @edit-submit="emit('edit-submit', $event)"
           @edit-cancel="emit('edit-cancel')"
-          @drag-start="(rune, event) => emit('drag-start', rune, event)"
-          @drag-end="(event) => emit('drag-end', event)"
-          @drag-over="(rune, event) => emit('drag-over', rune, event)"
-          @drop="(rune, event) => emit('drop', rune, event)"
+          @drag-start="(rune: RuneInfo | null, event: DragEvent) => emit('drag-start', rune, event)"
+          @drag-end="(event: DragEvent) => emit('drag-end', event)"
+          @drag-over="(rune: RuneInfo | null, event: DragEvent) => emit('drag-over', rune, event)"
+          @drop="(rune: RuneInfo | null, event: DragEvent) => emit('drop', rune, event)"
         />
         <CodexSearchPanel
           v-else-if="activePanel === 'search'"
