@@ -37,8 +37,8 @@ export const config = Object.freeze({
     featureFlags: {
       cryptography: process.env.FEATURE_CRYPTOGRAPHY ? process.env.FEATURE_CRYPTOGRAPHY === 'true' : true,
       ftsSearch: process.env.FEATURE_FTS_SEARCH ? process.env.FEATURE_FTS_SEARCH === 'true' : true,
-      graph: process.env.FEATURE_GRAPH ? process.env.FEATURE_GRAPH === 'true' : false,
-      sync: process.env.FEATURE_SYNC ? process.env.FEATURE_SYNC === 'true' : false,
+      graph: process.env.FEATURE_GRAPH ? process.env.FEATURE_GRAPH === 'true' : true,
+      sync: process.env.FEATURE_SYNC ? process.env.FEATURE_SYNC === 'true' : true,
     },
   },
   aws: {
@@ -84,6 +84,15 @@ export const config = Object.freeze({
       },
       map: {
         version: Number(process.env.ROOT_MAP_VERSION) ?? 1,
+      },
+      settings: {
+        version: Number(process.env.ROOT_SETTINGS_VERSION) ?? 1,
+        default: {
+          sync: {
+            autoSync: process.env.DEFAULT_SETTINGS_AUTO_SYNC ? process.env.DEFAULT_SETTINGS_AUTO_SYNC === 'true' : true,
+            syncInterval: Number(process.env.DEFAULT_SETTINGS_SYNC_INTERVAL) ?? 300000, // milliseconds (5 minutes)
+          },
+        },
       },
     },
     notebook: {
