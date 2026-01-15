@@ -18,6 +18,7 @@ import CodexStatusBar from '@/components/codex/CodexStatusBar.vue'
 import CodexRightSidebar, { type Heading } from '@/components/codex/CodexRightSidebar.vue'
 import CodexContextMenu, { type MenuItem } from '@/components/codex/CodexContextMenu.vue'
 import Modal from '@/components/base/Modal.vue'
+import SettingsModal from '@/components/codex/SettingsModal.vue'
 import type { Tab } from '@/components/codex/CodexTabs.vue'
 
 const route = useRoute()
@@ -1190,6 +1191,7 @@ const contextMenuItems = ref<MenuItem[]>([])
 const showConfirmDialog = ref(false)
 const confirmDialogTitle = ref('')
 const confirmDialogMessage = ref('')
+const showSettingsModal = ref(false)
 const confirmDialogAction = ref<(() => void) | null>(null)
 
 function handleCreateRune() {
@@ -1920,7 +1922,7 @@ onUnmounted(() => {
       :active-panel="activeLeftPanel"
       @update:collapsed="leftSidebarCollapsed = $event"
       @update:active-panel="activeLeftPanel = $event"
-      @settings="console.log('Settings clicked')"
+      @settings="showSettingsModal = true"
       @exit="handleExit"
     />
 
@@ -2052,6 +2054,9 @@ onUnmounted(() => {
       :destructive="true"
       @confirm="confirmDialogAction?.()"
     />
+
+    <!-- Settings Modal -->
+    <SettingsModal v-model:show="showSettingsModal" />
   </main>
 </template>
 
