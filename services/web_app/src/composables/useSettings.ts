@@ -1,7 +1,7 @@
 import { ref, computed, watch, type Ref, type ComputedRef } from 'vue'
 import { useSessionStore } from '@/stores/session'
 import { useToast } from '@/composables/useToast'
-import type { Settings, SyncSettings } from '@/interfaces/settings'
+import type { Settings } from '@/interfaces/settings'
 
 // ==================== Interfaces ====================
 

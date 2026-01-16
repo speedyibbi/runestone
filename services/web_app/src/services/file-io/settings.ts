@@ -1,6 +1,7 @@
 import type {
   Settings,
   SyncSettings,
+  ThemeSettings,
 } from '@/interfaces/settings'
 
 /**
@@ -56,6 +57,7 @@ export default class SettingsService {
 
     // Validate and sanitize values
     settings.sync = this.validateSyncSettings(settings.sync)
+    settings.theme = this.validateThemeSettings(settings.theme)
 
     return settings
   }
@@ -72,6 +74,7 @@ export default class SettingsService {
 
     // Validate updated settings
     updated.sync = this.validateSyncSettings(updated.sync)
+    updated.theme = this.validateThemeSettings(updated.theme)
 
     return updated
   }
@@ -100,6 +103,62 @@ export default class SettingsService {
     return {
       autoSync: sync.autoSync ?? this.DEFAULT_SETTINGS.sync.autoSync,
       syncInterval: Math.max(1000, Math.min(3600000, sync.syncInterval ?? this.DEFAULT_SETTINGS.sync.syncInterval)), // milliseconds (1 second to 1 hour)
+    }
+  }
+
+  /**
+   * Validate and sanitize theme settings
+   */
+  private static validateThemeSettings(theme: Partial<ThemeSettings>): ThemeSettings {
+    // Default theme values
+    const defaults: ThemeSettings = {
+      accent: this.DEFAULT_SETTINGS.theme.accent,
+      foreground: this.DEFAULT_SETTINGS.theme.foreground,
+      background: this.DEFAULT_SETTINGS.theme.background,
+      selection: this.DEFAULT_SETTINGS.theme.selection,
+      selectionFocused: this.DEFAULT_SETTINGS.theme.selectionFocused,
+      muted: this.DEFAULT_SETTINGS.theme.muted,
+      error: this.DEFAULT_SETTINGS.theme.error,
+      success: this.DEFAULT_SETTINGS.theme.success,
+      warning: this.DEFAULT_SETTINGS.theme.warning,
+      info: this.DEFAULT_SETTINGS.theme.info,
+      scale: this.DEFAULT_SETTINGS.theme.scale,
+    }
+
+    // Validate hex color format (6 or 8 digits)
+    const isValidHexColor = (color: string): boolean => {
+      return /^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$/.test(color)
+    }
+
+    // Validate and sanitize colors
+    const accent = theme.accent && isValidHexColor(theme.accent) ? theme.accent : defaults.accent
+    const foreground = theme.foreground && isValidHexColor(theme.foreground) ? theme.foreground : defaults.foreground
+    const background = theme.background && isValidHexColor(theme.background) ? theme.background : defaults.background
+    const selection = theme.selection && isValidHexColor(theme.selection) ? theme.selection : defaults.selection
+    const selectionFocused = theme.selectionFocused && isValidHexColor(theme.selectionFocused) ? theme.selectionFocused : defaults.selectionFocused
+    const muted = theme.muted && isValidHexColor(theme.muted) ? theme.muted : defaults.muted
+    const error = theme.error && isValidHexColor(theme.error) ? theme.error : defaults.error
+    const success = theme.success && isValidHexColor(theme.success) ? theme.success : defaults.success
+    const warning = theme.warning && isValidHexColor(theme.warning) ? theme.warning : defaults.warning
+    const info = theme.info && isValidHexColor(theme.info) ? theme.info : defaults.info
+
+    // Validate and clamp font size (0.01 to 0.1)
+    const scale = typeof theme.scale === 'number' && !isNaN(theme.scale)
+      ? Math.max(0.01, Math.min(0.1, theme.scale))
+      : defaults.scale
+
+    return {
+      accent,
+      foreground,
+      background,
+      selection,
+      selectionFocused,
+      muted,
+      error,
+      success,
+      warning,
+      info,
+      scale,
     }
   }
 }
