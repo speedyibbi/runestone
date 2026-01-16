@@ -23,8 +23,6 @@ function handleOpenGraph() {
       <button class="open-graph-button" @click="handleOpenGraph">
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -104,5 +102,7 @@ function handleOpenGraph() {
 
 .open-graph-button svg {
   flex-shrink: 0;
+  width: 1rem;
+  height: 1rem;
 }
 </style>

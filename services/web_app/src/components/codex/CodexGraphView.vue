@@ -667,8 +667,6 @@ watch(
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          width="14"
-          height="14"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -685,8 +683,6 @@ watch(
       <div class="graph-filter-search">
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          width="14"
-          height="14"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -810,6 +806,8 @@ watch(
   opacity: 0.5;
   color: var(--color-muted);
   transition: opacity 0.15s ease;
+  width: 0.875rem;
+  height: 0.875rem;
 }
 
 .graph-filter-search:focus-within svg {
@@ -870,6 +868,8 @@ watch(
   flex-shrink: 0;
   opacity: 0.5;
   transition: opacity 0.15s ease;
+  width: 0.875rem;
+  height: 0.875rem;
 }
 
 .graph-filter-back:hover svg {

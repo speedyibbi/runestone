@@ -14,8 +14,6 @@ const emit = defineEmits<Emits>()
     <button class="icon-button" @click="emit('newRune')" title="New Rune">
       <svg
         xmlns="http://www.w3.org/2000/svg"
-        width="16"
-        height="16"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -30,8 +28,6 @@ const emit = defineEmits<Emits>()
     <button class="icon-button" @click="emit('newDirectory')" title="New Directory">
       <svg
         xmlns="http://www.w3.org/2000/svg"
-        width="16"
-        height="16"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -46,8 +42,6 @@ const emit = defineEmits<Emits>()
     <button class="icon-button" @click="emit('sort')" title="Sort">
       <svg
         xmlns="http://www.w3.org/2000/svg"
-        width="16"
-        height="16"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -61,8 +55,6 @@ const emit = defineEmits<Emits>()
     <button class="icon-button" @click="emit('collapse')" title="Collapse">
       <svg
         xmlns="http://www.w3.org/2000/svg"
-        width="16"
-        height="16"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"

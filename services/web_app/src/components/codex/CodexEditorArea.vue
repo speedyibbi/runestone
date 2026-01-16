@@ -52,8 +52,6 @@ watch(
       <div class="empty-state-content">
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          width="48"
-          height="48"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -129,6 +127,8 @@ watch(
 .empty-state-content svg {
   color: var(--color-accent);
   opacity: 0.3;
+  width: 3rem;
+  height: 3rem;
 }
 
 .empty-message {

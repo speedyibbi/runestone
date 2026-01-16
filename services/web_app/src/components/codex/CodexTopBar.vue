@@ -138,8 +138,6 @@ onUnmounted(() => {
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            width="14"
-            height="14"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -159,8 +157,6 @@ onUnmounted(() => {
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            width="14"
-            height="14"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -179,8 +175,6 @@ onUnmounted(() => {
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          width="14"
-          height="14"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -204,8 +198,6 @@ onUnmounted(() => {
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -230,8 +222,6 @@ onUnmounted(() => {
         <svg
           v-if="previewMode === 'preview'"
           xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -245,8 +235,6 @@ onUnmounted(() => {
         <svg
           v-else-if="previewMode === 'split'"
           xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -260,8 +248,6 @@ onUnmounted(() => {
         <svg
           v-else
           xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -283,8 +269,6 @@ onUnmounted(() => {
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -309,8 +293,6 @@ onUnmounted(() => {
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -397,6 +379,11 @@ onUnmounted(() => {
   opacity: 0.6;
 }
 
+.history-button svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
 .history-button:hover:not(.disabled) {
   background: var(--color-overlay-subtle);
   color: var(--color-foreground);
@@ -437,6 +424,8 @@ onUnmounted(() => {
   flex-shrink: 0;
   opacity: 0.5;
   transition: opacity 0.15s ease;
+  width: 0.875rem;
+  height: 0.875rem;
 }
 
 .command-palette-trigger:hover svg {
@@ -567,5 +556,10 @@ onUnmounted(() => {
 .icon-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.icon-button svg {
+  width: 1rem;
+  height: 1rem;
 }
 </style>

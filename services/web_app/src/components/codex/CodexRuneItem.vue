@@ -229,8 +229,6 @@ function handleDrop(event: DragEvent) {
     <span v-if="isDirectory && !isEditing && !isCreating" class="expand-icon">
       <svg
         xmlns="http://www.w3.org/2000/svg"
-        width="12"
-        height="12"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -247,8 +245,6 @@ function handleDrop(event: DragEvent) {
       <svg
         v-if="isDirectory"
         xmlns="http://www.w3.org/2000/svg"
-        width="14"
-        height="14"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -261,8 +257,6 @@ function handleDrop(event: DragEvent) {
       <svg
         v-else
         xmlns="http://www.w3.org/2000/svg"
-        width="14"
-        height="14"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -385,6 +379,11 @@ function handleDrop(event: DragEvent) {
   height: 0.875rem;
   color: var(--color-muted);
   opacity: 0.7;
+}
+
+.rune-icon svg {
+  width: 100%;
+  height: 100%;
 }
 
 .rune-item.active .rune-icon {

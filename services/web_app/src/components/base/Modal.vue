@@ -29,12 +29,15 @@ const emit = defineEmits<Emits>()
 
 const dialogRef = ref<HTMLDialogElement | null>(null)
 const isClosing = ref(false)
+const previouslyFocusedElement = ref<HTMLElement | null>(null)
 
 watch(
   () => props.show,
   (show) => {
     if (show) {
       isClosing.value = false
+      // Store the currently focused element before opening the modal
+      previouslyFocusedElement.value = document.activeElement as HTMLElement
       if (dialogRef.value && !dialogRef.value.open) {
         dialogRef.value.showModal()
         // Focus a hidden element to prevent auto-focusing the close button
@@ -94,6 +97,19 @@ watch(
   { immediate: true },
 )
 
+function handleDialogClose() {
+  // When the dialog closes, prevent focus from returning to the previously focused element
+  if (previouslyFocusedElement.value) {
+    // Use setTimeout to ensure this runs after the browser's automatic focus return
+    setTimeout(() => {
+      if (previouslyFocusedElement.value) {
+        previouslyFocusedElement.value.blur()
+        previouslyFocusedElement.value = null
+      }
+    }, 0)
+  }
+}
+
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown)
 })
@@ -105,6 +121,7 @@ onUnmounted(() => {
     class="modal-dialog"
     :class="{ closing: isClosing }"
     @click="handleBackdropClick"
+    @close="handleDialogClose"
   >
     <div
       class="modal-container"

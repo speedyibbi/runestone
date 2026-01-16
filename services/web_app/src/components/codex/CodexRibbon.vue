@@ -39,8 +39,6 @@ function togglePanel(panel: 'files' | 'search' | 'graph') {
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              width="18"
-              height="18"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -62,8 +60,6 @@ function togglePanel(panel: 'files' | 'search' | 'graph') {
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          width="18"
-          height="18"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -83,8 +79,6 @@ function togglePanel(panel: 'files' | 'search' | 'graph') {
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          width="18"
-          height="18"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -105,8 +99,6 @@ function togglePanel(panel: 'files' | 'search' | 'graph') {
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          width="18"
-          height="18"
           viewBox="0 0 32 32"
           fill="currentColor"
         >
@@ -120,8 +112,6 @@ function togglePanel(panel: 'files' | 'search' | 'graph') {
       <button class="ribbon-icon" @click="emit('settings')" title="Settings">
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          width="18"
-          height="18"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -138,8 +128,6 @@ function togglePanel(panel: 'files' | 'search' | 'graph') {
       <button class="ribbon-icon" @click="emit('exit')" title="Exit">
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          width="18"
-          height="18"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"

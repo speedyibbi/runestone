@@ -31,8 +31,6 @@ const emit = defineEmits<Emits>()
       <button class="sidebar-toggle" @click="emit('update:collapsed', true)" title="Close Outline">
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -138,6 +136,11 @@ const emit = defineEmits<Emits>()
   background: var(--color-overlay-subtle);
   color: var(--color-foreground);
   opacity: 1;
+}
+
+.sidebar-toggle svg {
+  width: 1rem;
+  height: 1rem;
 }
 
 .sidebar-content {

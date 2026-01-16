@@ -632,7 +632,7 @@ function handleCancel() {
           <!-- Scale -->
           <div class="setting-item">
             <label class="setting-label">
-              <span class="setting-label-text">App Scale</span>
+              <span class="setting-label-text">Scale</span>
             </label>
             <div class="setting-input-group">
               <input
@@ -648,7 +648,7 @@ function handleCancel() {
               <span class="setting-input-suffix">multiplier</span>
             </div>
             <p class="setting-description">
-              Adjust the scale of the app.
+              Adjust the scale of the application.
             </p>
           </div>
         </div>
@@ -850,6 +850,7 @@ function handleCancel() {
 .theme-color-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  align-items: end;
   gap: 0.75rem;
 }
 
