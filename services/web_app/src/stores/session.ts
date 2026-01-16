@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { defineStore } from 'pinia'
 import OrchestrationService from '@/services/orchestration/orchestrator'
 import type { Map } from '@/interfaces/map'
@@ -197,6 +197,41 @@ export const useSessionStore = defineStore('session', () => {
     // Update state
     root.value.settings = updatedSettings
   }
+
+  // ==================== Settings Watcher ====================
+
+  /**
+   * Watch for settings changes
+   */
+  watch(
+    () => root.value.settings,
+    (newSettings, oldSettings) => {
+      // Only update if settings actually changed and we have required values
+      if (!newSettings || !lookupHash.value || !root.value.mek) {
+        return
+      }
+
+      // Remove last_updated from settings
+      const newSettings_ = { ...newSettings } as Partial<Settings>
+      delete newSettings_.last_updated
+
+      const oldSettings_ = { ...oldSettings } as Partial<Settings>
+      delete oldSettings_.last_updated
+
+      // Compare settings
+      if (JSON.stringify(newSettings_) === JSON.stringify(oldSettings_)) {
+        return
+      }
+
+      // Update scheduler with new settings
+      OrchestrationService.startScheduler(lookupHash.value, root.value.mek, newSettings).catch(
+        (error) => {
+          console.warn('Failed to update auto sync scheduler:', error)
+        },
+      )
+    },
+    { deep: true },
+  )
 
   // ==================== Codex (Notebook) Operations ====================
 

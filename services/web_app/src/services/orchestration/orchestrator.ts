@@ -11,6 +11,7 @@ import DatabaseService from '@/services/database/db'
 import IndexerService from '@/services/database/indexer'
 import GraphService from '@/services/graph/graph'
 import SearchService from '@/services/search/search'
+import SchedulerService from '@/services/cron/scheduler'
 import { toBase64 } from '@/utils/helpers'
 import type {
   InitializeResult,
@@ -1266,7 +1267,7 @@ export default class OrchestrationService {
     onProgress?: (progress: SyncProgress) => void,
     signal?: AbortSignal,
   ): Promise<SyncResult> {
-    // Use SyncService to sync the notebook
+    // Sync the notebook
     return await SyncService.sync({
       notebookId,
       lookupHash,
@@ -1293,10 +1294,14 @@ export default class OrchestrationService {
       const notebookId = entry.uuid
 
       try {
-        // Step 1: Fetch notebook meta from cache
-        const notebookMeta = await CacheService.getNotebookMeta(lookupHash, notebookId)
+        // Step 1: Fetch notebook meta
+        let notebookMeta = await CacheService.getNotebookMeta(lookupHash, notebookId)
         if (!notebookMeta) {
-          throw new Error(`Notebook meta not found in cache for notebook ${notebookId}`)
+          notebookMeta = await RemoteService.getNotebookMeta(notebookId, signal)
+          if (!notebookMeta) {
+            throw new Error(`Notebook meta not found in cache or remote for notebook ${notebookId}`)
+          }
+          await CacheService.upsertNotebookMeta(lookupHash, notebookId, notebookMeta)
         }
 
         // Step 2: Derive FKEK from lookup hash
@@ -1352,5 +1357,45 @@ export default class OrchestrationService {
       onProgress,
       signal,
     })
+  }
+
+  /**
+   * Run all scheduled tasks
+   * Automatically stops all scheduled tasks before starting new ones
+   */
+  static async startScheduler(lookupHash: string, mek: CryptoKey, settings: Settings): Promise<void> {
+    // Stop all scheduled tasks
+    this.stopScheduler()
+
+    // Start auto sync scheduler if auto sync is enabled
+    if (settings.sync.autoSync) {
+      SchedulerService.schedule(async () => {
+        // Sync root
+        await this.syncRoot(lookupHash, mek)
+        
+        // Decrypt map with mek
+        const map = await CacheService.getMap(lookupHash)
+        if (!map) {
+          throw new Error('Map not found in cache')
+        }
+        const decryptedMap = await CryptoService.unpackAndDecrypt(map, mek)
+        if (!decryptedMap) {
+          throw new Error('Failed to decrypt map')
+        }
+        const decryptedMapJson = JSON.parse(new TextDecoder().decode(decryptedMap))
+
+        // Sync all notebooks
+        await this.syncAllNotebooks(decryptedMapJson, lookupHash)
+      }, settings.sync.syncInterval, {
+        immediate: true,
+      })
+    }
+  }
+
+  /**
+   * Stop all scheduled tasks
+   */
+  static stopScheduler(): void {
+    SchedulerService.stopAll()
   }
 }

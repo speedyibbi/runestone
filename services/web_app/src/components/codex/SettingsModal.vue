@@ -2,7 +2,7 @@
 import { ref, watch, computed } from 'vue'
 import Modal from '@/components/base/Modal.vue'
 import { useSettings } from '@/composables/useSettings'
-import type { Settings, SyncSettings } from '@/interfaces/settings'
+import type { Settings } from '@/interfaces/settings'
 
 interface Props {
   show: boolean
