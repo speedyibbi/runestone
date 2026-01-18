@@ -17,7 +17,7 @@ export enum MediaEntryType {
 /**
  * Manifest entry type
  */
-export const ManifestEntryType = { ...EntryType, ...MediaEntryType } as const;
+export const ManifestEntryType = { ...EntryType, ...MediaEntryType } as const
 
 export type ManifestEntryType = (typeof ManifestEntryType)[keyof typeof ManifestEntryType]
 

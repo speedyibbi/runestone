@@ -1,8 +1,4 @@
-import type {
-  Settings,
-  SyncSettings,
-  ThemeSettings,
-} from '@/interfaces/settings'
+import type { Settings, SyncSettings, ThemeSettings } from '@/interfaces/settings'
 
 /**
  * SettingsService handles settings data operations
@@ -102,7 +98,10 @@ export default class SettingsService {
   private static validateSyncSettings(sync: Partial<SyncSettings>): SyncSettings {
     return {
       autoSync: sync.autoSync ?? this.DEFAULT_SETTINGS.sync.autoSync,
-      syncInterval: Math.max(1000, Math.min(3600000, sync.syncInterval ?? this.DEFAULT_SETTINGS.sync.syncInterval)), // milliseconds (1 second to 1 hour)
+      syncInterval: Math.max(
+        1000,
+        Math.min(3600000, sync.syncInterval ?? this.DEFAULT_SETTINGS.sync.syncInterval),
+      ), // milliseconds (1 second to 1 hour)
     }
   }
 
@@ -132,20 +131,29 @@ export default class SettingsService {
 
     // Validate and sanitize colors
     const accent = theme.accent && isValidHexColor(theme.accent) ? theme.accent : defaults.accent
-    const foreground = theme.foreground && isValidHexColor(theme.foreground) ? theme.foreground : defaults.foreground
-    const background = theme.background && isValidHexColor(theme.background) ? theme.background : defaults.background
-    const selection = theme.selection && isValidHexColor(theme.selection) ? theme.selection : defaults.selection
-    const selectionFocused = theme.selectionFocused && isValidHexColor(theme.selectionFocused) ? theme.selectionFocused : defaults.selectionFocused
+    const foreground =
+      theme.foreground && isValidHexColor(theme.foreground) ? theme.foreground : defaults.foreground
+    const background =
+      theme.background && isValidHexColor(theme.background) ? theme.background : defaults.background
+    const selection =
+      theme.selection && isValidHexColor(theme.selection) ? theme.selection : defaults.selection
+    const selectionFocused =
+      theme.selectionFocused && isValidHexColor(theme.selectionFocused)
+        ? theme.selectionFocused
+        : defaults.selectionFocused
     const muted = theme.muted && isValidHexColor(theme.muted) ? theme.muted : defaults.muted
     const error = theme.error && isValidHexColor(theme.error) ? theme.error : defaults.error
-    const success = theme.success && isValidHexColor(theme.success) ? theme.success : defaults.success
-    const warning = theme.warning && isValidHexColor(theme.warning) ? theme.warning : defaults.warning
+    const success =
+      theme.success && isValidHexColor(theme.success) ? theme.success : defaults.success
+    const warning =
+      theme.warning && isValidHexColor(theme.warning) ? theme.warning : defaults.warning
     const info = theme.info && isValidHexColor(theme.info) ? theme.info : defaults.info
 
     // Validate and clamp font size (0.01 to 0.1)
-    const scale = typeof theme.scale === 'number' && !isNaN(theme.scale)
-      ? Math.max(0.01, Math.min(0.1, theme.scale))
-      : defaults.scale
+    const scale =
+      typeof theme.scale === 'number' && !isNaN(theme.scale)
+        ? Math.max(0.01, Math.min(0.1, theme.scale))
+        : defaults.scale
 
     return {
       accent,

@@ -657,8 +657,9 @@ watch(
       <button
         v-if="centerNodeUuid"
         class="graph-filter-back"
-        @click="() => {
-          centerNodeUuid = null
+        @click="
+          () => {
+            centerNodeUuid = null
             cleanup()
             loadGraph()
           }

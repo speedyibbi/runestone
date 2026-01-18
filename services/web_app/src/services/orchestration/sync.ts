@@ -720,9 +720,7 @@ export default class SyncService {
 
           if (remoteOnlyCodexes.length > 0) {
             // Remove deleted codexes from remote map before merging
-            const cleanedRemoteEntries = remoteMap.entries.filter((e) =>
-              localCodexIds.has(e.uuid),
-            )
+            const cleanedRemoteEntries = remoteMap.entries.filter((e) => localCodexIds.has(e.uuid))
             cleanedRemoteMap = {
               ...remoteMap,
               entries: cleanedRemoteEntries,
@@ -788,10 +786,7 @@ export default class SyncService {
                     await Promise.all([
                       remoteNotebookMeta
                         ? RemoteService.deleteNotebookMeta(notebookId, signal).catch((error) => {
-                            console.warn(
-                              `Failed to delete notebook meta for ${notebookId}:`,
-                              error,
-                            )
+                            console.warn(`Failed to delete notebook meta for ${notebookId}:`, error)
                           })
                         : Promise.resolve(),
                       remoteManifestEncrypted

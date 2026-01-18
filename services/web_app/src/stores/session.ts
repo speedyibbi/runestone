@@ -673,7 +673,7 @@ export const useSessionStore = defineStore('session', () => {
       throw new Error(`Sigil with ID ${sigilId} not found`)
     }
 
-    if (!(Object.values(MediaEntryType).includes(entry.type as MediaEntryType))) {
+    if (!Object.values(MediaEntryType).includes(entry.type as MediaEntryType)) {
       throw new Error(`Blob with ID ${sigilId} is not a sigil`)
     }
 
@@ -691,7 +691,11 @@ export const useSessionStore = defineStore('session', () => {
   /**
    * Create a new sigil
    */
-  async function createSigil(title: string, data: ArrayBuffer, type?: MediaEntryType): Promise<string> {
+  async function createSigil(
+    title: string,
+    data: ArrayBuffer,
+    type?: MediaEntryType,
+  ): Promise<string> {
     if (!hasOpenCodex.value) {
       throw new Error('No codex is currently open')
     }
@@ -746,7 +750,7 @@ export const useSessionStore = defineStore('session', () => {
       throw new Error(`Sigil with ID ${sigilId} not found`)
     }
 
-    if (!(Object.values(MediaEntryType).includes(entry.type as MediaEntryType))) {
+    if (!Object.values(MediaEntryType).includes(entry.type as MediaEntryType)) {
       throw new Error(`Blob with ID ${sigilId} is not a sigil`)
     }
 
@@ -792,7 +796,7 @@ export const useSessionStore = defineStore('session', () => {
       throw new Error(`Sigil with ID ${sigilId} not found`)
     }
 
-    if (!(Object.values(MediaEntryType).includes(entry.type as MediaEntryType))) {
+    if (!Object.values(MediaEntryType).includes(entry.type as MediaEntryType)) {
       throw new Error(`Blob with ID ${sigilId} is not a sigil`)
     }
 

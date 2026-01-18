@@ -174,7 +174,8 @@ watch(
 }
 
 @keyframes dragPulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 0.6;
     border-color: var(--color-accent);
   }

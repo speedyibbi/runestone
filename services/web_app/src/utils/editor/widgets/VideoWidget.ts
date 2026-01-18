@@ -143,7 +143,7 @@ export class VideoWidget extends WidgetType {
     const updateProgress = () => {
       // Don't update if we're dragging - we control the position manually
       if (isDragging) return
-      
+
       if (video.duration) {
         const percent = (video.currentTime / video.duration) * 100
         progressTrack.style.width = `${percent}%`
@@ -236,12 +236,12 @@ export class VideoWidget extends WidgetType {
 
     const setProgress = (e: MouseEvent | TouchEvent, isDrag = false) => {
       if (!video.duration || hasError) return
-      
+
       const rect = progressBar.getBoundingClientRect()
       const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
       const percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
       const newTime = percent * video.duration
-      
+
       if (isDrag) {
         // During drag, ONLY update visual - don't seek at all
         // This prevents buffering issues and video getting stuck
@@ -304,12 +304,12 @@ export class VideoWidget extends WidgetType {
         isDragging = false
         progressBar.classList.remove('dragging')
         progressTrack.style.transition = ''
-        
+
         // Seek to final position - only seek once at the end
         if (seekTarget !== null && video.readyState >= 2) {
           const targetTime = seekTarget
           seekTarget = null // Clear immediately to prevent conflicts
-          
+
           try {
             // Set up seek completion handler before seeking
             const seekHandler = () => {
@@ -326,12 +326,12 @@ export class VideoWidget extends WidgetType {
                 }
               }, 50)
             }
-            
+
             video.addEventListener('seeked', seekHandler, { once: true })
-            
+
             // Now perform the seek
             video.currentTime = targetTime
-            
+
             // Fallback timeout in case seeked event doesn't fire
             setTimeout(() => {
               video.removeEventListener('seeked', seekHandler)
@@ -357,7 +357,7 @@ export class VideoWidget extends WidgetType {
           }
           updateProgress()
         }
-        
+
         wasPlaying = false
       }
     }
@@ -379,15 +379,15 @@ export class VideoWidget extends WidgetType {
       const rect = volumeSlider.getBoundingClientRect()
       const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
       const percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
-      
+
       if (isDrag) {
         volumeTrack.style.transition = 'none'
         volumeTrack.style.width = `${percent * 100}%`
       }
-      
+
       video.volume = percent
       video.muted = false
-      
+
       if (!isDrag) {
         updateVolume()
       } else {
@@ -458,7 +458,9 @@ export class VideoWidget extends WidgetType {
     // Update fullscreen icon
     const updateFullscreenIcon = () => {
       const fullscreenIcon = fullscreenBtn.querySelector('.cm-video-icon-fullscreen') as HTMLElement
-      const fullscreenExitIcon = fullscreenBtn.querySelector('.cm-video-icon-fullscreen-exit') as HTMLElement
+      const fullscreenExitIcon = fullscreenBtn.querySelector(
+        '.cm-video-icon-fullscreen-exit',
+      ) as HTMLElement
       if (document.fullscreenElement) {
         fullscreenIcon.style.display = 'none'
         fullscreenExitIcon.style.display = 'block'
@@ -476,7 +478,7 @@ export class VideoWidget extends WidgetType {
       if (isDragging) {
         return
       }
-      
+
       // If we have a seek target, check if we're close enough
       if (seekTarget !== null) {
         const diff = Math.abs(video.currentTime - seekTarget)
@@ -488,10 +490,10 @@ export class VideoWidget extends WidgetType {
           return
         }
       }
-      
+
       updateProgress()
     })
-    
+
     video.addEventListener('seeked', () => {
       // Seek completed, clear target and update
       seekTarget = null
@@ -499,7 +501,7 @@ export class VideoWidget extends WidgetType {
         updateProgress()
       }
     })
-    
+
     video.addEventListener('loadedmetadata', () => {
       updateProgress()
       updateVolume()

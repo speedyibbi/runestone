@@ -221,41 +221,41 @@ export default class IndexerService {
     let isUpdate = false
 
     try {
-        // Get primary key value
-        const primaryKeyValue = String(blobData[schema.primaryKey])
-        const escapedPrimaryKey = this.escapeSql(primaryKeyValue)
+      // Get primary key value
+      const primaryKeyValue = String(blobData[schema.primaryKey])
+      const escapedPrimaryKey = this.escapeSql(primaryKeyValue)
 
-        // Check if record exists
-        const rowid = await this.getRowid(indexName, schema.primaryKey, escapedPrimaryKey)
+      // Check if record exists
+      const rowid = await this.getRowid(indexName, schema.primaryKey, escapedPrimaryKey)
 
-        // Build column values
-        const columns: string[] = []
-        const values: string[] = []
+      // Build column values
+      const columns: string[] = []
+      const values: string[] = []
 
-        for (const column of schema.columns) {
-          const value = blobData[column]
-          if (value !== undefined && value !== null) {
-            columns.push(column)
-            values.push(`'${this.escapeSql(String(value))}'`)
-          }
+      for (const column of schema.columns) {
+        const value = blobData[column]
+        if (value !== undefined && value !== null) {
+          columns.push(column)
+          values.push(`'${this.escapeSql(String(value))}'`)
         }
+      }
 
-        const columnsStr = columns.join(', ')
-        const valuesStr = values.join(', ')
+      const columnsStr = columns.join(', ')
+      const valuesStr = values.join(', ')
 
-        if (rowid !== null) {
-          // Update existing record
-          const setClause = columns.map((col, idx) => `${col} = ${values[idx]}`).join(', ')
-          await promiser('exec', {
-            sql: `UPDATE ${indexName} SET ${setClause} WHERE rowid = ${rowid}`,
-          })
-          isUpdate = true
-        } else {
-          // Insert new record
-          await promiser('exec', {
-            sql: `INSERT INTO ${indexName}(${columnsStr}) VALUES (${valuesStr})`,
-          })
-        }
+      if (rowid !== null) {
+        // Update existing record
+        const setClause = columns.map((col, idx) => `${col} = ${values[idx]}`).join(', ')
+        await promiser('exec', {
+          sql: `UPDATE ${indexName} SET ${setClause} WHERE rowid = ${rowid}`,
+        })
+        isUpdate = true
+      } else {
+        // Insert new record
+        await promiser('exec', {
+          sql: `INSERT INTO ${indexName}(${columnsStr}) VALUES (${valuesStr})`,
+        })
+      }
     } catch (error) {
       console.error(`Error adding blob to index ${indexName}:`, error, { data: blobData })
       throw error
@@ -314,13 +314,13 @@ export default class IndexerService {
     const promiser = DatabaseService.getPromiser()
 
     try {
-        const rowid = await this.getRowid(indexName, schema.primaryKey, primaryKeyValue)
+      const rowid = await this.getRowid(indexName, schema.primaryKey, primaryKeyValue)
 
-        if (rowid !== null) {
-          await promiser('exec', {
-            sql: `DELETE FROM ${indexName} WHERE rowid = ${rowid}`,
-          })
-        }
+      if (rowid !== null) {
+        await promiser('exec', {
+          sql: `DELETE FROM ${indexName} WHERE rowid = ${rowid}`,
+        })
+      }
     } catch (error) {
       console.error(`Error removing blob from index ${indexName}:`, error, { id: primaryKeyValue })
       throw error

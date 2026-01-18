@@ -123,11 +123,7 @@ function handleRootDrop(event: DragEvent) {
         </div>
       </div>
     </div>
-    <div
-      class="rune-list"
-      @dragover="handleRootDragOver"
-      @drop="handleRootDrop"
-    >
+    <div class="rune-list" @dragover="handleRootDragOver" @drop="handleRootDrop">
       <TransitionGroup name="rune-item-fade" tag="div" class="rune-tree-container">
         <CodexRuneTreeNode
           v-for="node in runeTree"
@@ -141,7 +137,9 @@ function handleRootDrop(event: DragEvent) {
           :drag-over-rune-id="dragOverRuneId"
           @rune-click="(rune: RuneInfo, event?: MouseEvent) => emit('runeClick', rune, event)"
           @rune-double-click="emit('runeDoubleClick', $event)"
-          @rune-context-menu="(event: MouseEvent, rune: RuneInfo) => emit('runeContextMenu', event, rune)"
+          @rune-context-menu="
+            (event: MouseEvent, rune: RuneInfo) => emit('runeContextMenu', event, rune)
+          "
           @edit-submit="emit('edit-submit', $event)"
           @edit-cancel="emit('edit-cancel')"
           @drag-start="(rune: RuneInfo | null, event: DragEvent) => emit('drag-start', rune, event)"

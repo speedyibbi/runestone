@@ -1479,41 +1479,41 @@ function handleDragOver(rune: RuneInfo | null, event: DragEvent) {
     dragOverRune.value = null
     return
   }
-  
+
   // Don't allow dropping on self or on a child directory
   if (draggedRune.value) {
     const draggedTitle = draggedRune.value.title
     const targetTitle = rune.title
-    
+
     // Can't drop on self
     if (draggedTitle === targetTitle) {
       dragOverRune.value = null
       return
     }
-    
+
     // Can't drop a directory on its own child
     if (isDirectory(draggedTitle) && targetTitle.startsWith(draggedTitle)) {
       dragOverRune.value = null
       return
     }
   }
-  
+
   dragOverRune.value = rune
 }
 
 async function handleDrop(targetRune: RuneInfo | null, event: DragEvent) {
   event.preventDefault()
   event.stopPropagation()
-  
+
   if (!draggedRune.value) {
     dragOverRune.value = null
     return
   }
-  
+
   const sourceRune = draggedRune.value
   const sourceTitle = sourceRune.title
   const isSourceDir = isDirectory(sourceTitle)
-  
+
   // Determine target directory path
   let targetPath = ''
   if (targetRune && isDirectory(targetRune.title)) {
@@ -1522,25 +1522,25 @@ async function handleDrop(targetRune: RuneInfo | null, event: DragEvent) {
     // Dropping at root level
     targetPath = ''
   }
-  
+
   // Can't drop on self
   if (targetRune && sourceTitle === targetRune.title) {
     dragOverRune.value = null
     draggedRune.value = null
     return
   }
-  
+
   // Can't drop a directory on its own child
   if (isSourceDir && targetRune && targetRune.title.startsWith(sourceTitle)) {
     dragOverRune.value = null
     draggedRune.value = null
     return
   }
-  
+
   try {
     // Extract the base name from the source title
     const baseName = getBaseName(sourceTitle)
-    
+
     // Build the new title
     let newTitle: string
     if (targetPath === '') {
@@ -1549,15 +1549,14 @@ async function handleDrop(targetRune: RuneInfo | null, event: DragEvent) {
     } else {
       // Moving to a directory
       const targetDir = targetPath.endsWith('/') ? targetPath : `${targetPath}/`
-      newTitle = isSourceDir && !baseName.endsWith('/') 
-        ? `${targetDir}${baseName}/` 
-        : `${targetDir}${baseName}`
+      newTitle =
+        isSourceDir && !baseName.endsWith('/')
+          ? `${targetDir}${baseName}/`
+          : `${targetDir}${baseName}`
     }
-    
+
     // Check if the new title already exists
-    const existingRune = runes.value.find(
-      (r) => r.title === newTitle && r.uuid !== sourceRune.uuid
-    )
+    const existingRune = runes.value.find((r) => r.title === newTitle && r.uuid !== sourceRune.uuid)
     if (existingRune) {
       setStatusMessage(
         `A ${isSourceDir ? 'directory' : 'file'} with that name already exists in the target location`,
@@ -1568,20 +1567,17 @@ async function handleDrop(targetRune: RuneInfo | null, event: DragEvent) {
       draggedRune.value = null
       return
     }
-    
+
     // Perform the move by renaming
     await renameRune(sourceRune.uuid, newTitle)
-    
+
     // Expand the target directory if it's a directory
     if (targetRune && isDirectory(targetRune.title)) {
       expandedDirectories.value.add(targetRune.title)
       expandedDirectories.value = new Set(expandedDirectories.value)
     }
-    
-    setStatusMessage(
-      `${isSourceDir ? 'Directory' : 'File'} moved successfully`,
-      'success',
-    )
+
+    setStatusMessage(`${isSourceDir ? 'Directory' : 'File'} moved successfully`, 'success')
   } catch (err) {
     console.error('Error moving rune:', err)
     setStatusMessage(

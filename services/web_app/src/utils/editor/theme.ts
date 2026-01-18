@@ -808,7 +808,8 @@ export const minimalTheme = EditorView.theme(
       bottom: '0',
       left: '0',
       right: '0',
-      background: 'linear-gradient(to top, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0.4) 50%, transparent 100%)',
+      background:
+        'linear-gradient(to top, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0.4) 50%, transparent 100%)',
       padding: '1rem 1rem 0.875rem',
       opacity: '0',
       transition: 'opacity 0.2s ease',

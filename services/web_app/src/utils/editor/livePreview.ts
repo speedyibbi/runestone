@@ -95,7 +95,7 @@ function buildDecorations(view: EditorView, isPreviewMode = false): DecorationSe
 
   // Get sigil resolver from facet
   const sigilResolver = view.state.facet(sigilResolverFacet)
-  
+
   // Get manifest entry type resolver from facet
   const manifestEntryTypeResolver = view.state.facet(manifestEntryTypeFacet)
 
@@ -382,12 +382,15 @@ function buildDecorations(view: EditorView, isPreviewMode = false): DecorationSe
           if (url) {
             // Determine which widget to use based on manifest entry type
             let widget: ImageWidget | VideoWidget | AudioWidget
-            
+
             // Check if it's a sigil:// URL and we have a type resolver
-            if ((url.startsWith('sigil://') || url.startsWith('sigil:')) && manifestEntryTypeResolver) {
+            if (
+              (url.startsWith('sigil://') || url.startsWith('sigil:')) &&
+              manifestEntryTypeResolver
+            ) {
               const sigilId = url.replace(/^sigil:\/\//, '').replace(/^sigil:/, '')
               const entryType = manifestEntryTypeResolver(sigilId)
-              
+
               // Create appropriate widget based on entry type
               if (entryType === MediaEntryType.VIDEO) {
                 widget = new VideoWidget(url, alt, sigilResolver || undefined)

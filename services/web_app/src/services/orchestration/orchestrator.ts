@@ -328,7 +328,9 @@ export default class OrchestrationService {
     mek: CryptoKey,
   ): Promise<Settings> {
     // Step 1: Update settings
-    const updatedSettings = SettingsService.update(settings, { last_updated: new Date().toISOString() })
+    const updatedSettings = SettingsService.update(settings, {
+      last_updated: new Date().toISOString(),
+    })
 
     // Step 2: Encrypt settings
     const settingsText = JSON.stringify(SettingsService.serialize(updatedSettings), null, 2)
@@ -1004,7 +1006,9 @@ export default class OrchestrationService {
 
     // Step 3: Find all media entries in manifest
     const mediaEntryTypes = Object.values(MediaEntryType)
-    const entries = manifest.entries.filter((entry) => mediaEntryTypes.includes(entry.type as MediaEntryType))
+    const entries = manifest.entries.filter((entry) =>
+      mediaEntryTypes.includes(entry.type as MediaEntryType),
+    )
 
     // Step 4: Identify orphaned entries (in manifest but not referenced)
     const orphanedUuids: string[] = []
@@ -1020,7 +1024,13 @@ export default class OrchestrationService {
 
     for (const orphanUuid of orphanedUuids) {
       try {
-        const result = await this.deleteBlob(notebookId, orphanUuid, lookupHash, fek, updatedManifest)
+        const result = await this.deleteBlob(
+          notebookId,
+          orphanUuid,
+          lookupHash,
+          fek,
+          updatedManifest,
+        )
         updatedManifest = result.manifest
         deleted.push(orphanUuid)
       } catch (error) {
@@ -1054,13 +1064,15 @@ export default class OrchestrationService {
       // Always trigger background build if manifest is available
       if (manifest) {
         // Trigger background build (non-blocking)
-        this.buildIndexes(notebookId, manifest, lookupHash, fek).then(() => {
-          this.deleteOrphanedBlobs(notebookId, lookupHash, fek, manifest).catch((error) => {
-            console.warn('Failed to delete orphaned blobs:', error)
+        this.buildIndexes(notebookId, manifest, lookupHash, fek)
+          .then(() => {
+            this.deleteOrphanedBlobs(notebookId, lookupHash, fek, manifest).catch((error) => {
+              console.warn('Failed to delete orphaned blobs:', error)
+            })
           })
-        }).catch((error) => {
-          console.warn('Failed to build indexes:', error)
-        })
+          .catch((error) => {
+            console.warn('Failed to build indexes:', error)
+          })
       }
     } catch (error) {
       console.warn('Failed to initialize indexes:', error)
@@ -1363,32 +1375,40 @@ export default class OrchestrationService {
    * Run all scheduled tasks
    * Automatically stops all scheduled tasks before starting new ones
    */
-  static async startScheduler(lookupHash: string, mek: CryptoKey, settings: Settings): Promise<void> {
+  static async startScheduler(
+    lookupHash: string,
+    mek: CryptoKey,
+    settings: Settings,
+  ): Promise<void> {
     // Stop all scheduled tasks
     this.stopScheduler()
 
     // Start auto sync scheduler if auto sync is enabled
     if (settings.sync.autoSync) {
-      SchedulerService.schedule(async () => {
-        // Sync root
-        await this.syncRoot(lookupHash, mek)
-        
-        // Decrypt map with mek
-        const map = await CacheService.getMap(lookupHash)
-        if (!map) {
-          throw new Error('Map not found in cache')
-        }
-        const decryptedMap = await CryptoService.unpackAndDecrypt(map, mek)
-        if (!decryptedMap) {
-          throw new Error('Failed to decrypt map')
-        }
-        const decryptedMapJson = JSON.parse(new TextDecoder().decode(decryptedMap))
+      SchedulerService.schedule(
+        async () => {
+          // Sync root
+          await this.syncRoot(lookupHash, mek)
 
-        // Sync all notebooks
-        await this.syncAllNotebooks(decryptedMapJson, lookupHash)
-      }, settings.sync.syncInterval, {
-        immediate: true,
-      })
+          // Decrypt map with mek
+          const map = await CacheService.getMap(lookupHash)
+          if (!map) {
+            throw new Error('Map not found in cache')
+          }
+          const decryptedMap = await CryptoService.unpackAndDecrypt(map, mek)
+          if (!decryptedMap) {
+            throw new Error('Failed to decrypt map')
+          }
+          const decryptedMapJson = JSON.parse(new TextDecoder().decode(decryptedMap))
+
+          // Sync all notebooks
+          await this.syncAllNotebooks(decryptedMapJson, lookupHash)
+        },
+        settings.sync.syncInterval,
+        {
+          immediate: true,
+        },
+      )
     }
   }
 

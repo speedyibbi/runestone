@@ -15,7 +15,9 @@ interface Emits {
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
-const { settings, isSaving, updateSettings, isAvailable } = useSettings({ showNotifications: false })
+const { settings, isSaving, updateSettings, isAvailable } = useSettings({
+  showNotifications: false,
+})
 
 // Convert milliseconds to minutes
 function msToMinutes(ms: number): number {
@@ -39,9 +41,7 @@ function getDefaultSyncIntervalMinutes(): number {
   return 0.1
 }
 
-function getDefaultThemeValue<K extends keyof ThemeSettings>(
-  key: K,
-): ThemeSettings[K] {
+function getDefaultThemeValue<K extends keyof ThemeSettings>(key: K): ThemeSettings[K] {
   return settings.value?.theme?.[key] ?? ('' as ThemeSettings[K])
 }
 
@@ -126,7 +126,7 @@ function handleInputKeydown(event: KeyboardEvent) {
   if (event.key === '-' || event.key === '+' || event.key === 'e' || event.key === 'E') {
     event.preventDefault()
   }
-  
+
   // Handle arrow keys to preserve decimals
   const target = event.target as HTMLInputElement
   if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
@@ -144,7 +144,7 @@ function handleScaleKeydown(event: KeyboardEvent) {
   if (event.key === '-' || event.key === '+' || event.key === 'e' || event.key === 'E') {
     event.preventDefault()
   }
-  
+
   // Handle arrow keys to preserve decimals
   const target = event.target as HTMLInputElement
   if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
@@ -162,7 +162,7 @@ function handleSyncIntervalInput(event: Event) {
   const target = event.target as HTMLInputElement
   const value = target.value
   syncIntervalDisplayRaw.value = value
-  
+
   // Parse and update the underlying value
   const cleaned = value.replace(/[^0-9.]/g, '')
   const parsed = parseFloat(cleaned)
@@ -190,7 +190,7 @@ function handleScaleInput(event: Event) {
   const target = event.target as HTMLInputElement
   const value = target.value
   themeScaleDisplayRaw.value = value
-  
+
   // Parse and update the underlying value
   const cleaned = value.replace(/[^0-9.]/g, '')
   const parsed = parseFloat(cleaned)
@@ -221,7 +221,7 @@ watch(
     if (newSettings) {
       autoSync.value = newSettings.sync.autoSync
       syncIntervalMinutes.value = msToMinutes(newSettings.sync.syncInterval)
-      
+
       // Update theme values
       if (newSettings.theme) {
         themeAccent.value = newSettings.theme.accent
@@ -263,7 +263,7 @@ watch(
 const canSave = computed(() => {
   if (!settings.value) return false
   const currentIntervalMs = minutesToMs(syncIntervalMinutes.value)
-  
+
   const syncChanged =
     autoSync.value !== settings.value.sync.autoSync ||
     currentIntervalMs !== settings.value.sync.syncInterval
@@ -291,7 +291,7 @@ async function handleSave() {
   try {
     // Convert minutes to milliseconds for storage
     const syncIntervalMs = minutesToMs(syncIntervalMinutes.value)
-    
+
     const updatedSettings: Partial<Settings> = {
       sync: {
         autoSync: autoSync.value,
@@ -325,7 +325,7 @@ function handleCancel() {
   if (settings.value) {
     autoSync.value = settings.value.sync.autoSync
     syncIntervalMinutes.value = msToMinutes(settings.value.sync.syncInterval)
-    
+
     // Reset theme to saved values
     if (settings.value.theme) {
       themeAccent.value = settings.value.theme.accent
@@ -401,9 +401,7 @@ function handleCancel() {
               />
               <span class="setting-input-suffix">minutes</span>
             </div>
-            <p class="setting-description">
-              How often to automatically sync codexes.
-            </p>
+            <p class="setting-description">How often to automatically sync codexes.</p>
           </div>
         </div>
 
@@ -647,27 +645,17 @@ function handleCancel() {
               />
               <span class="setting-input-suffix">multiplier</span>
             </div>
-            <p class="setting-description">
-              Adjust the scale of the application.
-            </p>
+            <p class="setting-description">Adjust the scale of the application.</p>
           </div>
         </div>
       </div>
     </template>
 
     <template #footer>
-      <button
-        class="button button-secondary"
-        :disabled="isSaving"
-        @click="handleCancel"
-      >
+      <button class="button button-secondary" :disabled="isSaving" @click="handleCancel">
         Cancel
       </button>
-      <button
-        class="button button-primary"
-        :disabled="!canSave || isSaving"
-        @click="handleSave"
-      >
+      <button class="button button-primary" :disabled="!canSave || isSaving" @click="handleSave">
         <span v-if="isSaving">Saving...</span>
         <span v-else>Save</span>
       </button>

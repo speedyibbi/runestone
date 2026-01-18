@@ -174,11 +174,11 @@ export class AudioWidget extends WidgetType {
 
     const setProgress = (e: MouseEvent | TouchEvent, isDrag = false) => {
       if (!audio.duration) return
-      
+
       const rect = progressBar.getBoundingClientRect()
       const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
       const percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
-      
+
       if (isDrag) {
         // During drag, update visual immediately without transition
         progressTrack.style.transition = 'none'
@@ -248,16 +248,16 @@ export class AudioWidget extends WidgetType {
       const rect = volumeSlider.getBoundingClientRect()
       const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
       const percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
-      
+
       if (isDrag) {
         // During drag, update visual immediately without transition
         volumeTrack.style.transition = 'none'
         volumeTrack.style.width = `${percent * 100}%`
       }
-      
+
       audio.volume = percent
       audio.muted = false
-      
+
       if (!isDrag) {
         updateVolume()
       } else {

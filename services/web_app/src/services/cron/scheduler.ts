@@ -11,7 +11,11 @@ export default class SchedulerService {
   /**
    * Schedule a callback to run repeatedly at the specified interval
    */
-  static schedule(callback: () => void | Promise<void>, intervalMs: number, options?: SchedulerOptions): string {
+  static schedule(
+    callback: () => void | Promise<void>,
+    intervalMs: number,
+    options?: SchedulerOptions,
+  ): string {
     if (intervalMs <= 0) {
       throw new Error('Interval must be greater than 0')
     }

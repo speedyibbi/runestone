@@ -144,7 +144,7 @@ function handleInput(event: Event) {
 
 function handleDragStart(event: DragEvent) {
   if (props.isEditing || props.isCreating || !props.rune) return
-  
+
   event.stopPropagation()
   if (event.dataTransfer) {
     event.dataTransfer.effectAllowed = 'move'
@@ -172,15 +172,15 @@ function handleDragOver(event: DragEvent) {
   if (!props.isDirectory || props.isEditing || props.isCreating) {
     return
   }
-  
+
   // Prevent default to allow drop
   event.preventDefault()
   event.stopPropagation()
-  
+
   if (event.dataTransfer) {
     event.dataTransfer.dropEffect = 'move'
   }
-  
+
   emit('drag-over', props.rune, event)
 }
 
@@ -189,10 +189,10 @@ function handleDrop(event: DragEvent) {
   if (!props.isDirectory || props.isEditing || props.isCreating) {
     return
   }
-  
+
   event.preventDefault()
   event.stopPropagation()
-  
+
   emit('drop', props.rune, event)
 }
 </script>
