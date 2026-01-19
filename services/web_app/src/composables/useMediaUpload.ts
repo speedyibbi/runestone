@@ -9,6 +9,7 @@ import { EditorView } from '@codemirror/view'
 import { useSessionStore } from '@/stores/session'
 import { useToast } from '@/composables/useToast'
 import { MediaEntryType } from '@/interfaces/manifest'
+import { convertFileToMarkdownTable, isSpreadsheetFile } from '@/utils/editor/tableImport'
 
 export interface UseMediaUploadOptions {
   editorView?: Ref<EditorView | null>
@@ -157,6 +158,41 @@ export function useMediaUpload(options: UseMediaUploadOptions = {}): UseMediaUpl
   }
 
   /**
+   * Insert markdown table at the current cursor position or specified position
+   */
+  function insertMarkdownTable(tableMarkdown: string, position?: number): void {
+    if (!editorView?.value) return
+
+    const view = editorView.value
+
+    // Determine insertion position
+    const insertPos = position ?? view.state.selection.main.head
+
+    // Get the line at the insertion position to check if we need a newline before
+    const line = view.state.doc.lineAt(insertPos)
+    const isAtLineStart = insertPos === line.from
+    const beforeNewline = isAtLineStart ? '' : '\n'
+    const afterNewline = '\n'
+
+    // Insert the table with proper newlines
+    const fullTable = `${beforeNewline}${tableMarkdown}${afterNewline}`
+
+    view.dispatch({
+      changes: {
+        from: insertPos,
+        to: insertPos,
+        insert: fullTable,
+      },
+      selection: {
+        anchor: insertPos + fullTable.length,
+      },
+    })
+
+    // Focus the editor
+    view.focus()
+  }
+
+  /**
    * Setup drag and drop handler for the editor
    * Returns cleanup function
    */
@@ -201,7 +237,7 @@ export function useMediaUpload(options: UseMediaUploadOptions = {}): UseMediaUpl
       }
     }
 
-    function handleDrop(e: DragEvent) {
+    async function handleDrop(e: DragEvent) {
       e.preventDefault()
       e.stopPropagation()
 
@@ -222,29 +258,71 @@ export function useMediaUpload(options: UseMediaUploadOptions = {}): UseMediaUpl
       const pos = currentView.posAtCoords({ x: e.clientX, y: e.clientY })
       const dropPos = pos ?? currentView.state.selection.main.head
 
-      // Upload and insert media files (images, videos, audio)
-      const fileArray = Array.from(files).filter(
+      const fileArray = Array.from(files)
+
+      // Separate spreadsheet files from media files
+      const spreadsheetFiles = fileArray.filter((file) => isSpreadsheetFile(file))
+      const mediaFiles = fileArray.filter(
         (file) =>
           file.type.startsWith('image/') ||
           file.type.startsWith('video/') ||
           file.type.startsWith('audio/'),
       )
-      if (fileArray.length === 0) {
-        return
+
+      // Handle spreadsheet files first (CSV/XLSX)
+      if (spreadsheetFiles.length > 0) {
+        let currentPos = dropPos
+        for (const file of spreadsheetFiles) {
+          try {
+            const tableMarkdown = await convertFileToMarkdownTable(file)
+            if (tableMarkdown) {
+              insertMarkdownTable(tableMarkdown, currentPos)
+              if (showNotifications) {
+                toast.success(`Imported table from: ${file.name}`)
+              }
+              // Update position for next table (approximate length)
+              currentPos += tableMarkdown.length + 10 // Add some padding for newlines
+            } else {
+              if (showNotifications) {
+                toast.error(`Failed to parse spreadsheet: ${file.name}`)
+              }
+            }
+          } catch (error) {
+            console.error('Failed to import spreadsheet:', error)
+            if (showNotifications) {
+              toast.error(`Failed to import spreadsheet: ${file.name}`)
+            }
+          }
+        }
       }
 
-      // Upload all media files and insert at drop position
-      let currentPos = dropPos
-      fileArray.forEach((file) => {
-        handleFileUpload(file).then((sigilId) => {
-          if (sigilId) {
-            insertMediaMarkdown(sigilId, file.name, currentPos)
-            onMediaInserted?.(sigilId, file.name)
-            // Update position for next media (add length of inserted markdown + newline)
-            currentPos += `![${file.name}](sigil://${sigilId})\n`.length
-          }
+      // Handle media files (images, videos, audio)
+      if (mediaFiles.length > 0) {
+        let currentPos = dropPos
+        // If we already inserted spreadsheets, adjust position
+        if (spreadsheetFiles.length > 0) {
+          // Get current cursor position after spreadsheet insertions
+          currentPos = currentView.state.selection.main.head
+        }
+
+        mediaFiles.forEach((file) => {
+          handleFileUpload(file).then((sigilId) => {
+            if (sigilId) {
+              insertMediaMarkdown(sigilId, file.name, currentPos)
+              onMediaInserted?.(sigilId, file.name)
+              // Update position for next media (add length of inserted markdown + newline)
+              currentPos += `![${file.name}](sigil://${sigilId})\n`.length
+            }
+          })
         })
-      })
+      }
+
+      // If no supported files were found, do nothing
+      if (spreadsheetFiles.length === 0 && mediaFiles.length === 0) {
+        if (showNotifications) {
+          toast.error('Unsupported file type. Please drop CSV, XLSX, or media files.')
+        }
+      }
     }
 
     function handleDragEnd() {
