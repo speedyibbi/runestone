@@ -33,7 +33,10 @@ dotenv.config({ path: envPath });
 
 export const config = Object.freeze({
   global: {
-    environment: process.env.ENVIRONMENT,
+    environment: {
+      mode: process.env.MODE,
+      serverless: process.env.SERVERLESS ? process.env.SERVERLESS === 'true' : false,
+    },
     featureFlags: {
       cryptography: process.env.FEATURE_CRYPTOGRAPHY ? process.env.FEATURE_CRYPTOGRAPHY === 'true' : true,
       ftsSearch: process.env.FEATURE_FTS_SEARCH ? process.env.FEATURE_FTS_SEARCH === 'true' : true,
