@@ -6,7 +6,7 @@
     "services/*"
   ],
   "scripts": {
-    "build": "npm run build --if-present --workspaces",
+    "build": "npm run build -w @runestone/config && concurrently \"npm run build -w @runestone/server\" \"npm run build -w @runestone/web_app\"",
     "dev": "concurrently \"npm run dev -w @runestone/config\" \"npm run dev -w @runestone/server\" \"npm run dev -w @runestone/web_app\"",
     "lint": "npm run lint --if-present --workspaces",
     "format": "npm run format --if-present --workspaces"
