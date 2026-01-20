@@ -9,8 +9,10 @@
     "dev": "tsc -p tsconfig.json --watch",
     "build": "tsc -p tsconfig.json"
   },
+  "dependencies": {
+    "dotenv": "^17.2.2"
+  },
   "devDependencies": {
-    "dotenv": "^17.2.2",
     "@types/node": "^22.16.5",
     "typescript": "~5.8.0"
   }
