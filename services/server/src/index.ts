@@ -7,14 +7,14 @@ export const app = fastify();
 app.register(fileManager, { prefix: "/api/file" });
 
 if (!config.global.environment.serverless) {
-    app.listen(
-      { port: config.server.port ?? 8080, host: config.server.host ?? "0.0.0.0" },
-      (err, address) => {
-        if (err) {
-          console.error(err);
-          process.exit(1);
-        }
-        console.log(`Server listening at ${address}`);
-      },
-    );
+  app.listen(
+    { port: config.server.port ?? 8080, host: config.server.host ?? "0.0.0.0" },
+    (err, address) => {
+      if (err) {
+        console.error(err);
+        process.exit(1);
+      }
+      console.log(`Server listening at ${address}`);
+    },
+  );
 }
