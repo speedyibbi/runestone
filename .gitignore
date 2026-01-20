@@ -15,6 +15,7 @@ coverage
 *.local
 .env
 .localstack
+.lambda-build
 
 /cypress/videos/
 /cypress/screenshots/
