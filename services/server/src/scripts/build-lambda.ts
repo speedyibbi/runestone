@@ -42,7 +42,6 @@ async function buildLambda(): Promise<void> {
     target: "node22",
     format: "esm",
     outfile: path.join(functionDir, "lambda.js"),
-    packages: "bundle",
     sourcemap: false,
     minify: true,
     treeShaking: true,
