@@ -9,15 +9,28 @@ import { config } from "@runestone/config";
 
 const bucket = config.aws.bucket ?? "";
 
-const s3 = new S3Client({
+const s3Config: {
+  region: string;
+  endpoint?: string;
+  forcePathStyle: boolean;
+  credentials?: { accessKeyId: string; secretAccessKey: string };
+} = {
   region: config.aws.region ?? "",
-  endpoint: config.aws.endpoint ?? "",
   forcePathStyle: true,
-  credentials: {
-    accessKeyId: config.aws.accessKeyId ?? "",
-    secretAccessKey: config.aws.secretAccessKey ?? "",
-  },
-});
+};
+
+if (config.aws.endpoint) {
+  s3Config.endpoint = config.aws.endpoint;
+}
+
+if (config.aws.accessKeyId && config.aws.secretAccessKey) {
+  s3Config.credentials = {
+    accessKeyId: config.aws.accessKeyId,
+    secretAccessKey: config.aws.secretAccessKey,
+  };
+}
+
+const s3 = new S3Client(s3Config);
 
 export async function getFile(
   fileKey: string,
