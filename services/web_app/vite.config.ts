@@ -4,7 +4,34 @@ import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 import type { Plugin } from 'vite'
 import path from 'node:path'
+import fs from 'node:fs'
 import { config } from '@runestone/config'
+
+// Plugin to copy sqlite3.js to assets directory
+// Vite doesn't bundle files referenced via importScripts(), so we need to copy it to the assets directory
+function copySqlitePlugin(): Plugin {
+  return {
+    name: 'copy-sqlite',
+    generateBundle() {
+      const webAppDir = fileURLToPath(new URL('.', import.meta.url))
+      const rootDir = path.resolve(webAppDir, '../..')
+      
+      const sqliteSource = fs.existsSync(path.join(rootDir, 'node_modules/@sqlite.org/sqlite-wasm/sqlite-wasm/jswasm/sqlite3.js'))
+        ? path.join(rootDir, 'node_modules/@sqlite.org/sqlite-wasm/sqlite-wasm/jswasm/sqlite3.js')
+        : path.join(webAppDir, 'node_modules/@sqlite.org/sqlite-wasm/sqlite-wasm/jswasm/sqlite3.js')
+      
+      if (fs.existsSync(sqliteSource)) {
+        this.emitFile({
+          type: 'asset',
+          fileName: 'assets/sqlite3.js',
+          source: fs.readFileSync(sqliteSource),
+        })
+      } else {
+        console.warn('sqlite3.js not found. Tried:', sqliteSource)
+      }
+    },
+  }
+}
 
 // Plugin to set correct MIME type for WASM files and handle node_modules access
 function wasmMimeTypePlugin(): Plugin {
@@ -35,6 +62,7 @@ export default defineConfig(({ mode }) => {
       vue(),
       vueDevTools(),
       wasmMimeTypePlugin(),
+      copySqlitePlugin(),
     ],
     resolve: {
       alias: {
