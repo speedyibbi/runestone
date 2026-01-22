@@ -35,6 +35,9 @@ async function buildLambda(): Promise<void> {
   fs.mkdirSync(functionDir, { recursive: true });
 
   // Bundle Lambda with esbuild
+  // Add require shim for any CJS dependencies that use require()
+  const requireShim = `import { createRequire } from 'module';\nconst require = createRequire(import.meta.url);`;
+  
   await build({
     entryPoints: [path.join(serverDir, "src", "lambda.ts")],
     bundle: true,
@@ -45,7 +48,19 @@ async function buildLambda(): Promise<void> {
     sourcemap: false,
     minify: true,
     treeShaking: true,
+    banner: {
+      js: requireShim,
+    },
   });
+
+  // Create package.json for Lambda to recognize ES modules
+  const packageJson = {
+    type: "module",
+  };
+  fs.writeFileSync(
+    path.join(functionDir, "package.json"),
+    JSON.stringify(packageJson, null, 2),
+  );
 
   const functionZip = path.join(buildDir, "function.zip");
   await createZip(functionDir, functionZip);

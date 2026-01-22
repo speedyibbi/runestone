@@ -23,7 +23,8 @@ if (config.aws.endpoint) {
   s3Config.endpoint = config.aws.endpoint;
 }
 
-if (config.aws.accessKeyId && config.aws.secretAccessKey) {
+// If the access key id starts with "AKIA" (AWS IAM access key), then use the credentials
+if (config.aws.accessKeyId && config.aws.secretAccessKey && config.aws.accessKeyId.startsWith("AKIA")) {
   s3Config.credentials = {
     accessKeyId: config.aws.accessKeyId,
     secretAccessKey: config.aws.secretAccessKey,
@@ -37,7 +38,8 @@ export async function getFile(
   expiresIn = 3600,
 ): Promise<string> {
   const command = new GetObjectCommand({ Bucket: bucket, Key: fileKey });
-  return await getSignedUrl(s3, command, { expiresIn });
+  const url = await getSignedUrl(s3, command, { expiresIn });
+  return url;
 }
 
 export async function upsertFile(
@@ -47,9 +49,10 @@ export async function upsertFile(
   const command = new PutObjectCommand({
     Bucket: bucket,
     Key: fileKey,
-    ContentLength: config.server.fileUpload.maxSize,
+    // ContentLength: config.server.fileUpload.maxSize,
   });
-  return await getSignedUrl(s3, command, { expiresIn });
+  const url = await getSignedUrl(s3, command, { expiresIn });
+  return url;
 }
 
 export async function deleteFile(
@@ -57,5 +60,6 @@ export async function deleteFile(
   expiresIn = 3600,
 ): Promise<string> {
   const command = new DeleteObjectCommand({ Bucket: bucket, Key: fileKey });
-  return await getSignedUrl(s3, command, { expiresIn });
+  const url = await getSignedUrl(s3, command, { expiresIn });
+  return url;
 }

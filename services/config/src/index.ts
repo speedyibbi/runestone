@@ -6,7 +6,7 @@ import * as dotenv from "dotenv";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-function findWorkspaceRoot(startDir: string): string {
+function findWorkspaceRoot(startDir: string): string | null {
   let currentDir = startDir;
 
   while (true) {
@@ -20,16 +20,17 @@ function findWorkspaceRoot(startDir: string): string {
 
     const parentDir = path.dirname(currentDir);
     if (parentDir === currentDir) {
-      throw new Error("Could not find workspace root");
+      return null;
     }
     currentDir = parentDir;
   }
 }
 
 const rootDir = findWorkspaceRoot(__dirname);
-const envPath = path.join(rootDir, ".env");
-
-dotenv.config({ path: envPath });
+if (rootDir) {
+  const envPath = path.join(rootDir, ".env");
+  dotenv.config({ path: envPath });
+}
 
 export const config = Object.freeze({
   global: {
