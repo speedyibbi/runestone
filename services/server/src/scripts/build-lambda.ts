@@ -37,7 +37,7 @@ async function buildLambda(): Promise<void> {
   // Bundle Lambda with esbuild
   // Add require shim for any CJS dependencies that use require()
   const requireShim = `import { createRequire } from 'module';\nconst require = createRequire(import.meta.url);`;
-  
+
   await build({
     entryPoints: [path.join(serverDir, "src", "lambda.ts")],
     bundle: true,

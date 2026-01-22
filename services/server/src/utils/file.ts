@@ -24,7 +24,11 @@ if (config.aws.endpoint) {
 }
 
 // If the access key id starts with "AKIA" (AWS IAM access key), then use the credentials
-if (config.aws.accessKeyId && config.aws.secretAccessKey && config.aws.accessKeyId.startsWith("AKIA")) {
+if (
+  config.aws.accessKeyId &&
+  config.aws.secretAccessKey &&
+  config.aws.accessKeyId.startsWith("AKIA")
+) {
   s3Config.credentials = {
     accessKeyId: config.aws.accessKeyId,
     secretAccessKey: config.aws.secretAccessKey,

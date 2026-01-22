@@ -58,7 +58,7 @@ export default <FastifyPluginCallback>function (fastify, options, done) {
         const maxSize = config.server.fileUpload.maxSize;
         if (contentLength > maxSize) {
           return reply.code(413).send({
-            error: 'File too large',
+            error: "File too large",
             message: `File size (${contentLength} bytes) exceeds maximum allowed size (${maxSize} bytes)`,
             maxSize,
           });
@@ -66,8 +66,8 @@ export default <FastifyPluginCallback>function (fastify, options, done) {
 
         if (contentLength < 0) {
           return reply.code(400).send({
-            error: 'Invalid file size',
-            message: 'File size must be a positive number',
+            error: "Invalid file size",
+            message: "File size must be a positive number",
           });
         }
       }

@@ -715,9 +715,7 @@ export const useSessionStore = defineStore('session', () => {
     if (data.byteLength > MAX_FILE_SIZE) {
       const maxSizeMB = (MAX_FILE_SIZE / (1024 * 1024)).toFixed(1)
       const fileSizeMB = (data.byteLength / (1024 * 1024)).toFixed(1)
-      throw new Error(
-        `File size (${fileSizeMB} MB) exceeds maximum allowed size (${maxSizeMB} MB)`,
-      )
+      throw new Error(`File size (${fileSizeMB} MB) exceeds maximum allowed size (${maxSizeMB} MB)`)
     }
 
     const codexId = notebook.value.manifest.notebook_id
