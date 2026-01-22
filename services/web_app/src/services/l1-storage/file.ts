@@ -67,6 +67,7 @@ export default class FileService {
       },
       querystring: {
         path,
+        contentLength: file.size.toString(),
       },
       signal,
     })

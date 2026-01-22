@@ -61,6 +61,9 @@ export const config = Object.freeze({
   },
   web_app: {
     port: Number(process.env.WEB_APP_PORT) ?? 3000,
+    fileUpload: {
+      maxSize: Number(process.env.FILE_UPLOAD_MAX_SIZE) ?? 10485760, // bytes (10MB)
+    },
     crypto: {
       aes: {
         keyLength: Number(process.env.CRYPTO_AES_KEY_LENGTH) ?? 256, // bits

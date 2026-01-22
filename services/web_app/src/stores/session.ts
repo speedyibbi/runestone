@@ -8,6 +8,8 @@ import type { SyncProgress, SyncResult } from '@/interfaces/sync'
 import type { SearchServiceResult, SearchOptions } from '@/interfaces/search'
 import type { GraphData, GraphQueryOptions } from '@/interfaces/graph'
 
+const MAX_FILE_SIZE = __APP_CONFIG__.fileUpload.maxSize
+
 /**
  * Session store for managing user session state
  * NOTE: All state is in-memory only, nothing is persisted
@@ -690,6 +692,7 @@ export const useSessionStore = defineStore('session', () => {
 
   /**
    * Create a new sigil
+   * Validates file size and throws error if exceeds maximum allowed size
    */
   async function createSigil(
     title: string,
@@ -706,6 +709,15 @@ export const useSessionStore = defineStore('session', () => {
 
     if (!notebook.value.fek) {
       throw new Error('FEK is not available')
+    }
+
+    // Validate file size (centralized validation)
+    if (data.byteLength > MAX_FILE_SIZE) {
+      const maxSizeMB = (MAX_FILE_SIZE / (1024 * 1024)).toFixed(1)
+      const fileSizeMB = (data.byteLength / (1024 * 1024)).toFixed(1)
+      throw new Error(
+        `File size (${fileSizeMB} MB) exceeds maximum allowed size (${maxSizeMB} MB)`,
+      )
     }
 
     const codexId = notebook.value.manifest.notebook_id

@@ -157,6 +157,9 @@ const { editorView, togglePreview, applyPreviewMode } = editorComposable
 const mediaUploadHandler = useMediaUpload({
   editorView: editorViewRef,
   showNotifications: false, // Status shown in status bar instead
+  onError: (error: Error) => {
+    setStatusMessage(error.message, 'error', 5000)
+  },
 })
 const { isDraggingOver } = mediaUploadHandler
 

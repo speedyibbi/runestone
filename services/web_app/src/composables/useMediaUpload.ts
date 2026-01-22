@@ -15,6 +15,7 @@ export interface UseMediaUploadOptions {
   editorView?: Ref<EditorView | null>
   showNotifications?: boolean
   onMediaInserted?: (sigilId: string, filename: string) => void
+  onError?: (error: Error) => void
 }
 
 export interface UseMediaUploadReturn {
@@ -32,7 +33,7 @@ export interface UseMediaUploadReturn {
  * Composable for handling media uploads in the editor
  */
 export function useMediaUpload(options: UseMediaUploadOptions = {}): UseMediaUploadReturn {
-  const { editorView, showNotifications = false, onMediaInserted } = options
+  const { editorView, showNotifications = false, onMediaInserted, onError } = options
 
   const sessionStore = useSessionStore()
   const toast = useToast()
@@ -99,8 +100,12 @@ export function useMediaUpload(options: UseMediaUploadOptions = {}): UseMediaUpl
       return sigilId
     } catch (error) {
       console.error('Failed to upload media:', error)
+      const errorObj = error instanceof Error ? error : new Error(String(error))
       if (showNotifications) {
-        toast.error(`Failed to upload: ${file.name}`)
+        toast.error(errorObj.message || `Failed to upload: ${file.name}`)
+      }
+      if (onError) {
+        onError(errorObj)
       }
       return null
     } finally {

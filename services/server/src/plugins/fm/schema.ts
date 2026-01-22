@@ -10,6 +10,7 @@ const querystringSchema = {
   type: "object",
   properties: {
     path: { type: "string" },
+    contentLength: { type: "number" },
   },
   required: ["path"],
 };

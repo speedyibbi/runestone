@@ -44,12 +44,13 @@ export async function getFile(
 
 export async function upsertFile(
   fileKey: string,
+  contentLength?: number,
   expiresIn = 3600,
 ): Promise<string> {
   const command = new PutObjectCommand({
     Bucket: bucket,
     Key: fileKey,
-    // ContentLength: config.server.fileUpload.maxSize,
+    ...(contentLength !== undefined && { ContentLength: contentLength }),
   });
   const url = await getSignedUrl(s3, command, { expiresIn });
   return url;
