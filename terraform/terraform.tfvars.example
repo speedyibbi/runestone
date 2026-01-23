@@ -1,0 +1,37 @@
+project_name = "runestone"
+environment  = ""
+aws_region   = ""
+
+# S3 Bucket Configuration
+s3_bucket_name        = "" # Must be globally unique
+s3_enable_versioning  = false
+
+# Lambda Configuration
+lambda_function_name          = "server"
+lambda_runtime                = "nodejs22.x"
+lambda_handler                = "lambda.handler"
+lambda_memory_size            = 512
+lambda_timeout                = 30
+lambda_ephemeral_storage_size = 512
+lambda_file_upload_max_size   = 10485760 # 10MB in bytes
+lambda_zip_path               = "../services/server/.lambda-build/function.zip"
+
+# Lambda Environment Variables
+lambda_environment_variables = {
+  # MODE                 = ""            # Set automatically
+  # SERVERLESS           = "true"        # Set automatically
+  # AWS_S3_BUCKET        = "..."         # Set automatically
+  # FILE_UPLOAD_MAX_SIZE = "10485760"    # Set automatically
+  AWS_ENDPOINT = ""
+}
+
+# CloudFront Configuration
+cloudfront_origin_access_control_name = "s3-oac"
+cloudfront_price_class                = "PriceClass_All"
+# For production, set this to your CloudFront URL after deployment
+# cloudfront_cors_allowed_origins = ["https://d1234567890.cloudfront.net"]
+cloudfront_cors_allowed_origins = ["*"] # For testing, use "*"
+
+# Tags
+tags = {
+}
