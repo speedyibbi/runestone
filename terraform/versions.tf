@@ -6,9 +6,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
-    archive = {
-      source  = "hashicorp/archive"
-      version = "~> 2.4"
-    }
+  }
+
+  backend "s3" {
+    # Backend configuration is provided via backend.hcl or -backend-config flags
+    encrypt = true
   }
 }

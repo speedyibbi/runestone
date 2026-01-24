@@ -1,6 +1,6 @@
-# Runestone Infrastructure as Code
+# Infrastructure as Code
 
-This directory contains Terraform configuration files for deploying the Runestone infrastructure on AWS.
+This directory contains Terraform configuration files for deploying infrastructure on AWS.
 
 ## Architecture
 
@@ -35,18 +35,29 @@ The infrastructure consists of:
    - Set `AWS_REGION` to your preferred region
    - Set `AWS_S3_BUCKET_NAME` to a globally unique bucket name
    - Set `AWS_ENDPOINT` if using LocalStack or custom endpoint
+   - Set Terraform backend variables:
+     - `TF_STATE_BUCKET`: S3 bucket for Terraform state
+     - `TF_STATE_KEY`: Path to state file in bucket (defaults to `PROJECT_NAME/ENVIRONMENT/terraform.tfstate}`)
+     - `TF_STATE_REGION`: AWS region for state bucket (defaults to `AWS_REGION` if not set)
+     - `TF_STATE_LOCK_TABLE`: DynamoDB table for state locking
    - Configure other variables as needed
 
-2. **Generate `terraform.tfvars` from `.env`**:
+2. **Generate `terraform.tfvars` and `backend.hcl` from `.env`**:
    ```bash
    cd terraform
    ./generate-tfvars.sh
    ```
-   This script reads your `.env` file and generates `terraform.tfvars` with all the appropriate mappings.
+   This script reads your `.env` file and generates:
+   - `terraform.tfvars` with all the appropriate mappings
+   - `backend.hcl` with backend configuration
 
 3. **Initialize Terraform**:
    ```bash
    terraform init
+   ```
+
+   ```bash
+   terraform init -backend-config=backend.hcl
    ```
 
 4. **Review the plan**:
@@ -157,6 +168,17 @@ When using `generate-tfvars.sh`, the following `.env` variables are automaticall
 | `AWS_ENDPOINT` | `lambda_environment_variables.AWS_ENDPOINT` | For LocalStack or custom endpoints |
 | `FILE_UPLOAD_MAX_SIZE` | `lambda_file_upload_max_size` | Max file upload size in bytes |
 | `MODE` | `environment` | Environment name (prod, staging, dev) |
+
+### Backend Configuration (.env → backend.hcl)
+
+The following `.env` variables are used to generate `backend.hcl` (gitignored):
+
+| .env Variable | Backend Config | Notes |
+|--------------|----------------|-------|
+| `TF_STATE_BUCKET` | `bucket` | S3 bucket for Terraform state storage |
+| `TF_STATE_KEY` | `key` | Path to state file in bucket |
+| `TF_STATE_REGION` | `region` | AWS region for state bucket |
+| `TF_STATE_LOCK_TABLE` | `dynamodb_table` | DynamoDB table for state locking |
 
 ### Key Variables
 

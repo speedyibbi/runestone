@@ -1,6 +1,6 @@
 #!/bin/bash
-# Generate terraform.tfvars from .env file
-# This script reads the .env file from the project root and generates terraform.tfvars
+# Generate terraform.tfvars and backend.hcl from .env file
+# This script reads the .env file from the project root and generates terraform.tfvars and backend.hcl
 
 set -e
 
@@ -38,6 +38,12 @@ LAMBDA_ZIP_PATH="${AWS_LAMBDA_ZIP_PATH:-../services/server/.lambda-build/functio
 CLOUDFRONT_ORIGIN_ACCESS_CONTROL_NAME="${AWS_CLOUDFRONT_ORIGIN_ACCESS_CONTROL_NAME:-s3-oac}"
 CLOUDFRONT_PRICE_CLASS="${AWS_CLOUDFRONT_PRICE_CLASS:-PriceClass_All}"
 CLOUDFRONT_CORS_ALLOWED_ORIGINS="${AWS_CLOUDFRONT_CORS_ALLOWED_ORIGINS:-*}"
+
+# Set backend variables
+TF_STATE_BUCKET="${TF_STATE_BUCKET:-}"
+TF_STATE_KEY="${TF_STATE_KEY:-${PROJECT_NAME:-}/${ENVIRONMENT:-}/terraform.tfstate}"
+TF_STATE_REGION="${TF_STATE_REGION:-${AWS_REGION:-}}"
+TF_STATE_LOCK_TABLE="${TF_STATE_LOCK_TABLE:-}"
 
 # Validate required variables
 if [ -z "$S3_BUCKET_NAME" ]; then
@@ -89,8 +95,20 @@ tags = {
 }
 EOF
 
+# Generate backend.hcl
+BACKEND_FILE="$SCRIPT_DIR/backend.hcl"
+
+cat > "$BACKEND_FILE" <<EOF
+bucket         = "${TF_STATE_BUCKET}"
+key            = "${TF_STATE_KEY}"
+region         = "${TF_STATE_REGION}"
+dynamodb_table = "${TF_STATE_LOCK_TABLE}"
+EOF
+
 echo "✓ Generated terraform.tfvars from .env file"
 echo "  Location: $TFVARS_FILE"
+echo "✓ Generated backend.hcl from .env file"
+echo "  Location: $BACKEND_FILE"
 if [ -z "$S3_BUCKET_NAME" ]; then
   echo ""
   echo "⚠ Warning: AWS_S3_BUCKET was not set in .env"
