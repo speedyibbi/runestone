@@ -112,7 +112,7 @@ export default defineConfig(({ mode }) => {
       port: config.web_app.port ?? 5173,
       proxy: {
         '/api': {
-          target: `${config.global.environment.mode === 'development' ? 'http' : 'https'}://${config.server.host}:${config.server.port}`,
+          target: `${config.global.environment.mode === 'dev' ? 'http' : 'https'}://${config.server.host}:${config.server.port}`,
           changeOrigin: true,
         },
       },

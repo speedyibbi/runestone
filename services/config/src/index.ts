@@ -34,6 +34,9 @@ if (rootDir) {
 
 export const config = Object.freeze({
   global: {
+    project: {
+      name: process.env.PROJECT_NAME,
+    },
     environment: {
       mode: process.env.MODE,
       serverless: process.env.SERVERLESS ? process.env.SERVERLESS === 'true' : false,
@@ -49,8 +52,24 @@ export const config = Object.freeze({
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
     region: process.env.AWS_REGION,
-    bucket: process.env.AWS_S3_BUCKET,
     endpoint: process.env.AWS_ENDPOINT,
+    s3: {
+      bucket: process.env.AWS_S3_BUCKET_NAME,
+      enableVersioning: process.env.AWS_S3_ENABLE_VERSIONING ? process.env.AWS_S3_ENABLE_VERSIONING === 'true' : false,
+    },
+    lambda: {
+      functionName: process.env.AWS_LAMBDA_FUNCTION_NAME,
+      runtime: process.env.AWS_LAMBDA_RUNTIME,
+      handler: process.env.AWS_LAMBDA_HANDLER,
+      memorySize: Number(process.env.AWS_LAMBDA_MEMORY_SIZE),
+      timeout: Number(process.env.AWS_LAMBDA_TIMEOUT),
+      ephemeralStorageSize: Number(process.env.AWS_LAMBDA_EPHEMERAL_STORAGE_SIZE),
+    },
+    cloudfront: {
+      originAccessControlName: process.env.AWS_CLOUDFRONT_ORIGIN_ACCESS_CONTROL_NAME,
+      priceClass: process.env.AWS_CLOUDFRONT_PRICE_CLASS,
+      corsAllowedOrigins: process.env.AWS_CLOUDFRONT_CORS_ALLOWED_ORIGINS,
+    },
   },
   server: {
     host: process.env.SERVER_HOST ?? '0.0.0.0',
