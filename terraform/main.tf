@@ -136,7 +136,7 @@ resource "aws_lambda_function" "server" {
   environment {
     variables = merge(
       {
-        MODE                 = "production"
+        MODE                 = var.environment
         SERVERLESS           = "true"
         AWS_S3_BUCKET        = aws_s3_bucket.storage.id
         FILE_UPLOAD_MAX_SIZE = tostring(var.lambda_file_upload_max_size)
