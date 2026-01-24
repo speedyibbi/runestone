@@ -70,6 +70,12 @@ export const config = Object.freeze({
       priceClass: process.env.AWS_CLOUDFRONT_PRICE_CLASS,
       corsAllowedOrigins: process.env.AWS_CLOUDFRONT_CORS_ALLOWED_ORIGINS,
     },
+    infrastructure: {
+      stateBucket: process.env.TF_STATE_BUCKET,
+      stateKey: process.env.TF_STATE_KEY,
+      stateRegion: process.env.TF_STATE_REGION,
+      stateLockTable: process.env.TF_STATE_LOCK_TABLE,
+    },
   },
   server: {
     host: process.env.SERVER_HOST ?? '0.0.0.0',
