@@ -7,7 +7,7 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { config } from "@runestone/config";
 
-const bucket = config.aws.bucket ?? "";
+const bucket = config.aws.s3.bucket ?? "";
 
 const s3Config: {
   region: string;
