@@ -29,6 +29,43 @@ The infrastructure consists of:
 
 ## Setup
 
+### Option 1: Generate from .env file (Recommended)
+
+1. **Create a `.env` file** in the project root (based on `sample.env`):
+   - Set `AWS_REGION` to your preferred region
+   - Set `AWS_S3_BUCKET_NAME` to a globally unique bucket name
+   - Set `AWS_ENDPOINT` if using LocalStack or custom endpoint
+   - Configure other variables as needed
+
+2. **Generate `terraform.tfvars` from `.env`**:
+   ```bash
+   cd terraform
+   ./generate-tfvars.sh
+   ```
+   This script reads your `.env` file and generates `terraform.tfvars` with all the appropriate mappings.
+
+3. **Initialize Terraform**:
+   ```bash
+   terraform init
+   ```
+
+4. **Review the plan**:
+   ```bash
+   terraform plan
+   ```
+
+5. **Apply the configuration**:
+   ```bash
+   terraform apply
+   ```
+
+6. **After deployment**, update `cloudfront_cors_allowed_origins`:
+   - Get the CloudFront URL from the outputs
+   - Update `CLOUDFRONT_CORS_ALLOWED_ORIGINS` in your `.env` file (or edit `terraform.tfvars` directly)
+   - Run `./generate-tfvars.sh` again (if using .env), then `terraform apply`
+
+### Option 2: Manual Configuration
+
 1. **Copy the example variables file**:
    ```bash
    cp terraform.tfvars.example terraform.tfvars
@@ -109,7 +146,20 @@ terraform output
 
 See `variables.tf` for all available variables and their descriptions.
 
-Key variables:
+### Variable Mappings (.env → terraform.tfvars)
+
+When using `generate-tfvars.sh`, the following `.env` variables are automatically mapped:
+
+| .env Variable | Terraform Variable | Notes |
+|--------------|-------------------|-------|
+| `AWS_REGION` | `aws_region` | AWS region for resources |
+| `AWS_S3_BUCKET_NAME` | `s3_bucket_name` | Must be globally unique |
+| `AWS_ENDPOINT` | `lambda_environment_variables.AWS_ENDPOINT` | For LocalStack or custom endpoints |
+| `FILE_UPLOAD_MAX_SIZE` | `lambda_file_upload_max_size` | Max file upload size in bytes |
+| `MODE` | `environment` | Environment name (prod, staging, dev) |
+
+### Key Variables
+
 - `s3_bucket_name`: Must be globally unique
 - `lambda_environment_variables`: Environment variables for Lambda
 - `cloudfront_cors_allowed_origins`: CORS allowed origins (use CloudFront URL for production)
