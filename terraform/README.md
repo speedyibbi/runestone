@@ -53,10 +53,6 @@ The infrastructure consists of:
 
 3. **Initialize Terraform**:
    ```bash
-   terraform init
-   ```
-
-   ```bash
    terraform init -backend-config=backend.hcl
    ```
 
