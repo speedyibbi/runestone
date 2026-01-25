@@ -85,6 +85,8 @@ Add these to **Settings → Environments → prod → Environment secrets**:
 
 Add these to **Settings → Environments → prod → Environment variables**:
 
+**Note**: These variables are used during the build step to configure the web app. They are embedded into the application bundle at build time, so changes require a new build to take effect.
+
 #### FEATURE FLAGS
 - `FEATURE_CRYPTOGRAPHY`
 - `FEATURE_FTS_SEARCH`
