@@ -1,0 +1,115 @@
+name: CD
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  cd:
+    runs-on: ubuntu-latest
+    environment: prod
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+
+      - name: Cache Terraform providers
+        uses: actions/cache@v4
+        with:
+          path: |
+            terraform/.terraform/providers/**
+            terraform/.terraform.lock.hcl
+          key: ${{ runner.os }}-terraform-${{ hashFiles('terraform/.terraform.lock.hcl') }}
+          restore-keys: |
+            ${{ runner.os }}-terraform-
+
+      - name: Generate Terraform configuration
+        working-directory: terraform
+        env:
+          PROJECT_NAME: ${{ vars.PROJECT_NAME }}
+          ENVIRONMENT: prod
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_S3_BUCKET_NAME: ${{ secrets.AWS_S3_BUCKET_NAME }}
+          AWS_S3_ENABLE_VERSIONING: ${{ secrets.AWS_S3_ENABLE_VERSIONING }}
+          AWS_LAMBDA_FUNCTION_NAME: ${{ secrets.AWS_LAMBDA_FUNCTION_NAME }}
+          AWS_LAMBDA_RUNTIME: ${{ secrets.AWS_LAMBDA_RUNTIME }}
+          AWS_LAMBDA_MEMORY_SIZE: ${{ secrets.AWS_LAMBDA_MEMORY_SIZE }}
+          AWS_LAMBDA_TIMEOUT: ${{ secrets.AWS_LAMBDA_TIMEOUT }}
+          AWS_LAMBDA_EPHEMERAL_STORAGE_SIZE: ${{ secrets.AWS_LAMBDA_EPHEMERAL_STORAGE_SIZE }}
+          AWS_CLOUDFRONT_ORIGIN_ACCESS_CONTROL_NAME: ${{ secrets.AWS_CLOUDFRONT_ORIGIN_ACCESS_CONTROL_NAME }}
+          AWS_CLOUDFRONT_PRICE_CLASS: ${{ secrets.AWS_CLOUDFRONT_PRICE_CLASS }}
+          AWS_CLOUDFRONT_CORS_ALLOWED_ORIGINS: ${{ secrets.AWS_CLOUDFRONT_CORS_ALLOWED_ORIGINS }}
+          TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
+          TF_STATE_KEY: ${{ secrets.TF_STATE_KEY }}
+          TF_STATE_REGION: ${{ secrets.TF_STATE_REGION }}
+          TF_STATE_LOCK_TABLE: ${{ secrets.TF_STATE_LOCK_TABLE }}
+          FILE_UPLOAD_MAX_SIZE: ${{ vars.FILE_UPLOAD_MAX_SIZE }}
+        run: |
+          chmod +x ./generate-config.sh
+          ./generate-config.sh
+
+      - name: Terraform init
+        working-directory: terraform
+        run: terraform init -backend-config=backend.hcl
+
+      - name: Terraform plan
+        working-directory: terraform
+        run: terraform plan -no-color -out=tfplan
+
+      - name: Terraform apply
+        working-directory: terraform
+        run: terraform apply -auto-approve tfplan
+
+      - name: Get Terraform outputs
+        id: tf_outputs
+        working-directory: terraform
+        run: |
+          echo "S3_BUCKET_NAME=$(terraform output -raw s3_bucket_name)" >> $GITHUB_OUTPUT
+          echo "CF_DIST_ID=$(terraform output -raw cloudfront_distribution_id)" >> $GITHUB_OUTPUT
+          echo "CF_DOMAIN=$(terraform output -raw cloudfront_domain_name)" >> $GITHUB_OUTPUT
+
+      - name: Upload web app to S3
+        run: |
+          aws s3 sync services/web_app/dist/ s3://${{ steps.tf_outputs.outputs.S3_BUCKET_NAME }}/static/ --delete
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ steps.tf_outputs.outputs.CF_DIST_ID }} \
+            --paths "/*"
+
+      - name: Deployment summary
+        run: |
+          echo "## Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**CloudFront URL:** https://${{ steps.tf_outputs.outputs.CF_DOMAIN }}" >> $GITHUB_STEP_SUMMARY
+          echo "**S3 Bucket:** ${{ steps.tf_outputs.outputs.S3_BUCKET_NAME }}" >> $GITHUB_STEP_SUMMARY
