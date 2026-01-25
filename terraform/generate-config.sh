@@ -1,6 +1,6 @@
 #!/bin/bash
-# Generate terraform.tfvars and backend.hcl from .env file
-# This script reads the .env file from the project root and generates terraform.tfvars and backend.hcl
+# Generate terraform.tfvars and backend.hcl from .env file or environment variables
+# This script can be used locally (with .env file) or in CI/CD (with environment variables)
 
 set -e
 
@@ -9,21 +9,19 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 ENV_FILE="$PROJECT_ROOT/.env"
 
-# Check if .env file exists
-if [ ! -f "$ENV_FILE" ]; then
-  echo "Error: .env file not found at $ENV_FILE"
-  echo "Please create a .env file based on sample.env"
-  exit 1
+# Load .env file if it exists
+if [ -f "$ENV_FILE" ]; then
+  echo "Loading variables from .env file..."
+  set -a
+  source "$ENV_FILE"
+  set +a
+else
+  echo "No .env file found, using environment variables..."
 fi
 
-# Load .env file
-set -a
-source "$ENV_FILE"
-set +a
-
-# Set variables
+# Set variables (environment variables take precedence over .env file)
 PROJECT_NAME="${PROJECT_NAME:-}"
-ENVIRONMENT="${MODE:-}"
+ENVIRONMENT="${ENVIRONMENT:-${MODE:-}}"
 AWS_REGION="${AWS_REGION:-}"
 S3_BUCKET_NAME="${AWS_S3_BUCKET_NAME:-}"
 S3_ENABLE_VERSIONING="${AWS_S3_ENABLE_VERSIONING:-false}"
@@ -41,13 +39,18 @@ CLOUDFRONT_CORS_ALLOWED_ORIGINS="${AWS_CLOUDFRONT_CORS_ALLOWED_ORIGINS:-*}"
 
 # Set backend variables
 TF_STATE_BUCKET="${TF_STATE_BUCKET:-}"
-TF_STATE_KEY="${TF_STATE_KEY:-${PROJECT_NAME:-}/${ENVIRONMENT:-}/terraform.tfstate}"
+TF_STATE_KEY="${TF_STATE_KEY:-}"
 TF_STATE_REGION="${TF_STATE_REGION:-${AWS_REGION:-}}"
 TF_STATE_LOCK_TABLE="${TF_STATE_LOCK_TABLE:-}"
 
+# Auto-generate TF_STATE_KEY if not provided
+if [ -z "$TF_STATE_KEY" ] && [ -n "$PROJECT_NAME" ] && [ -n "$ENVIRONMENT" ]; then
+  TF_STATE_KEY="${PROJECT_NAME}/${ENVIRONMENT}/terraform.tfstate"
+fi
+
 # Validate required variables
 if [ -z "$S3_BUCKET_NAME" ]; then
-  echo "Warning: AWS_S3_BUCKET is not set in .env file"
+  echo "Warning: AWS_S3_BUCKET_NAME is not set"
   echo "You'll need to set s3_bucket_name manually in terraform.tfvars"
 fi
 
@@ -105,12 +108,12 @@ region         = "${TF_STATE_REGION}"
 dynamodb_table = "${TF_STATE_LOCK_TABLE}"
 EOF
 
-echo "✓ Generated terraform.tfvars from .env file"
+echo "✓ Generated terraform.tfvars"
 echo "  Location: $TFVARS_FILE"
-echo "✓ Generated backend.hcl from .env file"
+echo "✓ Generated backend.hcl"
 echo "  Location: $BACKEND_FILE"
 if [ -z "$S3_BUCKET_NAME" ]; then
   echo ""
-  echo "⚠ Warning: AWS_S3_BUCKET was not set in .env"
+  echo "⚠ Warning: AWS_S3_BUCKET_NAME was not set"
   echo "  Please edit terraform.tfvars and set s3_bucket_name manually"
 fi

@@ -45,9 +45,9 @@ The infrastructure consists of:
 2. **Generate `terraform.tfvars` and `backend.hcl` from `.env`**:
    ```bash
    cd terraform
-   ./generate-tfvars.sh
+   ./generate-config.sh
    ```
-   This script reads your `.env` file and generates:
+   This script reads your `.env` file (or environment variables) and generates:
    - `terraform.tfvars` with all the appropriate mappings
    - `backend.hcl` with backend configuration
 
@@ -69,7 +69,7 @@ The infrastructure consists of:
 6. **After deployment**, update `cloudfront_cors_allowed_origins`:
    - Get the CloudFront URL from the outputs
    - Update `CLOUDFRONT_CORS_ALLOWED_ORIGINS` in your `.env` file (or edit `terraform.tfvars` directly)
-   - Run `./generate-tfvars.sh` again (if using .env), then `terraform apply`
+   - Run `./generate-config.sh` again (if using .env), then `terraform apply`
 
 ### Option 2: Manual Configuration
 
@@ -155,7 +155,7 @@ See `variables.tf` for all available variables and their descriptions.
 
 ### Variable Mappings (.env → terraform.tfvars)
 
-When using `generate-tfvars.sh`, the following `.env` variables are automatically mapped:
+When using `generate-config.sh`, the following `.env` variables are automatically mapped:
 
 | .env Variable | Terraform Variable | Notes |
 |--------------|-------------------|-------|
@@ -181,6 +181,15 @@ The following `.env` variables are used to generate `backend.hcl` (gitignored):
 - `s3_bucket_name`: Must be globally unique
 - `lambda_environment_variables`: Environment variables for Lambda
 - `cloudfront_cors_allowed_origins`: CORS allowed origins (use CloudFront URL for production)
+
+## CI/CD
+
+GitHub Actions workflows are configured for automated CI/CD:
+
+- **CI Workflow** (`.github/workflows/ci.yml`): Runs on pull requests to validate changes
+- **CD Workflow** (`.github/workflows/cd.yml`): Deploys infrastructure and application on pushes to `main` or `master`
+
+See `.github/workflows/README.md` for setup instructions and required GitHub secrets.
 
 ## Cleanup
 
