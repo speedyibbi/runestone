@@ -183,9 +183,11 @@ main {
 
 .container {
   width: 100%;
+  max-width: 80rem;
   max-height: 100%;
   display: flex;
   flex-direction: column;
+  margin: 0 auto;
 }
 
 .view {
@@ -220,6 +222,10 @@ h1 {
   -ms-overflow-style: none; /* IE and Edge */
 }
 
+.content-area::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
 .create-content {
   display: flex;
   justify-content: center;
@@ -238,9 +244,156 @@ h1 {
   align-content: start;
 }
 
-@media (max-width: 40rem) {
+/* Responsive adjustments for mobile/tablet */
+@media (max-width: 1023px) {
+  main {
+    padding: 1.5rem 0;
+    align-items: stretch;
+    min-height: 100vh;
+    box-sizing: border-box;
+  }
+
+  /* Remove padding when create form is active */
+  main:has(.create-content) {
+    padding: 0;
+  }
+
+  .container {
+    width: 100%;
+    max-width: 100%;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .view {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding: 0 1rem;
+    max-height: 100%;
+  }
+
+  /* Center create view vertically on mobile */
+  .view:has(.create-content) {
+    justify-content: center;
+  }
+
+  h1 {
+    font-size: 1.5rem;
+    margin-top: 1.5rem;
+    margin-bottom: 1.5rem;
+    padding: 0;
+  }
+
+  /* Reduce h1 margin in create view */
+  .view:has(.create-content) h1 {
+    margin-top: 0;
+    margin-bottom: 2rem;
+  }
+
+  .content-area {
+    flex: 1;
+    padding: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    min-height: 0;
+  }
+
+  /* Allow overflow for create content so back button is visible */
+  .content-area.create-content {
+    overflow: visible;
+  }
+
   .codex-list {
-    grid-template-columns: repeat(auto-fill, minmax(30rem, 1fr));
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+    padding: 0;
+    margin-bottom: 1.5rem;
+    width: 100%;
+  }
+
+  .codex-list.few-items {
+    grid-template-columns: 1fr;
+    max-width: 100%;
+    margin: 0 0 1.5rem 0;
+  }
+
+  .codex-item {
+    padding: 1rem;
+    min-height: 4rem;
+    width: 100%;
+  }
+
+  .codex-item:not(:disabled):hover {
+    padding-left: 1rem;
+    background: var(--color-overlay-subtle);
+  }
+
+  .codex-item:not(:disabled):active {
+    background: var(--color-overlay-light);
+  }
+
+  .codex-title {
+    font-size: 1rem;
+  }
+
+  .codex-uuid {
+    font-size: 0.7rem;
+  }
+
+  .create-section {
+    padding: 1rem 0 0 0;
+    margin-top: auto;
+    margin-bottom: 1.5rem;
+    flex-shrink: 0;
+  }
+
+  .create-button {
+    width: 100%;
+    max-width: 100%;
+    padding: 1rem 0;
+    font-size: 1rem;
+  }
+
+  .create-content {
+    flex: 0 0 auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0;
+    overflow: visible;
+  }
+
+  .create-form {
+    width: 100%;
+    max-width: 100%;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    padding-bottom: 0;
+  }
+
+  .back-button {
+    position: relative;
+    transform: none;
+    bottom: auto;
+    left: auto;
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    min-height: 44px; /* Touch target size */
+    margin-top: 0.5rem;
+  }
+
+  .empty-state {
+    padding: 2rem 1rem;
+    font-size: 1rem;
   }
 }
 
@@ -406,7 +559,7 @@ h1 {
   transition: all 0.2s ease;
   letter-spacing: -0.01em;
   width: 35rem;
-  max-width: 90vw;
+  max-width: 100%;
 }
 
 .create-button:not(:disabled):hover {

@@ -56,6 +56,13 @@
   color: var(--color-foreground);
 }
 
+@media (max-width: 1023px) {
+  :root {
+    font-size: calc(100vmax * var(--scale));
+  }
+
+}
+
 /* CSS Reset */
 *,
 *:before,
