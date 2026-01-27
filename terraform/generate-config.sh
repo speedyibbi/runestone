@@ -54,6 +54,25 @@ if [ -z "$S3_BUCKET_NAME" ]; then
   echo "You'll need to set s3_bucket_name manually in terraform.tfvars"
 fi
 
+# Process CORS allowed origins - handle comma-separated values
+if [[ "${CLOUDFRONT_CORS_ALLOWED_ORIGINS}" == *","* ]]; then
+  # Comma-separated values - split and create array
+  IFS=',' read -ra ORIGINS <<< "${CLOUDFRONT_CORS_ALLOWED_ORIGINS}"
+  CORS_ORIGINS_ARRAY="["
+  for i in "${!ORIGINS[@]}"; do
+    if [ $i -gt 0 ]; then
+      CORS_ORIGINS_ARRAY+=", "
+    fi
+    # Trim whitespace and add quotes
+    ORIGIN=$(echo "${ORIGINS[$i]}" | xargs)
+    CORS_ORIGINS_ARRAY+="\"${ORIGIN}\""
+  done
+  CORS_ORIGINS_ARRAY+="]"
+else
+  # Single value - wrap in array
+  CORS_ORIGINS_ARRAY="[\"${CLOUDFRONT_CORS_ALLOWED_ORIGINS}\"]"
+fi
+
 # Generate terraform.tfvars
 TFVARS_FILE="$SCRIPT_DIR/terraform.tfvars"
 
@@ -89,7 +108,7 @@ cat >> "$TFVARS_FILE" <<EOF
 cloudfront_origin_access_control_name = "${CLOUDFRONT_ORIGIN_ACCESS_CONTROL_NAME}"
 cloudfront_price_class                = "${CLOUDFRONT_PRICE_CLASS}"
 # For production, set this to your CloudFront URL after deployment
-cloudfront_cors_allowed_origins = ["${CLOUDFRONT_CORS_ALLOWED_ORIGINS}"]
+cloudfront_cors_allowed_origins = ${CORS_ORIGINS_ARRAY}
 
 # Tags
 tags = {
