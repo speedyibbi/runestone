@@ -345,6 +345,10 @@ resource "aws_cloudfront_distribution" "main" {
     cloudfront_default_certificate = true
   }
 
+  lifecycle {
+    ignore_changes = [aliases, viewer_certificate]
+  }
+
   tags = local.common_tags
 }
 
