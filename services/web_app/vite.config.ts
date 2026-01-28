@@ -109,7 +109,7 @@ export default defineConfig(({ mode }) => {
         manifest: {
           name: 'Runestone',
           short_name: 'Runestone',
-          description: 'Runestone - Privacy-first knowledgebase',
+          description: 'Privacy-first knowledgebase',
           theme_color: '#4f535b',
           background_color: '#000000',
           display: 'standalone',
