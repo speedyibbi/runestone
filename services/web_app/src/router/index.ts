@@ -3,7 +3,7 @@ import { useSessionStore } from '@/stores/session'
 
 import Auth from '@/views/Auth.vue'
 import CodexSelection from '@/views/CodexSelection.vue'
-import Codex from '@/views/Codex.vue'
+import CodexWrapper from '@/views/CodexWrapper.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -40,7 +40,7 @@ const router = createRouter({
         requiresAuth: true,
         requiresCodex: true,
       },
-      component: Codex,
+      component: CodexWrapper,
     },
     {
       path: '/codex/:codexId/rune/:runeId',
@@ -51,7 +51,7 @@ const router = createRouter({
         requiresAuth: true,
         requiresCodex: true,
       },
-      component: Codex,
+      component: CodexWrapper,
     },
   ],
 })
