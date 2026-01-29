@@ -1,18 +1,92 @@
 <script lang="ts" setup>
-import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, watch, onMounted, onUnmounted, nextTick, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { ViewUpdate } from '@codemirror/view'
 import { useEditor, type PreviewMode } from '@/composables/useEditor'
-import { useCodex } from '@/composables/useCodex'
+import { useCodex, type RuneInfo } from '@/composables/useCodex'
 import { useSessionStore } from '@/stores/session'
 import { useMediaUpload } from '@/composables/useMediaUpload'
 import { MediaEntryType } from '@/interfaces/manifest'
 import CodexEditorArea from '@/components/codex/CodexEditorArea.vue'
+import CodexRuneList from '@/components/codex/CodexRuneList.vue'
 
 const route = useRoute()
 
 // Sidebar state
 const sidebarOpen = ref(false)
+
+// Scroll-based UI visibility
+const showMenuButton = ref(true)
+const showAppBar = ref(true)
+const lastScrollTop = ref(0)
+const scrollThreshold = 3 * 16 // 3rem in pixels
+const scrollUpThreshold = 1.5 * 16 // 1.5rem in pixels
+let scrollListener: (() => void) | null = null
+let lastScrollDirection = 'down' // Track scroll direction
+
+function handleEditorScroll() {
+  if (!editorView.value) return
+
+  const scrollTop = editorView.value.scrollDOM.scrollTop
+  const scrollDelta = scrollTop - lastScrollTop.value
+
+  // Always show if at the top
+  if (scrollTop <= 0) {
+    showMenuButton.value = true
+    showAppBar.value = true
+    lastScrollTop.value = scrollTop
+    lastScrollDirection = 'up'
+    return
+  }
+
+  // Update scroll direction
+  if (scrollDelta > 0) {
+    lastScrollDirection = 'down'
+  } else if (scrollDelta < 0) {
+    lastScrollDirection = 'up'
+  }
+
+  // Hide if scrolled down more than threshold
+  if (scrollTop > scrollThreshold) {
+    // Check if scrolling up by more than threshold
+    if (scrollDelta < -scrollUpThreshold) {
+      // Scrolling up significantly, show UI
+      showMenuButton.value = true
+      showAppBar.value = true
+    } else if (scrollDelta > 0 || (scrollDelta === 0 && lastScrollDirection === 'down')) {
+      // Scrolling down or stopped while scrolling down, hide UI
+      showMenuButton.value = false
+      showAppBar.value = false
+    }
+  } else {
+    // Within threshold, always show
+    showMenuButton.value = true
+    showAppBar.value = true
+  }
+
+  lastScrollTop.value = scrollTop
+}
+
+function setupScrollListener() {
+  if (!editorView.value) return
+
+  // Cleanup old listener
+  if (scrollListener && editorView.value) {
+    editorView.value.scrollDOM.removeEventListener('scroll', scrollListener)
+    scrollListener = null
+  }
+
+  // Setup new listener
+  scrollListener = handleEditorScroll
+  editorView.value.scrollDOM.addEventListener('scroll', scrollListener, { passive: true })
+}
+
+function cleanupScrollListener() {
+  if (scrollListener && editorView.value) {
+    editorView.value.scrollDOM.removeEventListener('scroll', scrollListener)
+    scrollListener = null
+  }
+}
 
 // Bottom sheet state
 const bottomSheetOpen = ref(false)
@@ -53,6 +127,21 @@ function handleOptions() {
   } else {
     openBottomSheet()
   }
+}
+
+function handlePreviewToggle() {
+  // Cycle between 'edit' and 'preview' only (exclude 'split')
+  if (previewMode.value === 'edit') {
+    previewMode.value = 'preview'
+  } else if (previewMode.value === 'preview') {
+    previewMode.value = 'edit'
+  } else {
+    // If in 'split' mode, switch to 'edit'
+    previewMode.value = 'edit'
+  }
+  
+  // Apply the preview mode change to the editor
+  applyPreviewMode()
 }
 
 function openBottomSheet() {
@@ -203,11 +292,15 @@ const previewViewRef = ref<import('@codemirror/view').EditorView | null>(null) a
 const {
   runes,
   currentRune,
+  currentCodex,
   hasOpenRune,
   openRune,
   isLoadingRune,
   getSigilUrl,
   createAutoSaveCallback,
+  isDirectory,
+  createRune,
+  searchRunes,
 } = useCodex(editorViewRef, { autoSave: true })
 
 const autoSaveCallback = createAutoSaveCallback()
@@ -453,6 +546,8 @@ watch(editorView, (view, oldView) => {
       setupUploadHandlers()
       // Apply preview mode state when editor view becomes available
       applyPreviewMode()
+      // Setup scroll listener for UI visibility
+      setupScrollListener()
       // Focus the editor if we just got a view and have an open rune that's not loading
       if (!oldView && hasOpenRune.value && !isLoadingRune.value) {
         focusEditor()
@@ -460,6 +555,7 @@ watch(editorView, (view, oldView) => {
     })
   } else {
     // Cleanup when view is destroyed
+    cleanupScrollListener()
     if (dragDropCleanup) {
       dragDropCleanup()
       dragDropCleanup = null
@@ -471,8 +567,25 @@ watch(editorView, (view, oldView) => {
   }
 })
 
+// Watch preview mode changes and apply them
+watch(
+  () => previewMode.value,
+  () => {
+    if (editorView.value) {
+      nextTick(() => {
+        applyPreviewMode()
+      })
+    }
+  },
+)
+
 // Apply preview mode when currentRune changes
 watch(currentRune, () => {
+  // Reset scroll state when switching runes
+  lastScrollTop.value = 0
+  showMenuButton.value = true
+  showAppBar.value = true
+  
   if (editorView.value) {
     nextTick(() => {
       applyPreviewMode()
@@ -738,6 +851,12 @@ function focusEditor() {
  */
 async function handleOpenRune(runeId: string) {
   await openRune(runeId)
+  // Reset scroll state when opening a new rune
+  lastScrollTop.value = 0
+  showMenuButton.value = true
+  showAppBar.value = true
+  lastScrollDirection = 'up'
+  
   await nextTick()
   requestAnimationFrame(() => {
     setTimeout(() => {
@@ -763,6 +882,229 @@ watch(
   },
 )
 
+// File explorer state
+const expandedDirectories = ref<Set<string>>(new Set())
+const selectedDirectory = ref<string>('')
+const sortOrder = ref<'asc' | 'desc'>('asc')
+
+export interface TreeNode {
+  rune: RuneInfo
+  children: TreeNode[]
+  level: number
+  parentPath: string
+}
+
+type EditingState =
+  | { type: 'creating-rune'; parentPath: string }
+  | { type: 'creating-directory'; parentPath: string }
+  | { type: 'renaming'; runeId: string }
+  | null
+
+const editingState = ref<EditingState>(null)
+
+function getParentPath(title: string): string {
+  if (!title.includes('/')) return ''
+  const parts = title.split('/').filter((p) => p)
+  if (parts.length <= 1) {
+    return ''
+  }
+  parts.pop()
+  return parts.join('/') + '/'
+}
+
+function expandAllParentDirectories(fullPath: string) {
+  if (!fullPath.includes('/')) return
+  const parts = fullPath.split('/').filter((p) => p)
+  let currentPath = ''
+  for (const part of parts) {
+    currentPath += part + '/'
+    expandedDirectories.value.add(currentPath)
+  }
+  expandedDirectories.value = new Set(expandedDirectories.value)
+}
+
+function isVisible(parentPath: string): boolean {
+  if (parentPath === '') return true
+  const parentParts = parentPath.split('/').filter((p) => p)
+  let currentPath = ''
+  for (const part of parentParts) {
+    currentPath += part + '/'
+    if (!expandedDirectories.value.has(currentPath)) {
+      return false
+    }
+  }
+  return true
+}
+
+function buildTree(runes: RuneInfo[]): TreeNode[] {
+  const tree: TreeNode[] = []
+  const processed = new Set<string>()
+
+  const sortedRunes = [...runes].sort((a, b) => {
+    const aIsDir = isDirectory(a.title)
+    const bIsDir = isDirectory(b.title)
+    if (aIsDir !== bIsDir) return aIsDir ? -1 : 1
+    const comparison = a.title.localeCompare(b.title)
+    return sortOrder.value === 'asc' ? comparison : -comparison
+  })
+
+  function buildNode(rune: RuneInfo, level: number, parentPath: string): TreeNode | null {
+    if (processed.has(rune.uuid)) return null
+
+    if (parentPath !== '' && !isVisible(parentPath)) {
+      return null
+    }
+
+    const node: TreeNode = {
+      rune,
+      children: [],
+      level,
+      parentPath,
+    }
+
+    processed.add(rune.uuid)
+
+    if (isDirectory(rune.title)) {
+      const children = sortedRunes
+        .filter((child) => {
+          if (child.uuid === rune.uuid) return false
+          if (!child.title.startsWith(rune.title)) return false
+
+          const remaining = child.title.slice(rune.title.length)
+          const cleanRemaining = remaining.startsWith('/') ? remaining.slice(1) : remaining
+          const remainingParts = cleanRemaining.split('/').filter((p) => p)
+          return remainingParts.length === 1
+        })
+        .map((child) => buildNode(child, level + 1, rune.title))
+        .filter((n): n is TreeNode => n !== null)
+
+      node.children = children
+    }
+
+    return node
+  }
+
+  for (const rune of sortedRunes) {
+    const parentPath = getParentPath(rune.title)
+
+    const parts = rune.title.split('/').filter((p) => p)
+    const isRootLevel = parts.length <= 1
+
+    if (parentPath === '' && isRootLevel) {
+      const node = buildNode(rune, 0, '')
+      if (node) {
+        tree.push(node)
+      }
+    }
+  }
+
+  return tree
+}
+
+const runeTree = computed(() => buildTree(runes.value))
+
+// File explorer handlers
+function handleRuneClick(rune: RuneInfo, event?: MouseEvent) {
+  if (isDirectory(rune.title)) {
+    if (expandedDirectories.value.has(rune.title)) {
+      expandedDirectories.value.delete(rune.title)
+    } else {
+      expandedDirectories.value.add(rune.title)
+    }
+    expandedDirectories.value = new Set(expandedDirectories.value)
+  } else {
+    handleOpenRune(rune.uuid)
+    selectedDirectory.value = ''
+    sidebarOpen.value = false // Close sidebar when opening a rune
+  }
+}
+
+function handleRuneDoubleClick(rune: RuneInfo) {
+  if (isDirectory(rune.title)) {
+    selectedDirectory.value = selectedDirectory.value === rune.title ? '' : rune.title
+  }
+}
+
+function handleCreateRune() {
+  const targetDir = selectedDirectory.value
+  editingState.value = { type: 'creating-rune', parentPath: targetDir }
+  if (targetDir) {
+    expandAllParentDirectories(targetDir)
+    expandedDirectories.value.add(targetDir)
+    expandedDirectories.value = new Set(expandedDirectories.value)
+  }
+}
+
+function handleCreateDirectory() {
+  const targetDir = selectedDirectory.value
+  editingState.value = { type: 'creating-directory', parentPath: targetDir }
+  if (targetDir) {
+    expandAllParentDirectories(targetDir)
+    expandedDirectories.value.add(targetDir)
+    expandedDirectories.value = new Set(expandedDirectories.value)
+  }
+}
+
+function handleCollapseAll() {
+  expandedDirectories.value.clear()
+  expandedDirectories.value = new Set()
+}
+
+function handleSort() {
+  sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc'
+}
+
+function handleEditSubmit(value: string) {
+  if (!editingState.value) return
+
+  if (editingState.value.type === 'creating-rune') {
+    handleCreateRuneSubmit(value)
+  } else if (editingState.value.type === 'creating-directory') {
+    handleCreateDirectorySubmit(value)
+  } else if (editingState.value.type === 'renaming') {
+    // TODO: Implement rename
+    editingState.value = null
+  }
+}
+
+function handleEditCancel() {
+  editingState.value = null
+}
+
+async function handleCreateRuneSubmit(title: string) {
+  try {
+    if (!editingState.value || editingState.value.type !== 'creating-rune') return
+
+    const targetDir = editingState.value.parentPath
+    const fullTitle = targetDir ? `${targetDir}${title}` : title
+    editingState.value = null
+
+    const runeId = await createRune(fullTitle)
+    expandAllParentDirectories(fullTitle)
+    await handleOpenRune(runeId)
+  } catch (err) {
+    console.error('Error creating rune:', err)
+    editingState.value = null
+  }
+}
+
+async function handleCreateDirectorySubmit(title: string) {
+  try {
+    if (!editingState.value || editingState.value.type !== 'creating-directory') return
+
+    const directoryTitle = title.endsWith('/') ? title : `${title}/`
+    const targetDir = editingState.value.parentPath
+    const fullTitle = targetDir ? `${targetDir}${directoryTitle}` : directoryTitle
+    editingState.value = null
+
+    await createRune(fullTitle, '')
+    expandAllParentDirectories(fullTitle)
+  } catch (err) {
+    console.error('Error creating directory:', err)
+    editingState.value = null
+  }
+}
+
 onMounted(() => {
   const runeId = route.params.runeId as string | undefined
   if (runeId) {
@@ -777,6 +1119,8 @@ onMounted(() => {
 onUnmounted(() => {
   // Cleanup scroll sync
   cleanupScrollSync()
+  // Cleanup scroll listener
+  cleanupScrollListener()
   // Cleanup preview editor
   if (previewView.value) {
     previewComposable.destroy()
@@ -803,7 +1147,7 @@ onUnmounted(() => {
     <!-- Top-left Menu Button -->
     <button
       class="menu-button"
-      :class="{ hidden: sidebarOpen }"
+      :class="{ hidden: sidebarOpen || !showMenuButton }"
       @click="sidebarOpen = !sidebarOpen"
       aria-label="Toggle sidebar"
     >
@@ -824,17 +1168,74 @@ onUnmounted(() => {
       </svg>
     </button>
 
+    <!-- Top-right Preview Toggle Button -->
+    <button
+      class="preview-button"
+      :class="{ hidden: sidebarOpen || !showMenuButton }"
+      @click="handlePreviewToggle"
+      aria-label="Toggle preview"
+    >
+      <svg
+        v-if="previewMode === 'edit'"
+        xmlns="http://www.w3.org/2000/svg"
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+        <circle cx="12" cy="12" r="3" />
+      </svg>
+      <svg
+        v-else
+        xmlns="http://www.w3.org/2000/svg"
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+      </svg>
+    </button>
+
     <!-- Sidebar -->
     <div class="sidebar-overlay" :class="{ open: sidebarOpen }" @click="sidebarOpen = false">
       <aside class="sidebar" :class="{ open: sidebarOpen }" @click.stop>
         <div class="sidebar-content">
-          <!-- Sidebar content will go here -->
+          <CodexRuneList
+            :rune-tree="runeTree"
+            :current-rune-id="currentRune?.uuid ?? null"
+            :expanded-directories="expandedDirectories"
+            :selected-directory="selectedDirectory"
+            :is-directory="isDirectory"
+            :editing-state="editingState"
+            :drag-over-rune-id="null"
+            @rune-click="handleRuneClick"
+            @rune-double-click="handleRuneDoubleClick"
+            @create-rune="handleCreateRune"
+            @create-directory="handleCreateDirectory"
+            @clear-selection="selectedDirectory = ''"
+            @collapse-all="handleCollapseAll"
+            @sort="handleSort"
+            @edit-submit="handleEditSubmit"
+            @edit-cancel="handleEditCancel"
+          />
         </div>
       </aside>
     </div>
 
     <!-- Editor Area -->
     <div class="editor-container" :class="{ 'sidebar-open': sidebarOpen }">
+      <div class="editor-fade-top"></div>
       <CodexEditorArea
         :has-open-rune="hasOpenRune"
         :is-loading-rune="isLoadingRune"
@@ -846,10 +1247,11 @@ onUnmounted(() => {
         @update:editor-element="editorElement = $event"
         @update:preview-element="previewElement = $event"
       />
+      <div class="editor-fade-bottom"></div>
     </div>
 
     <!-- Bottom App Bar -->
-    <div class="app-bar">
+    <div class="app-bar" :class="{ hidden: !showAppBar }">
       <button
         class="app-bar-button"
         :class="{ muted: !canUndo }"
@@ -1004,9 +1406,10 @@ onUnmounted(() => {
   border: none;
   color: var(--color-foreground);
   cursor: pointer;
-  transition: opacity 0.2s ease, visibility 0.2s ease;
+  transition: transform 0.3s ease, opacity 0.3s ease, visibility 0.3s ease;
   opacity: 1;
   visibility: visible;
+  transform: translateY(0);
 }
 
 .menu-button:hover {
@@ -1021,11 +1424,53 @@ onUnmounted(() => {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
+  transform: translateY(-100%);
 }
 
 .menu-button svg {
-  width: 20px;
-  height: 20px;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* Top-right Preview Toggle Button */
+.preview-button {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 1001; /* Same as menu button, behind sidebar when open */
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--color-foreground);
+  cursor: pointer;
+  transition: transform 0.3s ease, opacity 0.3s ease, visibility 0.3s ease;
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.preview-button:hover {
+  opacity: 0.7;
+}
+
+.preview-button:active {
+  opacity: 0.5;
+}
+
+.preview-button.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-100%);
+}
+
+.preview-button svg {
+  width: 1.25rem;
+  height: 1.25rem;
 }
 
 /* Sidebar */
@@ -1054,7 +1499,7 @@ onUnmounted(() => {
   top: 0;
   left: 0;
   bottom: 0;
-  width: 280px;
+  width: 75vw;
   max-width: 85vw;
   background: var(--color-background);
   border-right: 1px solid var(--color-overlay-border);
@@ -1071,17 +1516,76 @@ onUnmounted(() => {
 
 .sidebar-content {
   padding: 1rem;
-  padding-top: 4.5rem; /* Account for menu button */
+  padding-top: 1rem;
+  height: 100%;
+  overflow-y: auto;
 }
 
 /* Editor Container */
 .editor-container {
-  flex: 1;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0; /* Full height, content scrolls behind app bar */
   display: flex;
   flex-direction: column;
   overflow: hidden;
   transition: margin-left 0.3s ease;
-  margin-bottom: 4rem; /* Account for app bar */
+  z-index: 1;
+}
+
+.editor-container :deep(.editor-area) {
+  height: 100%;
+  width: 100%;
+}
+
+/* Add extra padding to editor content for scrollability */
+.editor-container :deep(.cm-content) {
+  padding-top: 4rem !important; /* Extra top margin */
+  padding-bottom: calc(2rem + 4rem + 50vh) !important; /* 2rem base + 4rem app bar + 50vh extra space */
+}
+
+.editor-container :deep(.cm-scroller) {
+  min-height: 100%;
+}
+
+.editor-fade-top,
+.editor-fade-bottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 5rem;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.editor-fade-top {
+  top: 0;
+  background: linear-gradient(
+    to bottom,
+    var(--color-background) 0%,
+    var(--color-background) 15%,
+    color-mix(in srgb, var(--color-background) 85%, transparent) 30%,
+    color-mix(in srgb, var(--color-background) 60%, transparent) 50%,
+    color-mix(in srgb, var(--color-background) 40%, transparent) 70%,
+    color-mix(in srgb, var(--color-background) 25%, transparent) 85%,
+    color-mix(in srgb, var(--color-background) 20%, transparent) 100%
+  );
+}
+
+.editor-fade-bottom {
+  bottom: 0;
+  background: linear-gradient(
+    to top,
+    var(--color-background) 0%,
+    var(--color-background) 15%,
+    color-mix(in srgb, var(--color-background) 85%, transparent) 30%,
+    color-mix(in srgb, var(--color-background) 60%, transparent) 50%,
+    color-mix(in srgb, var(--color-background) 40%, transparent) 70%,
+    color-mix(in srgb, var(--color-background) 25%, transparent) 85%,
+    color-mix(in srgb, var(--color-background) 20%, transparent) 100%
+  );
 }
 
 /* Bottom App Bar */
@@ -1091,13 +1595,23 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   height: 4rem;
-  background: var(--color-background);
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: space-around;
   padding: 0 1rem;
-  z-index: 999;
-  backdrop-filter: blur(8px);
+  z-index: 100; /* Above editor (z-index: 1) but below sidebar (z-index: 1001) */
+  transition: transform 0.3s ease, opacity 0.3s ease, visibility 0.3s ease;
+  transform: translateY(0);
+  opacity: 1;
+  visibility: visible;
+}
+
+.app-bar.hidden {
+  transform: translateY(100%);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .app-bar-button {
@@ -1134,8 +1648,8 @@ onUnmounted(() => {
 
 
 .app-bar-button svg {
-  width: 20px;
-  height: 20px;
+  width: 1.25rem;
+  height: 1.25rem;
 }
 
 /* Bottom Sheet */
@@ -1166,7 +1680,7 @@ onUnmounted(() => {
   user-select: none;
   overflow: hidden;
   min-height: 0;
-  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 -4px 12px var(--color-modal-shadow);
 }
 
 .bottom-sheet.dragging {
