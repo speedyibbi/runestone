@@ -108,28 +108,6 @@ onMounted(() => {
   }
 }
 
-/* Mobile/tablet positioning improvements */
-@media (max-width: 1023px) {
-  .ambient-background {
-    /* Use 100dvh for better mobile viewport handling */
-    height: 100dvh;
-    /* Ensure it covers the full viewport including safe areas */
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-  }
-
-  .stars {
-    height: 100dvh;
-    /* Adjust for mobile viewport */
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-  }
-}
-
 @keyframes fall {
   to {
     transform: translate3d(-50em, 0, 0);

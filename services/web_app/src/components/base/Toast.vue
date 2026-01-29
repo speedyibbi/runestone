@@ -145,21 +145,4 @@ const { toasts, dismiss } = useToast()
 .toast-move {
   transition: all 0.25s ease;
 }
-
-/* Mobile/tablet styles */
-@media (max-width: 1023px) {
-  .toast-container {
-    top: 1rem;
-    right: auto;
-    left: 50%;
-    transform: translateX(-50%);
-    width: calc(100% - 2rem);
-    max-width: 20rem;
-  }
-
-  .toast-leave-active {
-    width: calc(100% - 2rem);
-    max-width: 20rem;
-  }
-}
 </style>

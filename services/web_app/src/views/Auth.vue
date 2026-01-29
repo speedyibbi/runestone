@@ -329,31 +329,11 @@ h1 {
   height: 1rem;
 }
 
-/* Responsive adjustments for mobile/tablet */
-@media (max-width: 1023px) {
-  main {
-    padding: 1rem;
-  }
-
-  .container {
-    max-width: 100%;
-    padding: 0 1rem;
-  }
-
+/* Responsive adjustments */
+@media (max-width: 40rem) {
   h1 {
     font-size: 1.75rem;
     gap: 0.4rem;
-    margin-bottom: 1.5rem;
-  }
-
-  .input-container {
-    gap: 0.75rem;
-  }
-
-  .back-button {
-    transform: translate(-50%, 120%);
-    padding: 0.75rem;
-    font-size: 1rem;
   }
 }
 </style>
