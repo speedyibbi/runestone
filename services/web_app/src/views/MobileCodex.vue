@@ -1,61 +1,213 @@
 <script lang="ts" setup>
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { EditorView, ViewUpdate } from '@codemirror/view'
-import { syntaxTree } from '@codemirror/language'
+import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { useRoute } from 'vue-router'
+import { ViewUpdate } from '@codemirror/view'
 import { useEditor, type PreviewMode } from '@/composables/useEditor'
-import { useCodex, type RuneInfo } from '@/composables/useCodex'
+import { useCodex } from '@/composables/useCodex'
 import { useSessionStore } from '@/stores/session'
 import { useMediaUpload } from '@/composables/useMediaUpload'
 import { MediaEntryType } from '@/interfaces/manifest'
-import KeyboardShortcuts from '@/components/editor/KeyboardShortcuts.vue'
-import BubbleMenu from '@/components/editor/BubbleMenu.vue'
-import CodexRibbon from '@/components/codex/CodexRibbon.vue'
-import CodexLeftSidebar from '@/components/codex/CodexLeftSidebar.vue'
-import CodexTopBar from '@/components/codex/CodexTopBar.vue'
 import CodexEditorArea from '@/components/codex/CodexEditorArea.vue'
-import CodexStatusBar from '@/components/codex/CodexStatusBar.vue'
-import CodexRightSidebar, { type Heading } from '@/components/codex/CodexRightSidebar.vue'
-import CodexContextMenu, { type MenuItem } from '@/components/codex/CodexContextMenu.vue'
-import Modal from '@/components/base/Modal.vue'
-import SettingsModal from '@/components/codex/SettingsModal.vue'
-import type { Tab } from '@/components/codex/CodexTabs.vue'
 
 const route = useRoute()
-const router = useRouter()
+
+// Sidebar state
+const sidebarOpen = ref(false)
+
+// Bottom sheet state
+const bottomSheetOpen = ref(false)
+const bottomSheetHeight = ref(0) // Height in pixels
+const isDragging = ref(false)
+const dragStartY = ref(0)
+const dragStartHeight = ref(0)
+
+// Bottom sheet configuration
+const DEFAULT_HEIGHT = 0.5 // 50% of viewport height
+const MIN_HEIGHT = 0.2 // 20% of viewport height (collapse threshold)
+const MAX_HEIGHT = 0.9 // 90% of viewport height (max height)
+
+// Undo/redo availability (stubbed for now)
+const canUndo = ref(false)
+const canRedo = ref(false)
+
+// App bar button handlers (no functionality yet)
+function handleUndo() {
+  // TODO: Implement undo
+}
+
+function handleRedo() {
+  // TODO: Implement redo
+}
+
+function handleSearch() {
+  // TODO: Implement search
+}
+
+function handleAddRune() {
+  // TODO: Implement add rune
+}
+
+function handleOptions() {
+  if (bottomSheetOpen.value) {
+    closeBottomSheet()
+  } else {
+    openBottomSheet()
+  }
+}
+
+function openBottomSheet() {
+  const viewportHeight = window.innerHeight
+  bottomSheetHeight.value = 0 // Start at 0 for animation
+  bottomSheetOpen.value = true
+  // Set initial height to default after opening
+  nextTick(() => {
+    requestAnimationFrame(() => {
+      bottomSheetHeight.value = viewportHeight * DEFAULT_HEIGHT
+    })
+  })
+}
+
+function closeBottomSheet() {
+  // Animate to 0 height, then close
+  if (bottomSheetHeight.value > 0) {
+    bottomSheetHeight.value = 0
+    setTimeout(() => {
+      bottomSheetOpen.value = false
+    }, 300) // Match transition duration
+  } else {
+    bottomSheetOpen.value = false
+  }
+}
+
+// Bottom sheet drag handlers
+function handleBottomSheetTouchStart(event: TouchEvent) {
+  // Only allow dragging from the handle area
+  const target = event.target as HTMLElement
+  if (!target.closest('.bottom-sheet-handle') && !target.closest('.bottom-sheet-drag-area')) {
+    return
+  }
+  
+  isDragging.value = true
+  dragStartY.value = event.touches[0].clientY
+  dragStartHeight.value = bottomSheetHeight.value
+  event.preventDefault()
+}
+
+function handleBottomSheetTouchMove(event: TouchEvent) {
+  if (!isDragging.value) return
+  
+  const currentY = event.touches[0].clientY
+  const deltaY = dragStartY.value - currentY // Inverted: dragging up increases height
+  const viewportHeight = window.innerHeight
+  const newHeight = dragStartHeight.value + deltaY
+  
+  // Clamp height between 0 and max height
+  const minHeightPx = viewportHeight * MIN_HEIGHT
+  const maxHeightPx = viewportHeight * MAX_HEIGHT
+  
+  if (newHeight < minHeightPx) {
+    bottomSheetHeight.value = Math.max(0, newHeight)
+  } else if (newHeight > maxHeightPx) {
+    bottomSheetHeight.value = maxHeightPx
+  } else {
+    bottomSheetHeight.value = newHeight
+  }
+  
+  event.preventDefault()
+}
+
+function handleBottomSheetTouchEnd() {
+  if (!isDragging.value) return
+  
+  isDragging.value = false
+  
+  const viewportHeight = window.innerHeight
+  const minHeightPx = viewportHeight * MIN_HEIGHT
+  
+  // If height is below collapse threshold, close the sheet
+  if (bottomSheetHeight.value < minHeightPx) {
+    closeBottomSheet()
+  } else {
+    // Snap to nearest valid height (default or max)
+    if (bottomSheetHeight.value < viewportHeight * DEFAULT_HEIGHT) {
+      bottomSheetHeight.value = viewportHeight * DEFAULT_HEIGHT
+    } else if (bottomSheetHeight.value > viewportHeight * MAX_HEIGHT * 0.8) {
+      bottomSheetHeight.value = viewportHeight * MAX_HEIGHT
+    }
+  }
+}
+
+// Mouse drag handlers for desktop
+function handleBottomSheetMouseDown(event: MouseEvent) {
+  // Only allow dragging from the handle area
+  const target = event.target as HTMLElement
+  if (!target.closest('.bottom-sheet-handle') && !target.closest('.bottom-sheet-drag-area')) {
+    return
+  }
+  
+  isDragging.value = true
+  dragStartY.value = event.clientY
+  dragStartHeight.value = bottomSheetHeight.value
+  event.preventDefault()
+}
+
+function handleBottomSheetMouseMove(event: MouseEvent) {
+  if (!isDragging.value) return
+  
+  const currentY = event.clientY
+  const deltaY = dragStartY.value - currentY // Inverted: dragging up increases height
+  const viewportHeight = window.innerHeight
+  const newHeight = dragStartHeight.value + deltaY
+  
+  // Clamp height between 0 and max height
+  const minHeightPx = viewportHeight * MIN_HEIGHT
+  const maxHeightPx = viewportHeight * MAX_HEIGHT
+  
+  if (newHeight < minHeightPx) {
+    bottomSheetHeight.value = Math.max(0, newHeight)
+  } else if (newHeight > maxHeightPx) {
+    bottomSheetHeight.value = maxHeightPx
+  } else {
+    bottomSheetHeight.value = newHeight
+  }
+  
+  event.preventDefault()
+}
+
+function handleBottomSheetMouseUp() {
+  if (!isDragging.value) return
+  
+  isDragging.value = false
+  
+  const viewportHeight = window.innerHeight
+  const minHeightPx = viewportHeight * MIN_HEIGHT
+  
+  // If height is below collapse threshold, close the sheet
+  if (bottomSheetHeight.value < minHeightPx) {
+    closeBottomSheet()
+  } else {
+    // Snap to nearest valid height (default or max)
+    if (bottomSheetHeight.value < viewportHeight * DEFAULT_HEIGHT) {
+      bottomSheetHeight.value = viewportHeight * DEFAULT_HEIGHT
+    } else if (bottomSheetHeight.value > viewportHeight * MAX_HEIGHT * 0.8) {
+      bottomSheetHeight.value = viewportHeight * MAX_HEIGHT
+    }
+  }
+}
 
 const editorElement = ref<HTMLElement>()
 const previewElement = ref<HTMLElement>()
-const editorViewRef = ref<EditorView | null>(null) as import('vue').Ref<EditorView | null>
-const previewViewRef = ref<EditorView | null>(null) as import('vue').Ref<EditorView | null>
+const editorViewRef = ref<import('@codemirror/view').EditorView | null>(null) as import('vue').Ref<import('@codemirror/view').EditorView | null>
+const previewViewRef = ref<import('@codemirror/view').EditorView | null>(null) as import('vue').Ref<import('@codemirror/view').EditorView | null>
 
 const {
   runes,
   currentRune,
-  currentCodex,
-  isLoadingRune,
   hasOpenRune,
   openRune,
-  createRune,
-  refreshRuneList,
-  isDirectory,
-  saveCurrentRune,
-  isSavingRune,
-  hasUnsavedChanges,
-  error,
-  createAutoSaveCallback,
-  renameRune,
-  deleteRune,
-  duplicateRune,
-  closeRune,
+  isLoadingRune,
   getSigilUrl,
-  renameCodex,
-  deleteCodex,
-  searchRunes,
-  exportRune,
-  exportCodex,
-  syncCurrentCodex,
-  isSyncing,
+  createAutoSaveCallback,
 } = useCodex(editorViewRef, { autoSave: true })
 
 const autoSaveCallback = createAutoSaveCallback()
@@ -101,10 +253,10 @@ const runeOpener = async (runeIdentifier: string): Promise<void> => {
   }
 }
 
-// Shared preview mode state across all tabs
+// Shared preview mode state
 const previewMode = ref<PreviewMode>('edit')
 
-// Initialize preview editor for split mode (needed for the callback)
+// Initialize preview editor for split mode
 const previewComposable = useEditor(
   previewElement,
   undefined,
@@ -156,9 +308,9 @@ const { editorView, togglePreview, applyPreviewMode } = editorComposable
 // Media upload handler
 const mediaUploadHandler = useMediaUpload({
   editorView: editorViewRef,
-  showNotifications: false, // Status shown in status bar instead
+  showNotifications: false,
   onError: (error: Error) => {
-    setStatusMessage(error.message, 'error', 5000)
+    console.error('Media upload error:', error.message)
   },
 })
 const { isDraggingOver } = mediaUploadHandler
@@ -319,13 +471,12 @@ watch(editorView, (view, oldView) => {
   }
 })
 
-// Apply preview mode when switching tabs (when currentRune changes)
+// Apply preview mode when currentRune changes
 watch(currentRune, () => {
   if (editorView.value) {
     nextTick(() => {
       applyPreviewMode()
       // Sync content to preview editor if in split mode
-      // Wait a bit longer to ensure preview editor is ready after tab switch
       if (previewMode.value === 'split') {
         nextTick(() => {
           if (previewView.value && editorView.value) {
@@ -365,8 +516,7 @@ watch(
   { immediate: true },
 )
 
-// Content syncing is now handled in combinedUpdateCallback above
-// This watcher is kept as a fallback for edge cases
+// Content syncing fallback
 watch(
   () => editorView.value?.state.doc.toString(),
   (content) => {
@@ -500,48 +650,16 @@ watch([editorView, previewView, () => previewMode.value], ([editor, preview, mod
   }
 })
 
-const statusBarUpdateTrigger = ref(0)
-
-let currentUpdateListener: (() => void) | null = null
-let currentObserver: MutationObserver | null = null
-
 watch(
   editorView,
-  (view, oldView) => {
-    if (oldView && currentUpdateListener) {
-      oldView.dom.removeEventListener('input', currentUpdateListener)
-      oldView.dom.removeEventListener('selectionchange', currentUpdateListener)
-    }
-    if (currentObserver) {
-      currentObserver.disconnect()
-      currentObserver = null
-    }
-
-    editorViewRef.value = view as EditorView | null
-
-    if (view) {
-      const updateListener = () => {
-        statusBarUpdateTrigger.value++
-      }
-      currentUpdateListener = updateListener
-
-      view.dom.addEventListener('input', updateListener)
-      view.dom.addEventListener('selectionchange', updateListener)
-
-      const observer = new MutationObserver(updateListener)
-      currentObserver = observer
-      observer.observe(view.dom, {
-        childList: true,
-        subtree: true,
-        characterData: true,
-      })
-    }
+  (view) => {
+    editorViewRef.value = view as import('@codemirror/view').EditorView | null
   },
   { immediate: true },
 )
 
 // This handles the edge case where the editor initializes after openRune has already completed
-watch([editorView, currentRune], ([view, rune], [oldView, oldRune]) => {
+watch([editorView, currentRune], ([view, rune], [oldView]) => {
   if (view && !oldView && rune) {
     const currentContent = view.state.doc.toString()
     if (!currentContent.trim()) {
@@ -579,187 +697,6 @@ watch([editorView, currentRune], ([view, rune], [oldView, oldRune]) => {
     }
   }
 })
-
-onUnmounted(() => {
-  if (editorView.value && currentUpdateListener) {
-    editorView.value.dom.removeEventListener('input', currentUpdateListener)
-    editorView.value.dom.removeEventListener('selectionchange', currentUpdateListener)
-  }
-  if (currentObserver) {
-    currentObserver.disconnect()
-  }
-  // Cleanup scroll sync
-  cleanupScrollSync()
-  // Cleanup preview editor
-  if (previewView.value) {
-    previewComposable.destroy()
-  }
-})
-
-const currentRuneId = computed(() => currentRune.value?.uuid ?? null)
-
-const leftSidebarCollapsed = ref(false)
-const activeLeftPanel = ref<'files' | 'search' | 'graph'>('files')
-const rightSidebarCollapsed = ref(true)
-const showCommandPalette = ref(false)
-
-const expandedDirectories = ref<Set<string>>(new Set())
-
-const selectedDirectory = ref<string>('')
-
-// Sort order: 'asc' (A-Z) or 'desc' (Z-A)
-const sortOrder = ref<'asc' | 'desc'>('asc')
-
-const tabs = ref<Tab[]>([])
-const activeTabId = ref<string | null>(null)
-
-// Tab history tracking for back/forward navigation
-const tabHistory = ref<string[]>([]) // Array of tab IDs in order visited
-const historyIndex = ref<number>(-1) // Current position in history (-1 means no history)
-const isNavigatingHistory = ref(false) // Flag to prevent adding to history during navigation
-const closedTabs = ref<Map<string, string>>(new Map()) // Map of closed tab IDs to their runeIds
-
-const statusMessage = ref<string | null>(null)
-const statusType = ref<'info' | 'success' | 'warning' | 'error' | null>(null)
-let statusTimeout: ReturnType<typeof setTimeout> | null = null
-
-function setStatusMessage(
-  message: string | null,
-  type: 'info' | 'success' | 'warning' | 'error' | null = null,
-  duration: number = 3000,
-) {
-  if (statusTimeout) {
-    clearTimeout(statusTimeout)
-    statusTimeout = null
-  }
-  statusMessage.value = message
-  statusType.value = type
-  if (message && duration > 0) {
-    statusTimeout = setTimeout(() => {
-      statusMessage.value = null
-      statusType.value = null
-      statusTimeout = null
-    }, duration)
-  }
-}
-
-function getBaseName(fullTitle: string): string {
-  if (!fullTitle.includes('/')) return fullTitle
-  const parts = fullTitle.split('/').filter((p) => p)
-  return parts[parts.length - 1] || fullTitle
-}
-
-// Watch isSyncing to show syncing status in status bar
-watch(isSyncing, (syncing) => {
-  if (syncing) {
-    // Show "Syncing..." when sync starts
-    setStatusMessage('Syncing...', 'info', 0) // No timeout, will be cleared by success/error message
-  }
-  // When syncing becomes false, don't clear the message here
-  // Let the success/error message from handleSync take over
-})
-
-watch(
-  () => currentRune.value,
-  (rune, oldRune) => {
-    if (rune) {
-      const existingTab = tabs.value.find((t) => t.runeId === rune.uuid)
-      if (existingTab) {
-        // Only add to history if we're not navigating via history buttons
-        if (!isNavigatingHistory.value && activeTabId.value !== existingTab.id) {
-          addToHistory(existingTab.id)
-        }
-        activeTabId.value = existingTab.id
-        existingTab.title = getBaseName(rune.title)
-        existingTab.hasUnsavedChanges = hasUnsavedChanges.value
-      } else {
-        const newTab: Tab = {
-          id: `tab-${Date.now()}-${Math.random()}`,
-          runeId: rune.uuid,
-          title: getBaseName(rune.title),
-          hasUnsavedChanges: hasUnsavedChanges.value,
-        }
-        tabs.value.push(newTab)
-        if (!isNavigatingHistory.value) {
-          addToHistory(newTab.id)
-        }
-        activeTabId.value = newTab.id
-      }
-      if (!oldRune || oldRune.uuid !== rune.uuid) {
-        setStatusMessage(`Opened: ${getBaseName(rune.title)}`, 'info', 2000)
-        // Focus the editor when a new rune is opened
-        focusEditor()
-      }
-    }
-  },
-  { immediate: true },
-)
-
-watch(hasUnsavedChanges, (unsaved) => {
-  const activeTab = tabs.value.find((t) => t.id === activeTabId.value)
-  if (activeTab) {
-    activeTab.hasUnsavedChanges = unsaved
-  }
-})
-
-// Focus the editor when a rune finishes loading
-watch([isLoadingRune, currentRune], ([loading, rune], [oldLoading]) => {
-  // Focus when loading completes and we have an open rune
-  if (oldLoading && !loading && rune && hasOpenRune.value) {
-    focusEditor()
-  }
-})
-
-watch(
-  runes,
-  () => {
-    tabs.value.forEach((tab) => {
-      if (tab.runeId) {
-        const rune = runes.value.find((r) => r.uuid === tab.runeId)
-        if (rune) {
-          tab.title = getBaseName(rune.title)
-        }
-      }
-    })
-  },
-  { deep: true },
-)
-
-function handleCommand(command: string) {
-  if (command === 'open-graph') {
-    handleOpenGraph()
-  }
-}
-
-async function handleExportRune() {
-  try {
-    await exportRune()
-    setStatusMessage('Rune exported successfully', 'success')
-  } catch (err) {
-    console.error('Error exporting rune:', err)
-    setStatusMessage(err instanceof Error ? err.message : 'Failed to export rune', 'error', 5000)
-  }
-}
-
-async function handleExportCodex() {
-  try {
-    await exportCodex()
-    setStatusMessage('Codex exported successfully', 'success')
-  } catch (err) {
-    console.error('Error exporting codex:', err)
-    setStatusMessage(err instanceof Error ? err.message : 'Failed to export codex', 'error', 5000)
-  }
-}
-
-async function handleSync() {
-  try {
-    await syncCurrentCodex()
-    setStatusMessage('Codex synced successfully', 'success')
-  } catch (err) {
-    console.error('Error syncing codex:', err)
-    setStatusMessage(err instanceof Error ? err.message : 'Failed to sync codex', 'error', 5000)
-  }
-}
 
 /**
  * Focus the editor, waiting for it to be ready if necessary
@@ -801,11 +738,7 @@ function focusEditor() {
  */
 async function handleOpenRune(runeId: string) {
   await openRune(runeId)
-  // Wait for next tick and then focus with a delay to ensure modal has closed
-  // and editor is ready (especially important when opening from command palette)
-  // Modal closing animation takes 200ms, so we wait a bit longer
   await nextTick()
-  // Use requestAnimationFrame to ensure DOM updates are complete
   requestAnimationFrame(() => {
     setTimeout(() => {
       focusEditor()
@@ -813,934 +746,11 @@ async function handleOpenRune(runeId: string) {
   })
 }
 
-async function handleTabClick(tab: Tab) {
-  if (!isNavigatingHistory.value) {
-    addToHistory(tab.id)
-  }
-  activeTabId.value = tab.id
-  if (tab.runeId) {
-    await handleOpenRune(tab.runeId)
-  }
-  // Graph tabs don't have runeId, so they don't need to open a rune
-}
-
-function addToHistory(tabId: string) {
-  // Don't add if we're navigating via history buttons
-  if (isNavigatingHistory.value) {
-    return
-  }
-
-  // Remove any future history if we're not at the end
-  if (historyIndex.value < tabHistory.value.length - 1) {
-    tabHistory.value = tabHistory.value.slice(0, historyIndex.value + 1)
-  }
-
-  // Don't add if it's the same as the current tab
-  if (tabHistory.value.length > 0 && tabHistory.value[tabHistory.value.length - 1] === tabId) {
-    return
-  }
-
-  // Add to history
-  tabHistory.value.push(tabId)
-  historyIndex.value = tabHistory.value.length - 1
-}
-
-async function navigateHistoryBack() {
-  if (historyIndex.value > 0) {
-    historyIndex.value--
-    const tabId = tabHistory.value[historyIndex.value]
-    const tab = tabs.value.find((t) => t.id === tabId)
-
-    if (tab) {
-      // Tab is still open, navigate to it
-      isNavigatingHistory.value = true
-      activeTabId.value = tab.id
-      if (tab.runeId) {
-        await openRune(tab.runeId)
-        // Focus the editor after opening the rune
-        focusEditor()
-        nextTick(() => {
-          isNavigatingHistory.value = false
-        })
-      } else {
-        // Reset flag after navigation completes
-        nextTick(() => {
-          isNavigatingHistory.value = false
-        })
-      }
-    } else {
-      // Tab is closed, check if we have its runeId and reopen it
-      const runeId = closedTabs.value.get(tabId)
-      if (runeId) {
-        isNavigatingHistory.value = true
-        // openRune will create a new tab, which will be added to tabs.value
-        // The watch on currentRune will handle setting activeTabId
-        openRune(runeId)
-          .then(() => {
-            // After the rune is opened, find the new tab and update history
-            nextTick(() => {
-              const newTab = tabs.value.find((t) => t.runeId === runeId)
-              if (newTab) {
-                // Update history to use the new tab ID
-                tabHistory.value[historyIndex.value] = newTab.id
-                // Remove from closed tabs since it's now open
-                closedTabs.value.delete(tabId)
-              }
-              // Focus the editor after opening the rune
-              focusEditor()
-              isNavigatingHistory.value = false
-            })
-          })
-          .catch(() => {
-            // If opening the rune fails, restore history index and reset flag
-            historyIndex.value++
-            isNavigatingHistory.value = false
-          })
-      } else {
-        // Tab is closed but we don't have its runeId, can't reopen
-        // Restore history index
-        historyIndex.value++
-      }
-    }
-  }
-}
-
-async function navigateHistoryForward() {
-  if (historyIndex.value < tabHistory.value.length - 1) {
-    historyIndex.value++
-    const tabId = tabHistory.value[historyIndex.value]
-    const tab = tabs.value.find((t) => t.id === tabId)
-
-    if (tab) {
-      // Tab is still open, navigate to it
-      isNavigatingHistory.value = true
-      activeTabId.value = tab.id
-      if (tab.runeId) {
-        await openRune(tab.runeId)
-        // Focus the editor after opening the rune
-        focusEditor()
-        nextTick(() => {
-          isNavigatingHistory.value = false
-        })
-      } else {
-        // Reset flag after navigation completes
-        nextTick(() => {
-          isNavigatingHistory.value = false
-        })
-      }
-    } else {
-      // Tab is closed, check if we have its runeId and reopen it
-      const runeId = closedTabs.value.get(tabId)
-      if (runeId) {
-        isNavigatingHistory.value = true
-        // openRune will create a new tab, which will be added to tabs.value
-        // The watch on currentRune will handle setting activeTabId
-        openRune(runeId)
-          .then(() => {
-            // After the rune is opened, find the new tab and update history
-            nextTick(() => {
-              const newTab = tabs.value.find((t) => t.runeId === runeId)
-              if (newTab) {
-                // Update history to use the new tab ID
-                tabHistory.value[historyIndex.value] = newTab.id
-                // Remove from closed tabs since it's now open
-                closedTabs.value.delete(tabId)
-              }
-              // Focus the editor after opening the rune
-              focusEditor()
-              isNavigatingHistory.value = false
-            })
-          })
-          .catch(() => {
-            // If opening the rune fails, restore history index and reset flag
-            historyIndex.value--
-            isNavigatingHistory.value = false
-          })
-      } else {
-        // Tab is closed but we don't have its runeId, can't reopen
-        // Restore history index
-        historyIndex.value--
-      }
-    }
-  }
-}
-
-const canNavigateBack = computed(() => historyIndex.value > 0)
-const canNavigateForward = computed(() => historyIndex.value < tabHistory.value.length - 1)
-
-function handleTabClose(tab: Tab) {
-  const index = tabs.value.findIndex((t) => t.id === tab.id)
-  if (index !== -1) {
-    // Store the runeId for this closed tab so we can reopen it via history
-    if (tab.runeId) {
-      closedTabs.value.set(tab.id, tab.runeId)
-    }
-
-    tabs.value.splice(index, 1)
-
-    // Don't remove from history - keep it so we can navigate back to closed tabs
-    // Just adjust history index if needed
-    const historyTabIndex = tabHistory.value.findIndex((id) => id === tab.id)
-    if (historyTabIndex !== -1) {
-      // Adjust history index if we're closing a tab that's ahead of current position
-      if (historyIndex.value > historyTabIndex) {
-        // We're closing a tab in the past, no adjustment needed
-      } else if (historyIndex.value === historyTabIndex) {
-        // We're closing the current tab, move to previous if available
-        if (historyIndex.value > 0) {
-          historyIndex.value--
-        } else if (historyIndex.value < tabHistory.value.length - 1) {
-          // If we're at the start, move forward if possible
-          historyIndex.value++
-        }
-      }
-      // If historyIndex is after the closed tab, no adjustment needed
-    }
-
-    if (tab.id === activeTabId.value) {
-      if (tabs.value.length > 0) {
-        const nextTab = tabs.value[Math.min(index, tabs.value.length - 1)]
-        activeTabId.value = nextTab.id
-        if (nextTab.runeId) {
-          handleOpenRune(nextTab.runeId)
-        }
-      } else {
-        activeTabId.value = null
-        // Don't clear history - keep it for navigation
-        closeRune()
-      }
-    }
-  }
-}
-
-function handleOpenGraph() {
-  const isGraphEnabled = __APP_CONFIG__.global.featureFlags.graph
-  if (!isGraphEnabled) {
-    return
-  }
-
-  // Check if graph tab already exists
-  const existingGraphTab = tabs.value.find((t) => !t.runeId && t.title === 'Graph View')
-  if (existingGraphTab) {
-    activeTabId.value = existingGraphTab.id
-    if (!isNavigatingHistory.value) {
-      addToHistory(existingGraphTab.id)
-    }
-    return
-  }
-
-  // Create new graph tab
-  const newTab: Tab = {
-    id: `graph-tab-${Date.now()}-${Math.random()}`,
-    title: 'Graph View',
-    hasUnsavedChanges: false,
-  }
-  tabs.value.push(newTab)
-  if (!isNavigatingHistory.value) {
-    addToHistory(newTab.id)
-  }
-  activeTabId.value = newTab.id
-  setStatusMessage('Opened: Graph View', 'info', 2000)
-}
-
-function handleRuneClick(rune: RuneInfo, event?: MouseEvent) {
-  if (isDirectory(rune.title)) {
-    if (expandedDirectories.value.has(rune.title)) {
-      expandedDirectories.value.delete(rune.title)
-    } else {
-      expandedDirectories.value.add(rune.title)
-    }
-    expandedDirectories.value = new Set(expandedDirectories.value)
-  } else {
-    handleOpenRune(rune.uuid)
-    selectedDirectory.value = ''
-  }
-}
-
-// Alternative way to select directory
-function handleRuneDoubleClick(rune: RuneInfo) {
-  if (isDirectory(rune.title)) {
-    selectedDirectory.value = selectedDirectory.value === rune.title ? '' : rune.title
-  }
-}
-
-export interface TreeNode {
-  rune: RuneInfo
-  children: TreeNode[]
-  level: number
-  parentPath: string
-}
-
-function getParentPath(title: string): string {
-  if (!title.includes('/')) return ''
-  const parts = title.split('/').filter((p) => p)
-  if (parts.length <= 1) {
-    return ''
-  }
-  parts.pop()
-  return parts.join('/') + '/'
-}
-
-function expandAllParentDirectories(fullPath: string) {
-  if (!fullPath.includes('/')) return
-  const parts = fullPath.split('/').filter((p) => p)
-  let currentPath = ''
-  for (const part of parts) {
-    currentPath += part + '/'
-    expandedDirectories.value.add(currentPath)
-  }
-  expandedDirectories.value = new Set(expandedDirectories.value)
-}
-
-function isVisible(parentPath: string): boolean {
-  if (parentPath === '') return true
-  const parentParts = parentPath.split('/').filter((p) => p)
-  let currentPath = ''
-  for (const part of parentParts) {
-    currentPath += part + '/'
-    if (!expandedDirectories.value.has(currentPath)) {
-      return false
-    }
-  }
-  return true
-}
-
-function buildTree(runes: RuneInfo[]): TreeNode[] {
-  const tree: TreeNode[] = []
-  const processed = new Set<string>()
-
-  const sortedRunes = [...runes].sort((a, b) => {
-    const aIsDir = isDirectory(a.title)
-    const bIsDir = isDirectory(b.title)
-    if (aIsDir !== bIsDir) return aIsDir ? -1 : 1
-    const comparison = a.title.localeCompare(b.title)
-    return sortOrder.value === 'asc' ? comparison : -comparison
-  })
-
-  function buildNode(rune: RuneInfo, level: number, parentPath: string): TreeNode | null {
-    if (processed.has(rune.uuid)) return null
-
-    if (parentPath !== '' && !isVisible(parentPath)) {
-      return null
-    }
-
-    const node: TreeNode = {
-      rune,
-      children: [],
-      level,
-      parentPath,
-    }
-
-    processed.add(rune.uuid)
-
-    if (isDirectory(rune.title)) {
-      const children = sortedRunes
-        .filter((child) => {
-          if (child.uuid === rune.uuid) return false
-          if (!child.title.startsWith(rune.title)) return false
-
-          const remaining = child.title.slice(rune.title.length)
-          const cleanRemaining = remaining.startsWith('/') ? remaining.slice(1) : remaining
-          const remainingParts = cleanRemaining.split('/').filter((p) => p)
-          return remainingParts.length === 1
-        })
-        .map((child) => buildNode(child, level + 1, rune.title))
-        .filter((n): n is TreeNode => n !== null)
-
-      node.children = children
-    }
-
-    return node
-  }
-
-  for (const rune of sortedRunes) {
-    const parentPath = getParentPath(rune.title)
-
-    const parts = rune.title.split('/').filter((p) => p)
-    const isRootLevel = parts.length <= 1
-
-    if (parentPath === '' && isRootLevel) {
-      const node = buildNode(rune, 0, '')
-      if (node) {
-        tree.push(node)
-      }
-    }
-  }
-
-  return tree
-}
-
-const runeTree = computed(() => buildTree(runes.value))
-
-type EditingState =
-  | { type: 'creating-rune'; parentPath: string }
-  | { type: 'creating-directory'; parentPath: string }
-  | { type: 'renaming'; runeId: string }
-  | null
-
-const editingState = ref<EditingState>(null)
-const selectedRuneForAction = ref<RuneInfo | null>(null)
-const isRenamingCodex = ref(false)
-
-// Drag and drop state
-const draggedRune = ref<RuneInfo | null>(null)
-const dragOverRune = ref<RuneInfo | null>(null)
-
-const showContextMenu = ref(false)
-const contextMenuX = ref(0)
-const contextMenuY = ref(0)
-const contextMenuItems = ref<MenuItem[]>([])
-
-const showConfirmDialog = ref(false)
-const confirmDialogTitle = ref('')
-const confirmDialogMessage = ref('')
-const showSettingsModal = ref(false)
-const confirmDialogAction = ref<(() => void) | null>(null)
-
-function handleCreateRune() {
-  const targetDir = createInDirectory.value || selectedDirectory.value
-  editingState.value = { type: 'creating-rune', parentPath: targetDir }
-  if (targetDir) {
-    expandAllParentDirectories(targetDir)
-    expandedDirectories.value.add(targetDir)
-    expandedDirectories.value = new Set(expandedDirectories.value)
-  }
-}
-
-function handleCreateDirectory() {
-  const targetDir = createInDirectory.value || selectedDirectory.value
-  editingState.value = { type: 'creating-directory', parentPath: targetDir }
-  if (targetDir) {
-    expandAllParentDirectories(targetDir)
-    expandedDirectories.value.add(targetDir)
-    expandedDirectories.value = new Set(expandedDirectories.value)
-  }
-}
-
-const createInDirectory = ref<string>('')
-
-async function handleCreateRuneSubmit(title: string) {
-  try {
-    if (!editingState.value || editingState.value.type !== 'creating-rune') return
-
-    const targetDir = editingState.value.parentPath
-    const fullTitle = targetDir ? `${targetDir}${title}` : title
-    editingState.value = null
-    createInDirectory.value = ''
-
-    const runeId = await createRune(fullTitle)
-    expandAllParentDirectories(fullTitle)
-    await handleOpenRune(runeId)
-    setStatusMessage(`Created note: ${title}`, 'success')
-  } catch (err) {
-    console.error('Error creating rune:', err)
-    setStatusMessage(err instanceof Error ? err.message : 'Error creating note', 'error', 5000)
-    editingState.value = null
-    createInDirectory.value = ''
-  }
-}
-
-function handleCreateRuneCancel() {
-  editingState.value = null
-  createInDirectory.value = ''
-}
-
-async function handleCreateDirectorySubmit(title: string) {
-  try {
-    if (!editingState.value || editingState.value.type !== 'creating-directory') return
-
-    const directoryTitle = title.endsWith('/') ? title : `${title}/`
-    const targetDir = editingState.value.parentPath
-    const fullTitle = targetDir ? `${targetDir}${directoryTitle}` : directoryTitle
-    editingState.value = null
-    createInDirectory.value = ''
-
-    await createRune(fullTitle, '')
-    expandAllParentDirectories(fullTitle)
-    setStatusMessage(`Created directory: ${title}`, 'success')
-  } catch (err) {
-    console.error('Error creating directory:', err)
-    setStatusMessage(err instanceof Error ? err.message : 'Error creating directory', 'error', 5000)
-    editingState.value = null
-    createInDirectory.value = ''
-  }
-}
-
-function handleCreateDirectoryCancel() {
-  editingState.value = null
-  createInDirectory.value = ''
-}
-
-function handleRuneContextMenu(event: MouseEvent, rune: RuneInfo) {
-  selectedRuneForAction.value = rune
-  contextMenuX.value = event.clientX
-  contextMenuY.value = event.clientY
-
-  const isDir = isDirectory(rune.title)
-
-  const items: MenuItem[] = []
-
-  if (isDir) {
-    items.push(
-      {
-        label: selectedDirectory.value === rune.title ? 'Deselect Directory' : 'Select Directory',
-        action: () => {
-          selectedDirectory.value = selectedDirectory.value === rune.title ? '' : rune.title
-        },
-      },
-      {
-        label: 'New Rune',
-        action: () => {
-          createInDirectory.value = rune.title
-          handleCreateRune()
-        },
-      },
-      {
-        label: 'New Directory',
-        action: () => {
-          createInDirectory.value = rune.title
-          handleCreateDirectory()
-        },
-      },
-    )
-  }
-
-  items.push(
-    {
-      label: 'Rename',
-      action: () => {
-        if (selectedRuneForAction.value) {
-          editingState.value = { type: 'renaming', runeId: selectedRuneForAction.value.uuid }
-        }
-      },
-    },
-    {
-      label: 'Duplicate',
-      action: async () => {
-        if (selectedRuneForAction.value && !isDirectory(selectedRuneForAction.value.title)) {
-          try {
-            const duplicatedRuneId = await duplicateRune(selectedRuneForAction.value.uuid)
-            const rune = runes.value.find((r) => r.uuid === duplicatedRuneId)
-            if (rune) {
-              setStatusMessage(`Duplicated: ${rune.title}`, 'success')
-            }
-          } catch (err) {
-            console.error('Error duplicating rune:', err)
-            setStatusMessage(
-              err instanceof Error ? err.message : 'Error duplicating',
-              'error',
-              5000,
-            )
-          }
-        }
-      },
-      disabled: isDir,
-    },
-    {
-      label: 'Delete',
-      action: async () => {
-        if (selectedRuneForAction.value) {
-          try {
-            const runeToDelete = selectedRuneForAction.value
-
-            const runesToDelete: RuneInfo[] = []
-            if (isDirectory(runeToDelete.title)) {
-              runesToDelete.push(
-                ...runes.value.filter(
-                  (r) => r.title.startsWith(runeToDelete.title) && r.uuid !== runeToDelete.uuid,
-                ),
-              )
-            }
-            runesToDelete.push(runeToDelete)
-
-            const tabsToClose = tabs.value.filter(
-              (tab) => tab.runeId && runesToDelete.some((r) => r.uuid === tab.runeId),
-            )
-
-            tabsToClose.forEach((tab) => {
-              const index = tabs.value.findIndex((t) => t.id === tab.id)
-              if (index !== -1) {
-                tabs.value.splice(index, 1)
-              }
-            })
-
-            if (tabsToClose.some((t) => t.id === activeTabId.value)) {
-              if (tabs.value.length > 0) {
-                const nextTab = tabs.value[0]
-                activeTabId.value = nextTab.id
-                if (nextTab.runeId) {
-                  openRune(nextTab.runeId)
-                }
-              } else {
-                activeTabId.value = null
-                closeRune()
-              }
-            }
-
-            if (selectedDirectory.value && runeToDelete.title.startsWith(selectedDirectory.value)) {
-              selectedDirectory.value = ''
-            }
-
-            await deleteRune(runeToDelete.uuid)
-            const itemType = isDirectory(runeToDelete.title) ? 'directory' : 'note'
-            setStatusMessage(`Deleted ${itemType}`, 'success')
-          } catch (err) {
-            console.error('Error deleting rune:', err)
-            setStatusMessage(err instanceof Error ? err.message : 'Error deleting', 'error', 5000)
-          }
-        }
-      },
-      destructive: true,
-    },
-  )
-
-  contextMenuItems.value = items
-  showContextMenu.value = true
-}
-
-async function handleRenameRuneSubmit(newTitle: string) {
-  if (!editingState.value || editingState.value.type !== 'renaming') return
-
-  const runeId = editingState.value.runeId
-  const rune = runes.value.find((r) => r.uuid === runeId)
-  if (!rune) {
-    editingState.value = null
-    return
-  }
-
-  try {
-    const parentPath = getParentPath(rune.title)
-    const fullTitle = parentPath ? `${parentPath}${newTitle}` : newTitle
-    const finalTitle = isDirectory(rune.title)
-      ? fullTitle.endsWith('/')
-        ? fullTitle
-        : `${fullTitle}/`
-      : fullTitle
-    await renameRune(rune.uuid, finalTitle)
-    const itemType = isDirectory(rune.title) ? 'directory' : 'note'
-    setStatusMessage(`${itemType.charAt(0).toUpperCase() + itemType.slice(1)} renamed`, 'success')
-    editingState.value = null
-    selectedRuneForAction.value = null
-  } catch (err) {
-    console.error('Error renaming rune:', err)
-    setStatusMessage(err instanceof Error ? err.message : 'Error renaming', 'error', 5000)
-    editingState.value = null
-  }
-}
-
-function handleRenameRuneCancel() {
-  editingState.value = null
-}
-
-function handleEditSubmit(value: string) {
-  if (!editingState.value) return
-
-  if (editingState.value.type === 'creating-rune') {
-    handleCreateRuneSubmit(value)
-  } else if (editingState.value.type === 'creating-directory') {
-    handleCreateDirectorySubmit(value)
-  } else if (editingState.value.type === 'renaming') {
-    handleRenameRuneSubmit(value)
-  }
-}
-
-function handleEditCancel() {
-  if (!editingState.value) return
-
-  if (editingState.value.type === 'creating-rune') {
-    handleCreateRuneCancel()
-  } else if (editingState.value.type === 'creating-directory') {
-    handleCreateDirectoryCancel()
-  } else if (editingState.value.type === 'renaming') {
-    handleRenameRuneCancel()
-  }
-}
-
-function handleSort() {
-  sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc'
-}
-
-function handleCollapseAll() {
-  expandedDirectories.value.clear()
-  expandedDirectories.value = new Set()
-}
-
-// Drag and drop handlers
-function handleDragStart(rune: RuneInfo | null, event: DragEvent) {
-  if (!rune) return
-  draggedRune.value = rune
-}
-
-function handleDragEnd(event: DragEvent) {
-  draggedRune.value = null
-  dragOverRune.value = null
-}
-
-function handleDragOver(rune: RuneInfo | null, event: DragEvent) {
-  // Only allow dragging over directories (not files)
-  if (!rune || !isDirectory(rune.title)) {
-    dragOverRune.value = null
-    return
-  }
-
-  // Don't allow dropping on self or on a child directory
-  if (draggedRune.value) {
-    const draggedTitle = draggedRune.value.title
-    const targetTitle = rune.title
-
-    // Can't drop on self
-    if (draggedTitle === targetTitle) {
-      dragOverRune.value = null
-      return
-    }
-
-    // Can't drop a directory on its own child
-    if (isDirectory(draggedTitle) && targetTitle.startsWith(draggedTitle)) {
-      dragOverRune.value = null
-      return
-    }
-  }
-
-  dragOverRune.value = rune
-}
-
-async function handleDrop(targetRune: RuneInfo | null, event: DragEvent) {
-  event.preventDefault()
-  event.stopPropagation()
-
-  if (!draggedRune.value) {
-    dragOverRune.value = null
-    return
-  }
-
-  const sourceRune = draggedRune.value
-  const sourceTitle = sourceRune.title
-  const isSourceDir = isDirectory(sourceTitle)
-
-  // Determine target directory path
-  let targetPath = ''
-  if (targetRune && isDirectory(targetRune.title)) {
-    targetPath = targetRune.title
-  } else {
-    // Dropping at root level
-    targetPath = ''
-  }
-
-  // Can't drop on self
-  if (targetRune && sourceTitle === targetRune.title) {
-    dragOverRune.value = null
-    draggedRune.value = null
-    return
-  }
-
-  // Can't drop a directory on its own child
-  if (isSourceDir && targetRune && targetRune.title.startsWith(sourceTitle)) {
-    dragOverRune.value = null
-    draggedRune.value = null
-    return
-  }
-
-  try {
-    // Extract the base name from the source title
-    const baseName = getBaseName(sourceTitle)
-
-    // Build the new title
-    let newTitle: string
-    if (targetPath === '') {
-      // Moving to root
-      newTitle = isSourceDir && !baseName.endsWith('/') ? `${baseName}/` : baseName
-    } else {
-      // Moving to a directory
-      const targetDir = targetPath.endsWith('/') ? targetPath : `${targetPath}/`
-      newTitle =
-        isSourceDir && !baseName.endsWith('/')
-          ? `${targetDir}${baseName}/`
-          : `${targetDir}${baseName}`
-    }
-
-    // Check if the new title already exists
-    const existingRune = runes.value.find((r) => r.title === newTitle && r.uuid !== sourceRune.uuid)
-    if (existingRune) {
-      setStatusMessage(
-        `A ${isSourceDir ? 'directory' : 'file'} with that name already exists in the target location`,
-        'error',
-        5000,
-      )
-      dragOverRune.value = null
-      draggedRune.value = null
-      return
-    }
-
-    // Perform the move by renaming
-    await renameRune(sourceRune.uuid, newTitle)
-
-    // Expand the target directory if it's a directory
-    if (targetRune && isDirectory(targetRune.title)) {
-      expandedDirectories.value.add(targetRune.title)
-      expandedDirectories.value = new Set(expandedDirectories.value)
-    }
-
-    setStatusMessage(`${isSourceDir ? 'Directory' : 'File'} moved successfully`, 'success')
-  } catch (err) {
-    console.error('Error moving rune:', err)
-    setStatusMessage(
-      err instanceof Error ? err.message : 'Error moving file/directory',
-      'error',
-      5000,
-    )
-  } finally {
-    dragOverRune.value = null
-    draggedRune.value = null
-  }
-}
-
-function handleCodexTitleContextMenu(event: MouseEvent) {
-  if (!currentCodex.value) return
-
-  contextMenuX.value = event.clientX
-  contextMenuY.value = event.clientY
-
-  const items: MenuItem[] = [
-    {
-      label: 'Rename',
-      action: () => {
-        isRenamingCodex.value = true
-      },
-    },
-    {
-      label: 'Delete',
-      action: () => {
-        if (currentCodex.value) {
-          confirmDialogTitle.value = 'Delete Codex'
-          confirmDialogMessage.value = `Are you sure you want to delete "${currentCodex.value.title}"? This action cannot be undone.`
-          confirmDialogAction.value = async () => {
-            try {
-              await deleteCodex()
-              // Navigate back to codex selection after deletion
-              router.push('/select-codex')
-              setStatusMessage('Codex deleted', 'success')
-            } catch (err) {
-              console.error('Error deleting codex:', err)
-              setStatusMessage(
-                err instanceof Error ? err.message : 'Error deleting codex',
-                'error',
-                5000,
-              )
-            }
-          }
-          showConfirmDialog.value = true
-        }
-      },
-      destructive: true,
-    },
-  ]
-
-  contextMenuItems.value = items
-  showContextMenu.value = true
-}
-
-async function handleCodexTitleEditSubmit(newTitle: string) {
-  if (!currentCodex.value || newTitle.trim() === currentCodex.value.title) {
-    isRenamingCodex.value = false
-    return
-  }
-
-  try {
-    await renameCodex(newTitle.trim())
-    setStatusMessage('Codex renamed', 'success')
-    isRenamingCodex.value = false
-  } catch (err) {
-    console.error('Error renaming codex:', err)
-    setStatusMessage(err instanceof Error ? err.message : 'Error renaming codex', 'error', 5000)
-    isRenamingCodex.value = false
-  }
-}
-
-function handleCodexTitleEditCancel() {
-  isRenamingCodex.value = false
-}
-
-const headings = computed<Heading[]>(() => {
-  statusBarUpdateTrigger.value
-
-  if (!editorView.value || !hasOpenRune.value) {
-    return []
-  }
-
-  const headingsList: Heading[] = []
-  const tree = syntaxTree(editorView.value.state)
-  const doc = editorView.value.state.doc
-
-  tree.iterate({
-    enter: (node) => {
-      if (node.type.name.startsWith('ATXHeading')) {
-        const level = parseInt(node.type.name.replace('ATXHeading', ''))
-        const headingText = doc
-          .sliceString(node.from, node.to)
-          .replace(/^#+\s+/, '')
-          .trim()
-        const line = doc.lineAt(node.from).number
-
-        if (headingText) {
-          headingsList.push({
-            level,
-            text: headingText,
-            position: node.from,
-            line,
-          })
-        }
-      }
-    },
-  })
-
-  return headingsList
-})
-
-function handleHeadingClick(heading: Heading) {
-  if (!editorView.value) return
-
-  const view = editorView.value
-  const pos = heading.position
-
-  view.dispatch({
-    selection: { anchor: pos },
-    effects: [EditorView.scrollIntoView(pos, { y: 'start', yMargin: 100 })],
-  })
-
-  view.focus()
-}
-
-const statusBarInfo = computed(() => {
-  statusBarUpdateTrigger.value
-
-  if (!editorView.value || !hasOpenRune.value) {
-    return {
-      lines: 0,
-      characters: 0,
-      words: 0,
-      cursorLine: 0,
-      cursorColumn: 0,
-    }
-  }
-
-  const doc = editorView.value.state.doc
-  const content = doc.toString()
-  const lines = doc.lines
-  const characters = content.length
-  const words = content.trim() ? content.trim().split(/\s+/).length : 0
-
-  const selection = editorView.value.state.selection.main
-  const cursorPos = selection.head
-  const cursorLine = doc.lineAt(cursorPos).number
-  const lineStart = doc.lineAt(cursorPos).from
-  const cursorColumn = cursorPos - lineStart + 1
-
-  return {
-    lines,
-    characters,
-    words,
-    cursorLine,
-    cursorColumn,
+// Focus the editor when a rune finishes loading
+watch([isLoadingRune, currentRune], ([loading, rune], [oldLoading]) => {
+  // Focus when loading completes and we have an open rune
+  if (oldLoading && !loading && rune && hasOpenRune.value) {
+    focusEditor()
   }
 })
 
@@ -1753,152 +763,23 @@ watch(
   },
 )
 
-const lastSaveTime = ref<Date | null>(null)
-
-async function handleManualSave() {
-  if (!hasOpenRune.value) {
-    console.warn('Cannot save: No rune is open')
-    return
-  }
-
-  if (!editorView.value) {
-    console.warn('Cannot save: Editor view is not available')
-    return
-  }
-
-  if (!currentRune.value) {
-    console.warn('Cannot save: Current rune is null')
-    return
-  }
-
-  // Force mark as dirty to ensure save happens (manual save should always save)
-  currentRune.value.isDirty = true
-
-  try {
-    await saveCurrentRune(false)
-    lastSaveTime.value = new Date()
-    setStatusMessage('Note saved', 'success')
-  } catch (err) {
-    console.error('Error saving rune:', err)
-    setStatusMessage(err instanceof Error ? err.message : 'Error saving', 'error', 5000)
-  }
-}
-
-function handleKeydown(event: KeyboardEvent) {
-  // Command palette shortcut (Ctrl+P / Cmd+P)
-  if ((event.metaKey || event.ctrlKey) && event.key === 'p') {
-    // ALWAYS prevent default FIRST to stop browser default
-    event.preventDefault()
-    event.stopPropagation()
-
-    const target = event.target as HTMLElement
-    // Only skip opening command palette if user is typing in a regular input/textarea
-    // (Allow it for contentEditable editor elements)
-    const isRegularInputField =
-      target.tagName === 'INPUT' ||
-      target.tagName === 'TEXTAREA' ||
-      target.closest('input') ||
-      target.closest('textarea')
-
-    // Don't open command palette if user is typing in a regular input/textarea
-    if (isRegularInputField) {
-      return
-    }
-
-    showCommandPalette.value = !showCommandPalette.value
-    return
-  }
-
-  // Save shortcut (Ctrl+S / Cmd+S)
-  if ((event.metaKey || event.ctrlKey) && event.key === 's') {
-    const target = event.target as HTMLElement
-    const isInputField =
-      target.tagName === 'INPUT' ||
-      target.tagName === 'TEXTAREA' ||
-      target.isContentEditable ||
-      target.closest('input') ||
-      target.closest('textarea')
-
-    if (isInputField) {
-      return
-    }
-
-    // ALWAYS prevent default FIRST to stop browser save dialog
-    event.preventDefault()
-    event.stopPropagation()
-    event.stopImmediatePropagation()
-
-    if (hasOpenRune.value) {
-      handleManualSave()
-    }
-  }
-}
-
-function handleEditorSave(event: Event) {
-  event.preventDefault()
-  event.stopPropagation()
-
-  if (hasOpenRune.value) {
-    handleManualSave()
-  }
-}
-
-watch(isSavingRune, (isSaving) => {
-  if (!isSaving && hasOpenRune.value && !hasUnsavedChanges.value && !error.value) {
-    lastSaveTime.value = new Date()
-    setStatusMessage('Saved', 'success', 2000)
-  }
-})
-
-watch(error, (err) => {
-  if (err) {
-    setStatusMessage(err.message, 'error', 5000)
-  }
-})
-
-watch(
-  editorElement,
-  (element, oldElement) => {
-    if (oldElement) {
-      oldElement.removeEventListener('editor-save', handleEditorSave)
-    }
-    if (element) {
-      element.addEventListener('editor-save', handleEditorSave)
-    }
-  },
-  { immediate: true },
-)
-
-function handleExit() {
-  const sessionStore = useSessionStore()
-  sessionStore.teardown()
-  router.push('/auth')
-}
-
 onMounted(() => {
-  refreshRuneList()
-
   const runeId = route.params.runeId as string | undefined
   if (runeId) {
     handleOpenRune(runeId)
   }
 
-  window.addEventListener('keydown', handleKeydown, { capture: true })
+  // Add global mouse event listeners for bottom sheet dragging
+  document.addEventListener('mousemove', handleBottomSheetMouseMove)
+  document.addEventListener('mouseup', handleBottomSheetMouseUp)
 })
 
 onUnmounted(() => {
-  window.removeEventListener('keydown', handleKeydown, { capture: true })
-
-  if (editorElement.value) {
-    editorElement.value.removeEventListener('editor-save', handleEditorSave)
-  }
-
-  if (editorView.value && currentUpdateListener) {
-    editorView.value.dom.removeEventListener('input', currentUpdateListener)
-    editorView.value.dom.removeEventListener('selectionchange', currentUpdateListener)
-  }
-  if (currentObserver) {
-    currentObserver.disconnect()
+  // Cleanup scroll sync
+  cleanupScrollSync()
+  // Cleanup preview editor
+  if (previewView.value) {
+    previewComposable.destroy()
   }
 
   // Cleanup upload handlers
@@ -1909,173 +790,431 @@ onUnmounted(() => {
     pasteCleanup()
   }
 
+  // Remove global mouse event listeners for bottom sheet dragging
+  document.removeEventListener('mousemove', handleBottomSheetMouseMove)
+  document.removeEventListener('mouseup', handleBottomSheetMouseUp)
+
   editorComposable.destroy()
 })
 </script>
 
 <template>
-  <main class="codex-layout">
-    <!-- Left Ribbon (Icon Bar) -->
-    <CodexRibbon
-      :collapsed="leftSidebarCollapsed"
-      :active-panel="activeLeftPanel"
-      @update:collapsed="leftSidebarCollapsed = $event"
-      @update:active-panel="activeLeftPanel = $event"
-      @settings="showSettingsModal = true"
-      @exit="handleExit"
-    />
+  <main class="editor-layout">
+    <!-- Top-left Menu Button -->
+    <button
+      class="menu-button"
+      :class="{ hidden: sidebarOpen }"
+      @click="sidebarOpen = !sidebarOpen"
+      aria-label="Toggle sidebar"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <rect width="18" height="18" x="3" y="3" rx="2" />
+        <path d="M9 3v18" />
+        <path d="m14 9 3 3-3 3" />
+      </svg>
+    </button>
 
-    <!-- Left Sidebar -->
-    <CodexLeftSidebar
-      :collapsed="leftSidebarCollapsed"
-      :active-panel="activeLeftPanel"
-      :codex-title="currentCodex?.title || null"
-      :rune-tree="runeTree"
-      :current-rune-id="currentRuneId"
-      :expanded-directories="expandedDirectories"
-      :selected-directory="selectedDirectory"
-      :is-directory="isDirectory"
-      :editing-state="editingState"
-      :search-runes="searchRunes"
-      :drag-over-rune-id="dragOverRune?.uuid || null"
-      @update:collapsed="leftSidebarCollapsed = $event"
-      @rune-click="handleRuneClick"
-      @rune-double-click="handleRuneDoubleClick"
-      @rune-context-menu="handleRuneContextMenu"
-      @create-rune="handleCreateRune"
-      @create-directory="handleCreateDirectory"
-      @clear-selection="selectedDirectory = ''"
-      @collapse-all="handleCollapseAll"
-      @sort="handleSort"
-      @edit-submit="handleEditSubmit"
-      @edit-cancel="handleEditCancel"
-      @codex-title-context-menu="handleCodexTitleContextMenu"
-      :is-renaming-codex="isRenamingCodex"
-      @codex-title-edit-submit="handleCodexTitleEditSubmit"
-      @codex-title-edit-cancel="handleCodexTitleEditCancel"
-      @open-graph="handleOpenGraph"
-      @drag-start="handleDragStart"
-      @drag-end="handleDragEnd"
-      @drag-over="handleDragOver"
-      @drop="handleDrop"
-    />
+    <!-- Sidebar -->
+    <div class="sidebar-overlay" :class="{ open: sidebarOpen }" @click="sidebarOpen = false">
+      <aside class="sidebar" :class="{ open: sidebarOpen }" @click.stop>
+        <div class="sidebar-content">
+          <!-- Sidebar content will go here -->
+        </div>
+      </aside>
+    </div>
 
-    <!-- Main Content Area -->
-    <div class="main-content">
-      <!-- Top Bar -->
-      <CodexTopBar
-        v-model="showCommandPalette"
-        :tabs="tabs"
-        :active-tab-id="activeTabId"
-        :preview-mode="previewMode"
-        :right-sidebar-collapsed="rightSidebarCollapsed"
-        :codex-title="currentCodex?.title || null"
-        :can-navigate-back="canNavigateBack"
-        :can-navigate-forward="canNavigateForward"
-        :runes="runes"
-        :is-directory="isDirectory"
-        :search-runes="searchRunes"
-        :is-syncing="isSyncing"
-        @tab-click="handleTabClick"
-        @tab-close="handleTabClose"
-        @update:tabs="tabs = $event"
-        @toggle-preview="togglePreview"
-        @toggle-right-sidebar="rightSidebarCollapsed = !rightSidebarCollapsed"
-        @open-rune="handleOpenRune"
-        @command="handleCommand"
-        @navigate-back="navigateHistoryBack"
-        @navigate-forward="navigateHistoryForward"
-        @export-rune="handleExportRune"
-        @export-codex="handleExportCodex"
-        @sync="handleSync"
-      />
-
-      <!-- Editor Area -->
+    <!-- Editor Area -->
+    <div class="editor-container" :class="{ 'sidebar-open': sidebarOpen }">
       <CodexEditorArea
         :has-open-rune="hasOpenRune"
         :is-loading-rune="isLoadingRune"
         :current-rune-id="currentRune?.uuid ?? null"
         :preview-mode="previewMode"
-        :is-graph-tab="
-          activeTabId !== null && tabs.find((t) => t.id === activeTabId)?.runeId === undefined
-        "
+        :is-graph-tab="false"
         :is-dragging-over="isDraggingOver"
         :open-rune="handleOpenRune"
         @update:editor-element="editorElement = $event"
         @update:preview-element="previewElement = $event"
       />
-
-      <!-- Status Bar -->
-      <CodexStatusBar
-        :current-rune-title="currentRune?.title || null"
-        :has-open-rune="hasOpenRune"
-        :lines="statusBarInfo.lines"
-        :words="statusBarInfo.words"
-        :cursor-line="statusBarInfo.cursorLine"
-        :cursor-column="statusBarInfo.cursorColumn"
-        :status-message="statusMessage"
-        :status-type="statusType"
-        :is-saving="isSavingRune"
-        :has-error="!!error"
-        :has-unsaved-changes="hasUnsavedChanges"
-        :is-graph-tab="
-          activeTabId !== null && tabs.find((t) => t.id === activeTabId)?.runeId === undefined
-        "
-      />
     </div>
 
-    <!-- Right Sidebar (Outline) -->
-    <CodexRightSidebar
-      :collapsed="rightSidebarCollapsed"
-      :headings="headings"
-      @update:collapsed="rightSidebarCollapsed = $event"
-      @heading-click="handleHeadingClick"
-    />
+    <!-- Bottom App Bar -->
+    <div class="app-bar">
+      <button
+        class="app-bar-button"
+        :class="{ muted: !canUndo }"
+        @click="handleUndo"
+        aria-label="Undo"
+        :disabled="!canUndo"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M3 7v6h6" />
+          <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
+        </svg>
+      </button>
+      <button
+        class="app-bar-button"
+        :class="{ muted: !canRedo }"
+        @click="handleRedo"
+        aria-label="Redo"
+        :disabled="!canRedo"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M21 7v6h-6" />
+          <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7" />
+        </svg>
+      </button>
+      <button class="app-bar-button" @click="handleSearch" aria-label="Search">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <circle cx="11" cy="11" r="8" />
+          <path d="m21 21-4.35-4.35" />
+        </svg>
+      </button>
+      <button class="app-bar-button app-bar-button-add" @click="handleAddRune" aria-label="Add rune">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M5 12h14" />
+          <path d="M12 5v14" />
+        </svg>
+      </button>
+      <button class="app-bar-button" @click="handleOptions" aria-label="Options">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M14 17H5" />
+          <path d="M19 7h-9" />
+          <circle cx="17" cy="17" r="3" />
+          <circle cx="7" cy="7" r="3" />
+        </svg>
+      </button>
+    </div>
 
-    <KeyboardShortcuts />
-    <BubbleMenu :editor-view="editorView" :runes="runes" :is-directory="isDirectory" />
-
-    <!-- Context Menu -->
-    <CodexContextMenu
-      v-model:show="showContextMenu"
-      :x="contextMenuX"
-      :y="contextMenuY"
-      :items="contextMenuItems"
-    />
-
-    <!-- Confirmation Dialog -->
-    <Modal
-      v-model:show="showConfirmDialog"
-      :title="confirmDialogTitle"
-      :message="confirmDialogMessage"
-      confirm-text="Delete"
-      cancel-text="Cancel"
-      :destructive="true"
-      @confirm="confirmDialogAction?.()"
-    />
-
-    <!-- Settings Modal -->
-    <SettingsModal v-model:show="showSettingsModal" />
+    <!-- Bottom Sheet -->
+    <Transition name="bottom-sheet">
+      <div
+        v-if="bottomSheetOpen"
+        class="bottom-sheet-overlay"
+        @click="closeBottomSheet"
+      >
+        <div
+          class="bottom-sheet"
+          :class="{ dragging: isDragging }"
+          :style="{ height: `${bottomSheetHeight}px` }"
+          @click.stop
+        >
+          <div
+            class="bottom-sheet-drag-area"
+            @touchstart="handleBottomSheetTouchStart"
+            @touchmove="handleBottomSheetTouchMove"
+            @touchend="handleBottomSheetTouchEnd"
+            @mousedown="handleBottomSheetMouseDown"
+          >
+            <div class="bottom-sheet-handle" />
+          </div>
+          <div class="bottom-sheet-content">
+            <!-- Bottom sheet content will go here -->
+          </div>
+        </div>
+      </div>
+    </Transition>
   </main>
 </template>
 
 <style scoped>
-.codex-layout {
+.editor-layout {
   width: 100%;
   height: 100%;
   display: flex;
+  flex-direction: column;
   overflow: hidden;
   background: transparent;
   font-family: var(--font-primary);
+  position: relative;
 }
 
-.main-content {
+/* Top-left Menu Button */
+.menu-button {
+  position: fixed;
+  top: 1rem;
+  left: 1rem;
+  z-index: 1001;
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--color-foreground);
+  cursor: pointer;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+  opacity: 1;
+  visibility: visible;
+}
+
+.menu-button:hover {
+  opacity: 0.7;
+}
+
+.menu-button:active {
+  opacity: 0.5;
+}
+
+.menu-button.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.menu-button svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Sidebar */
+.sidebar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--color-modal-backdrop);
+  z-index: 1000;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+  pointer-events: none;
+}
+
+.sidebar-overlay.open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: all;
+}
+
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 280px;
+  max-width: 85vw;
+  background: var(--color-background);
+  border-right: 1px solid var(--color-overlay-border);
+  transform: translateX(-100%);
+  transition: transform 0.3s ease;
+  z-index: 1001;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.sidebar.open {
+  transform: translateX(0);
+}
+
+.sidebar-content {
+  padding: 1rem;
+  padding-top: 4.5rem; /* Account for menu button */
+}
+
+/* Editor Container */
+.editor-container {
   flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  min-width: 0;
+  transition: margin-left 0.3s ease;
+  margin-bottom: 4rem; /* Account for app bar */
+}
+
+/* Bottom App Bar */
+.app-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 4rem;
+  background: var(--color-background);
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 0 1rem;
+  z-index: 999;
+  backdrop-filter: blur(8px);
+}
+
+.app-bar-button {
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: transparent;
+  border: none;
+  border-radius: 0.5rem;
+  color: var(--color-foreground);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0;
+}
+
+
+.app-bar-button:disabled {
+  cursor: not-allowed;
+}
+
+.app-bar-button.muted {
+  color: var(--color-muted);
+}
+
+.app-bar-button-add {
+  width: 2.5rem;
+  height: 2.5rem;
+  background: transparent;
+  color: var(--color-foreground);
+  border-radius: 0.5rem;
+}
+
+
+.app-bar-button svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Bottom Sheet */
+.bottom-sheet-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--color-modal-backdrop);
+  z-index: 1002;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.bottom-sheet {
+  width: 100%;
+  max-width: 100%;
+  background: var(--color-background);
+  border-top: 1px solid var(--color-overlay-border);
+  border-top-left-radius: 1rem;
+  border-top-right-radius: 1rem;
+  display: flex;
+  flex-direction: column;
+  transition: height 0.3s ease;
+  touch-action: none;
+  user-select: none;
+  overflow: hidden;
+  min-height: 0;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.bottom-sheet.dragging {
+  transition: none;
+}
+
+.bottom-sheet-drag-area {
+  flex-shrink: 0;
+  padding: 0.5rem;
+  cursor: grab;
+  touch-action: none;
+}
+
+.bottom-sheet-drag-area:active {
+  cursor: grabbing;
+}
+
+.bottom-sheet-handle {
+  width: 2.5rem;
+  height: 0.25rem;
+  background: var(--color-overlay-border);
+  border-radius: 0.125rem;
+  margin: 0 auto;
+}
+
+.bottom-sheet-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+  padding-bottom: calc(4rem + 1rem); /* Account for app bar */
+  min-height: 0;
+}
+
+/* Bottom sheet transition animations */
+.bottom-sheet-enter-active {
+  transition: opacity 0.3s ease;
+}
+
+.bottom-sheet-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.bottom-sheet-enter-from {
+  opacity: 0;
+}
+
+.bottom-sheet-leave-to {
+  opacity: 0;
 }
 
 /* Drag and drop styles for image upload */
