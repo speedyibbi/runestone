@@ -26,6 +26,19 @@ const confirmDialogTitle = ref('')
 const confirmDialogMessage = ref('')
 const confirmDialogAction = ref<(() => void) | null>(null)
 
+// Touch-based drag and drop state
+const draggedRune = ref<RuneInfo | null>(null)
+const dragOverRune = ref<RuneInfo | null>(null)
+const isDraggingRune = ref(false)
+const dragStartPosition = ref({ x: 0, y: 0 })
+const dragCurrentPosition = ref({ x: 0, y: 0 })
+const showTrashIcon = ref(false)
+const isOverTrash = ref(false)
+const showEditIcon = ref(false)
+const isOverEdit = ref(false)
+let dragLongPressTimer: ReturnType<typeof setTimeout> | null = null
+let dragHasMoved = false
+
 // Scroll-based UI visibility
 const showMenuButton = ref(true)
 const showAppBar = ref(true)
@@ -314,6 +327,8 @@ const {
   searchRunes,
   renameCodex,
   deleteCodex,
+  renameRune,
+  deleteRune,
 } = useCodex(editorViewRef, { autoSave: true })
 
 const autoSaveCallback = createAutoSaveCallback()
@@ -1067,7 +1082,7 @@ function handleSort() {
   sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc'
 }
 
-function handleEditSubmit(value: string) {
+async function handleEditSubmit(value: string) {
   if (!editingState.value) return
 
   if (editingState.value.type === 'creating-rune') {
@@ -1075,7 +1090,32 @@ function handleEditSubmit(value: string) {
   } else if (editingState.value.type === 'creating-directory') {
     handleCreateDirectorySubmit(value)
   } else if (editingState.value.type === 'renaming') {
-    // TODO: Implement rename
+    await handleRenameRuneSubmit(value)
+  }
+}
+
+async function handleRenameRuneSubmit(newTitle: string) {
+  if (!editingState.value || editingState.value.type !== 'renaming') return
+
+  const runeId = editingState.value.runeId
+  const rune = runes.value.find((r) => r.uuid === runeId)
+  if (!rune) {
+    editingState.value = null
+    return
+  }
+
+  try {
+    const parentPath = getParentPath(rune.title)
+    const fullTitle = parentPath ? `${parentPath}${newTitle}` : newTitle
+    const finalTitle = isDirectory(rune.title)
+      ? fullTitle.endsWith('/')
+        ? fullTitle
+        : `${fullTitle}/`
+      : fullTitle
+    await renameRune(rune.uuid, finalTitle)
+    editingState.value = null
+  } catch (err) {
+    console.error('Error renaming rune:', err)
     editingState.value = null
   }
 }
@@ -1232,6 +1272,296 @@ watch(isRenamingCodex, (isRenaming) => {
   }
 })
 
+// Helper function to extract base name from full path
+function getBaseName(fullTitle: string): string {
+  const parts = fullTitle.split('/').filter((p) => p)
+  return parts[parts.length - 1] || fullTitle
+}
+
+// Touch-based drag and drop handlers
+let currentTouchRune: RuneInfo | null = null
+
+function findRuneFromElement(element: HTMLElement): RuneInfo | null {
+  const runeItem = element.closest('.rune-item')
+  if (!runeItem) return null
+  
+  // Try to find rune by matching the text content with rune titles
+  const itemText = (runeItem.textContent || '').trim()
+  if (!itemText) return null
+  
+  // Get all rune items in order
+  const allRuneItems = Array.from(document.querySelectorAll('.sidebar-content .rune-item'))
+  const itemIndex = allRuneItems.indexOf(runeItem)
+  
+  // Try to match by index in the tree
+  const treeNodes = runeTree.value
+  function findRuneInTree(nodes: typeof treeNodes, targetIndex: number, currentIndex: { value: number }): RuneInfo | null {
+    for (const node of nodes) {
+      if (currentIndex.value === targetIndex) {
+        return node.rune
+      }
+      currentIndex.value++
+      if (node.children.length > 0 && expandedDirectories.value.has(node.rune.title)) {
+        const found = findRuneInTree(node.children, targetIndex, currentIndex)
+        if (found) return found
+      }
+    }
+    return null
+  }
+  
+  const foundByIndex = findRuneInTree(treeNodes, itemIndex, { value: 0 })
+  if (foundByIndex) return foundByIndex
+  
+  // Fallback: match by text content
+  for (const rune of runes.value) {
+    const displayName = getBaseName(rune.title)
+    if (itemText.includes(displayName) || itemText.includes(rune.title)) {
+      return rune
+    }
+  }
+  
+  return null
+}
+
+function handleSidebarTouchStart(event: TouchEvent) {
+  if (editingState.value || isDraggingRune.value) return
+  
+  const target = event.target as HTMLElement
+  const foundRune = findRuneFromElement(target)
+  if (!foundRune) return
+  
+  currentTouchRune = foundRune
+  dragHasMoved = false
+  dragStartPosition.value = {
+    x: event.touches[0].clientX,
+    y: event.touches[0].clientY,
+  }
+  
+  // Start long press timer
+  dragLongPressTimer = setTimeout(() => {
+    if (!dragHasMoved && currentTouchRune) {
+      startDrag(currentTouchRune, dragStartPosition.value)
+    }
+  }, 500) // 500ms for long press
+}
+
+function handleSidebarTouchMove(event: TouchEvent) {
+  if (!isDraggingRune.value && currentTouchRune) {
+    // Check if moved enough to cancel long press
+    const deltaX = Math.abs(event.touches[0].clientX - dragStartPosition.value.x)
+    const deltaY = Math.abs(event.touches[0].clientY - dragStartPosition.value.y)
+    if (deltaX > 10 || deltaY > 10) {
+      dragHasMoved = true
+      if (dragLongPressTimer) {
+        clearTimeout(dragLongPressTimer)
+        dragLongPressTimer = null
+      }
+    }
+    return
+  }
+  
+  if (!isDraggingRune.value) return
+  
+  event.preventDefault()
+  
+  const touch = event.touches[0]
+  dragCurrentPosition.value = {
+    x: touch.clientX,
+    y: touch.clientY,
+  }
+  
+  // Check if over trash icon
+  const trashElement = document.querySelector('.trash-drop-zone') as HTMLElement
+  if (trashElement) {
+    const trashRect = trashElement.getBoundingClientRect()
+    const isOver = (
+      touch.clientX >= trashRect.left &&
+      touch.clientX <= trashRect.right &&
+      touch.clientY >= trashRect.top &&
+      touch.clientY <= trashRect.bottom
+    )
+    isOverTrash.value = isOver
+  } else {
+    isOverTrash.value = false
+  }
+  
+  // Check if over edit icon
+  const editElement = document.querySelector('.edit-drop-zone') as HTMLElement
+  if (editElement) {
+    const editRect = editElement.getBoundingClientRect()
+    const isOver = (
+      touch.clientX >= editRect.left &&
+      touch.clientX <= editRect.right &&
+      touch.clientY >= editRect.top &&
+      touch.clientY <= editRect.bottom
+    )
+    isOverEdit.value = isOver
+  } else {
+    isOverEdit.value = false
+  }
+  
+  // Check if over a directory
+  const elementUnderTouch = document.elementFromPoint(touch.clientX, touch.clientY)
+  if (elementUnderTouch) {
+    const targetRune = findRuneFromElement(elementUnderTouch as HTMLElement)
+    if (targetRune && isDirectory(targetRune.title) && targetRune.uuid !== draggedRune.value?.uuid) {
+      // Check if it's not a child of the dragged directory
+      if (draggedRune.value && isDirectory(draggedRune.value.title)) {
+        if (targetRune.title.startsWith(draggedRune.value.title)) {
+          dragOverRune.value = null
+          return
+        }
+      }
+      dragOverRune.value = targetRune
+      return
+    }
+  }
+  
+  dragOverRune.value = null
+}
+
+function handleSidebarTouchEnd(event: TouchEvent) {
+  if (dragLongPressTimer) {
+    clearTimeout(dragLongPressTimer)
+    dragLongPressTimer = null
+  }
+  
+  if (!isDraggingRune.value) {
+    dragHasMoved = false
+    currentTouchRune = null
+    return
+  }
+  
+  event.preventDefault()
+  
+  // Handle drop
+  if (isOverEdit.value && draggedRune.value) {
+    // Edit/rename the rune
+    handleEditDrop()
+  } else if (isOverTrash.value && draggedRune.value) {
+    // Delete the rune
+    handleTrashDrop()
+  } else if (dragOverRune.value && draggedRune.value) {
+    // Drop on directory
+    handleRuneDrop(dragOverRune.value)
+  } else if (draggedRune.value) {
+    // Drop at root level
+    handleRuneDrop(null)
+  }
+  
+  endDrag()
+  currentTouchRune = null
+}
+
+function startDrag(rune: RuneInfo, position: { x: number; y: number }) {
+  draggedRune.value = rune
+  isDraggingRune.value = true
+  dragCurrentPosition.value = position
+  showTrashIcon.value = true
+  showEditIcon.value = true
+  dragHasMoved = false
+}
+
+function endDrag() {
+  draggedRune.value = null
+  dragOverRune.value = null
+  isDraggingRune.value = false
+  showTrashIcon.value = false
+  isOverTrash.value = false
+  showEditIcon.value = false
+  isOverEdit.value = false
+  dragHasMoved = false
+}
+
+async function handleRuneDrop(targetRune: RuneInfo | null) {
+  if (!draggedRune.value) return
+  
+  const sourceRune = draggedRune.value
+  const sourceTitle = sourceRune.title
+  const isSourceDir = isDirectory(sourceTitle)
+  
+  // Determine target directory path
+  let targetPath = ''
+  if (targetRune && isDirectory(targetRune.title)) {
+    targetPath = targetRune.title
+  } else {
+    // Dropping at root level
+    targetPath = ''
+  }
+  
+  // Can't drop on self
+  if (targetRune && sourceTitle === targetRune.title) {
+    return
+  }
+  
+  // Can't drop a directory on its own child
+  if (isSourceDir && targetRune && targetRune.title.startsWith(sourceTitle)) {
+    return
+  }
+  
+  try {
+    // Extract the base name from the source title
+    const baseName = getBaseName(sourceTitle)
+    
+    // Build the new title
+    let newTitle: string
+    if (targetPath === '') {
+      // Moving to root
+      newTitle = isSourceDir && !baseName.endsWith('/') ? `${baseName}/` : baseName
+    } else {
+      // Moving to a directory
+      const targetDir = targetPath.endsWith('/') ? targetPath : `${targetPath}/`
+      newTitle =
+        isSourceDir && !baseName.endsWith('/')
+          ? `${targetDir}${baseName}/`
+          : `${targetDir}${baseName}`
+    }
+    
+    // Check if the new title already exists
+    const existingRune = runes.value.find((r) => r.title === newTitle && r.uuid !== sourceRune.uuid)
+    if (existingRune) {
+      console.error(`A ${isSourceDir ? 'directory' : 'file'} with that name already exists in the target location`)
+      return
+    }
+    
+    // Perform the move by renaming
+    await renameRune(sourceRune.uuid, newTitle)
+    
+    // Expand the target directory if it's a directory
+    if (targetRune && isDirectory(targetRune.title)) {
+      expandedDirectories.value.add(targetRune.title)
+      expandedDirectories.value = new Set(expandedDirectories.value)
+    }
+  } catch (err) {
+    console.error('Error moving rune:', err)
+  }
+}
+
+async function handleTrashDrop() {
+  if (!draggedRune.value) return
+  
+  const runeToDelete = draggedRune.value
+  try {
+    await deleteRune(runeToDelete.uuid)
+  } catch (err) {
+    console.error('Error deleting rune:', err)
+  }
+}
+
+function handleEditDrop() {
+  if (!draggedRune.value) return
+  
+  const runeToEdit = draggedRune.value
+  // Enter rename mode
+  editingState.value = { type: 'renaming', runeId: runeToEdit.uuid }
+  
+  // Expand parent directories if needed
+  const parentPath = getParentPath(runeToEdit.title)
+  if (parentPath) {
+    expandAllParentDirectories(parentPath)
+  }
+}
+
 onMounted(() => {
   const runeId = route.params.runeId as string | undefined
   if (runeId) {
@@ -1363,7 +1693,7 @@ onUnmounted(() => {
             </div>
           </div>
         </div>
-        <div class="sidebar-content">
+        <div class="sidebar-content" @touchstart="handleSidebarTouchStart" @touchmove="handleSidebarTouchMove" @touchend="handleSidebarTouchEnd">
           <CodexRuneList
             :rune-tree="runeTree"
             :current-rune-id="currentRune?.uuid ?? null"
@@ -1371,7 +1701,7 @@ onUnmounted(() => {
             :selected-directory="selectedDirectory"
             :is-directory="isDirectory"
             :editing-state="editingState"
-            :drag-over-rune-id="null"
+            :drag-over-rune-id="dragOverRune?.uuid ?? null"
             @rune-click="handleRuneClick"
             @rune-double-click="handleRuneDoubleClick"
             @create-rune="handleCreateRune"
@@ -1541,6 +1871,55 @@ onUnmounted(() => {
       max-width="calc(100vw - 2rem)"
       @confirm="confirmDialogAction?.()"
     />
+
+    <!-- Trash Drop Zone -->
+    <Transition name="trash-fade">
+      <div
+        v-if="showTrashIcon"
+        class="trash-drop-zone"
+        :class="{ 'drag-over': isOverTrash }"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M3 6h18" />
+          <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+          <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+        </svg>
+      </div>
+    </Transition>
+
+    <!-- Edit Drop Zone -->
+    <Transition name="edit-fade">
+      <div
+        v-if="showEditIcon"
+        class="edit-drop-zone"
+        :class="{ 'drag-over': isOverEdit }"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+        </svg>
+      </div>
+    </Transition>
   </main>
 </template>
 
@@ -2072,5 +2451,110 @@ onUnmounted(() => {
   width: 100%;
   padding: 0.75rem 1rem !important;
   font-size: 0.9375rem !important;
+}
+
+/* Trash Drop Zone */
+.trash-drop-zone {
+  position: fixed;
+  bottom: 2rem;
+  left: calc(50% + 4rem);
+  transform: translateX(-50%);
+  width: 4rem;
+  height: 4rem;
+  border-radius: 50%;
+  background: var(--color-overlay-light);
+  border: 2px solid var(--color-overlay-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px var(--color-modal-shadow);
+}
+
+.trash-drop-zone.drag-over {
+  background: var(--color-error);
+  border-color: var(--color-error);
+  transform: translateX(-50%) scale(1.1);
+}
+
+.trash-drop-zone svg {
+  color: var(--color-foreground);
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.trash-drop-zone.drag-over svg {
+  color: var(--color-background);
+}
+
+/* Trash fade transition */
+.trash-fade-enter-active,
+.trash-fade-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.trash-fade-enter-from,
+.trash-fade-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(1rem);
+}
+
+/* Drag over state for rune items */
+:deep(.rune-item.drag-over) {
+  background: var(--color-overlay-light);
+  border-left: 2px solid var(--color-accent);
+}
+
+/* Edit Drop Zone */
+.edit-drop-zone {
+  position: fixed;
+  bottom: 2rem;
+  left: calc(50% - 4rem);
+  transform: translateX(-50%);
+  width: 4rem;
+  height: 4rem;
+  border-radius: 50%;
+  background: var(--color-overlay-light);
+  border: 2px solid var(--color-overlay-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px var(--color-modal-shadow);
+}
+
+.edit-drop-zone.drag-over {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  transform: translateX(-50%) scale(1.1);
+}
+
+.edit-drop-zone svg {
+  color: var(--color-foreground);
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.edit-drop-zone.drag-over svg {
+  color: var(--color-background);
+}
+
+/* Edit fade transition */
+.edit-fade-enter-active,
+.edit-fade-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.edit-fade-enter-from,
+.edit-fade-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(1rem);
+}
+
+/* Add data attributes to rune items for touch drag and drop */
+:deep(.sidebar-content .rune-item) {
+  touch-action: pan-y;
 }
 </style>
