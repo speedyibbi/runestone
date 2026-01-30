@@ -145,4 +145,31 @@ const { toasts, dismiss } = useToast()
 .toast-move {
   transition: all 0.25s ease;
 }
+
+/* Mobile-specific toast positioning */
+@media (max-width: 1023px) {
+  .toast-container {
+    top: 1.5rem;
+    right: auto;
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100vw - 2rem);
+    max-width: 20rem;
+  }
+
+  .toast-leave-active {
+    width: calc(100vw - 2rem);
+    max-width: 20rem;
+  }
+
+  .toast-enter-from {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+
+  .toast-leave-to {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+}
 </style>

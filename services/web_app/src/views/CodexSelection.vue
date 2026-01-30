@@ -104,7 +104,7 @@ onMounted(() => {
           <!-- Main Content Area -->
           <div class="content-area">
             <!-- Codex List -->
-            <div v-if="hasCodexes" :class="['codex-list', { 'few-items': isFewItems }]">
+            <div v-if="hasCodexes" :class="['codex-list', { 'few-items': isFewItems, 'many-items': !isFewItems }]">
               <div v-for="codex in codexes" :key="codex.uuid" class="codex-item-wrapper">
                 <button
                   :class="['codex-item', { loading: openingCodexId === codex.uuid }]"
@@ -434,6 +434,145 @@ h1 {
     background-position:
       250% 0,
       250% 0;
+  }
+}
+
+/* Mobile view - max-width: 1023px */
+@media (max-width: 1023px) {
+  main {
+    height: 100vh;
+    padding: 1rem 0;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+
+  /* Allow overflow when showing create form */
+  main:has(.create-content) {
+    overflow: visible;
+  }
+
+  .container {
+    height: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .view {
+    height: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+    justify-content: center;
+  }
+
+  /* Create view should allow overflow for back button */
+  .view:has(.create-content) {
+    overflow: visible;
+  }
+
+  /* When list has many items, space between title and button */
+  .view:has(.codex-list.many-items) {
+    justify-content: space-between;
+  }
+
+  h1 {
+    font-size: 1.5rem;
+    margin-bottom: 1.5rem;
+    margin-top: 0;
+  }
+
+  .content-area {
+    padding: 0 1rem;
+    overflow: hidden;
+    box-sizing: border-box;
+    justify-content: center;
+    align-items: center;
+    flex-shrink: 1;
+    flex: 0 1 auto;
+  }
+
+  /* Create content area should allow overflow for back button and loading pulse */
+  .content-area.create-content {
+    overflow: visible;
+    padding-bottom: 4rem; /* Extra space for back button */
+  }
+
+  /* When list has many items, take up available space */
+  .content-area:has(.codex-list.many-items) {
+    flex: 1;
+    min-height: 0;
+    justify-content: flex-start;
+  }
+
+  /* Mobile view - vertical list instead of grid */
+  .codex-list {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0;
+    padding: 0;
+    margin: 0 auto;
+    width: 100%;
+    max-width: 90vw;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* When list has few items, allow it to shrink and center - no scrolling */
+  .codex-list.few-items {
+    flex-shrink: 1;
+    max-height: none;
+    overflow-y: visible;
+    margin-bottom: 0;
+  }
+
+  /* When list has many items, make it scrollable and take available space */
+  .codex-list.many-items {
+    flex: 1;
+    min-height: 0;
+    max-height: 100%;
+    overflow-y: auto;
+
+    /* Hide scrollbar */
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+  }
+
+  .codex-list.many-items::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Edge */
+  }
+
+  .codex-item-wrapper {
+    width: 100%;
+    flex-shrink: 0;
+  }
+
+  .codex-item {
+    width: 100%;
+    border-bottom: 2px solid var(--color-overlay-border);
+  }
+
+  .codex-item::after {
+    display: none;
+  }
+
+  .codex-item:not(:disabled):hover {
+    background: var(--color-overlay-subtle);
+    padding-left: 1.25rem;
+  }
+
+  .codex-item:not(:disabled):hover::after {
+    display: none;
+  }
+
+  .create-section {
+    padding: 1.5rem 0;
+  }
+
+  .create-button {
+    width: 100%;
+    max-width: 90vw;
   }
 }
 </style>

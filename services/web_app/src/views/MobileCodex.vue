@@ -1125,7 +1125,7 @@ async function handleOpenRune(runeId: string) {
 watch([isLoadingRune, currentRune], ([loading, rune], [oldLoading]) => {
   // Focus when loading completes and we have an open rune
   if (oldLoading && !loading && rune && hasOpenRune.value) {
-    focusEditor()
+        focusEditor()
   }
 })
 
@@ -1613,7 +1613,7 @@ function handleSidebarTouchMove(event: TouchEvent) {
     // Don't prevent default here to allow scrolling
     return
   }
-  
+
   if (!isDraggingRune.value) return
   
   // Prevent scrolling and other default behaviors during drag
@@ -1666,16 +1666,16 @@ function handleSidebarTouchMove(event: TouchEvent) {
       // Check if it's not a child of the dragged directory
       if (draggedRune.value && isDirectory(draggedRune.value.title)) {
         if (targetRune.title.startsWith(draggedRune.value.title)) {
-          dragOverRune.value = null
-          return
+      dragOverRune.value = null
+      return
         }
       }
       dragOverRune.value = targetRune
       return
     }
-  }
-  
-  dragOverRune.value = null
+    }
+
+      dragOverRune.value = null
 }
 
 function handleSidebarTouchEnd(event: TouchEvent) {
@@ -1698,7 +1698,7 @@ function handleSidebarTouchEnd(event: TouchEvent) {
   
   event.preventDefault()
   event.stopPropagation()
-  
+
   // Handle drop
   if (isOverEdit.value && draggedRune.value) {
     // Edit/rename the rune
@@ -1736,7 +1736,7 @@ function startDrag(rune: RuneInfo, position: { x: number; y: number }) {
 
 function endDrag() {
   draggedRune.value = null
-  dragOverRune.value = null
+    dragOverRune.value = null
   isDraggingRune.value = false
   showTrashIcon.value = false
   isOverTrash.value = false
@@ -1753,11 +1753,11 @@ function endDrag() {
 
 async function handleRuneDrop(targetRune: RuneInfo | null) {
   if (!draggedRune.value) return
-  
+
   const sourceRune = draggedRune.value
   const sourceTitle = sourceRune.title
   const isSourceDir = isDirectory(sourceTitle)
-  
+
   // Determine target directory path
   let targetPath = ''
   if (targetRune && isDirectory(targetRune.title)) {
@@ -1766,21 +1766,21 @@ async function handleRuneDrop(targetRune: RuneInfo | null) {
     // Dropping at root level
     targetPath = ''
   }
-  
+
   // Can't drop on self
   if (targetRune && sourceTitle === targetRune.title) {
     return
   }
-  
+
   // Can't drop a directory on its own child
   if (isSourceDir && targetRune && targetRune.title.startsWith(sourceTitle)) {
     return
   }
-  
+
   try {
     // Extract the base name from the source title
     const baseName = getBaseName(sourceTitle)
-    
+
     // Build the new title
     let newTitle: string
     if (targetPath === '') {
@@ -1794,17 +1794,17 @@ async function handleRuneDrop(targetRune: RuneInfo | null) {
           ? `${targetDir}${baseName}/`
           : `${targetDir}${baseName}`
     }
-    
+
     // Check if the new title already exists
     const existingRune = runes.value.find((r) => r.title === newTitle && r.uuid !== sourceRune.uuid)
     if (existingRune) {
       console.error(`A ${isSourceDir ? 'directory' : 'file'} with that name already exists in the target location`)
       return
     }
-    
+
     // Perform the move by renaming
     await renameRune(sourceRune.uuid, newTitle)
-    
+
     // Expand the target directory if it's a directory
     if (targetRune && isDirectory(targetRune.title)) {
       expandedDirectories.value.add(targetRune.title)
@@ -1821,7 +1821,7 @@ async function handleTrashDrop() {
   const runeToDelete = draggedRune.value
   try {
     await deleteRune(runeToDelete.uuid)
-  } catch (err) {
+            } catch (err) {
     console.error('Error deleting rune:', err)
   }
 }
