@@ -2,7 +2,7 @@
 import { ref, watch, onMounted, onUnmounted, nextTick, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ViewUpdate } from '@codemirror/view'
-import { undo, redo, undoDepth, redoDepth } from '@codemirror/commands'
+import { undoDepth, redoDepth } from '@codemirror/commands'
 import { useEditor, type PreviewMode } from '@/composables/useEditor'
 import { useCodex, type RuneInfo } from '@/composables/useCodex'
 import { useSessionStore } from '@/stores/session'
@@ -39,6 +39,11 @@ const showCommandPalette = ref(false)
 
 // Graph view state
 const showGraphView = ref(false)
+
+// Add rune modal state
+const showAddRuneModal = ref(false)
+const newRuneName = ref('')
+const newRuneNameInputRef = ref<HTMLInputElement>()
 
 // Touch-based drag and drop state
 const draggedRune = ref<RuneInfo | null>(null)
@@ -247,7 +252,42 @@ function handleCloseGraphView() {
 }
 
 function handleAddRune() {
-  // TODO: Implement add rune
+  newRuneName.value = ''
+  showAddRuneModal.value = true
+  // Focus input after modal opens
+  nextTick(() => {
+    newRuneNameInputRef.value?.focus()
+  })
+}
+
+async function handleAddRuneConfirm() {
+  const name = newRuneName.value.trim()
+  if (!name) return
+  
+  try {
+    const runeId = await createRune(name)
+    showAddRuneModal.value = false
+    newRuneName.value = ''
+    await handleOpenRune(runeId)
+  } catch (err) {
+    console.error('Error creating rune:', err)
+    // Keep modal open on error so user can retry
+  }
+}
+
+function handleAddRuneCancel() {
+  showAddRuneModal.value = false
+  newRuneName.value = ''
+}
+
+function handleAddRuneKeydown(event: KeyboardEvent) {
+  if (event.key === 'Enter' && !event.shiftKey) {
+    event.preventDefault()
+    handleAddRuneConfirm()
+  } else if (event.key === 'Escape') {
+    event.preventDefault()
+    handleAddRuneCancel()
+  }
 }
 
 function handleOptions() {
@@ -2108,6 +2148,28 @@ onUnmounted(() => {
     <!-- Settings Modal -->
     <SettingsModal v-model:show="showSettingsModal" />
 
+    <!-- Add Rune Modal -->
+    <Modal
+      v-model:show="showAddRuneModal"
+      title="Create New Rune"
+      confirm-text="Create"
+      cancel-text="Cancel"
+      max-width="calc(100vw - 2rem)"
+      @confirm="handleAddRuneConfirm"
+      @cancel="handleAddRuneCancel"
+    >
+      <div class="add-rune-modal-content">
+        <input
+          ref="newRuneNameInputRef"
+          v-model="newRuneName"
+          type="text"
+          class="add-rune-input"
+          placeholder="Enter rune name..."
+          @keydown="handleAddRuneKeydown"
+        />
+      </div>
+    </Modal>
+
     <!-- Command Palette -->
     <div class="command-palette-wrapper">
       <CommandPalette
@@ -3011,5 +3073,44 @@ onUnmounted(() => {
 .graph-view-container :deep(.graph-svg) {
   width: 100%;
   height: 100%;
+}
+
+/* Add Rune Modal Styles */
+.add-rune-modal-content {
+  padding: 0.5rem 0;
+}
+
+.add-rune-input {
+  width: 100%;
+  padding: 0.75rem;
+  font-size: 1rem;
+  background: var(--color-background);
+  border: 1px solid var(--color-overlay-border);
+  border-radius: 0.5rem;
+  color: var(--color-foreground);
+  outline: none;
+  transition: border-color 0.2s ease;
+  box-sizing: border-box;
+}
+
+.add-rune-input:focus {
+  border-color: var(--color-accent);
+}
+
+.add-rune-input::placeholder {
+  color: var(--color-muted);
+  opacity: 0.6;
+}
+
+/* Mobile-specific modal styles for add rune */
+@media (max-width: 768px) {
+  .add-rune-modal-content {
+    padding: 0.25rem 0;
+  }
+
+  .add-rune-input {
+    font-size: 1rem;
+    padding: 0.75rem;
+  }
 }
 </style>
