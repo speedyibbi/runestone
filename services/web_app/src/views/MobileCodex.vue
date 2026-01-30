@@ -9,6 +9,8 @@ import { useMediaUpload } from '@/composables/useMediaUpload'
 import { MediaEntryType } from '@/interfaces/manifest'
 import CodexEditorArea from '@/components/codex/CodexEditorArea.vue'
 import CodexRuneList from '@/components/codex/CodexRuneList.vue'
+import CodexRuneActions from '@/components/codex/CodexRuneActions.vue'
+import SettingsModal from '@/components/codex/SettingsModal.vue'
 import Modal from '@/components/base/Modal.vue'
 
 const route = useRoute()
@@ -25,6 +27,9 @@ const showConfirmDialog = ref(false)
 const confirmDialogTitle = ref('')
 const confirmDialogMessage = ref('')
 const confirmDialogAction = ref<(() => void) | null>(null)
+
+// Settings modal state
+const showSettingsModal = ref(false)
 
 // Touch-based drag and drop state
 const draggedRune = ref<RuneInfo | null>(null)
@@ -1272,6 +1277,16 @@ watch(isRenamingCodex, (isRenaming) => {
   }
 })
 
+function handleSettings() {
+  showSettingsModal.value = true
+  sidebarOpen.value = false
+}
+
+function handleExit() {
+  sessionStore.teardown()
+  router.push('/auth')
+}
+
 // Helper function to extract base name from full path
 function getBaseName(fullTitle: string): string {
   const parts = fullTitle.split('/').filter((p) => p)
@@ -1693,6 +1708,14 @@ onUnmounted(() => {
             </div>
           </div>
         </div>
+        <div class="sidebar-actions">
+          <CodexRuneActions
+            @new-rune="handleCreateRune"
+            @new-directory="handleCreateDirectory"
+            @sort="handleSort"
+            @collapse="handleCollapseAll"
+          />
+        </div>
         <div class="sidebar-content" @touchstart="handleSidebarTouchStart" @touchmove="handleSidebarTouchMove" @touchend="handleSidebarTouchEnd">
           <CodexRuneList
             :rune-tree="runeTree"
@@ -1702,6 +1725,7 @@ onUnmounted(() => {
             :is-directory="isDirectory"
             :editing-state="editingState"
             :drag-over-rune-id="dragOverRune?.uuid ?? null"
+            :dragged-rune-id="draggedRune?.uuid ?? null"
             @rune-click="handleRuneClick"
             @rune-double-click="handleRuneDoubleClick"
             @create-rune="handleCreateRune"
@@ -1712,6 +1736,45 @@ onUnmounted(() => {
             @edit-submit="handleEditSubmit"
             @edit-cancel="handleEditCancel"
           />
+        </div>
+        <div class="sidebar-footer">
+          <div class="sidebar-header-buttons">
+            <button class="sidebar-icon-button" @click="handleSettings" aria-label="Settings">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="12" cy="12" r="3" />
+                <path
+                  d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z"
+                />
+              </svg>
+            </button>
+            <button class="sidebar-icon-button" @click="handleExit" aria-label="Exit">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+            </button>
+          </div>
         </div>
       </aside>
     </div>
@@ -1871,6 +1934,9 @@ onUnmounted(() => {
       max-width="calc(100vw - 2rem)"
       @confirm="confirmDialogAction?.()"
     />
+
+    <!-- Settings Modal -->
+    <SettingsModal v-model:show="showSettingsModal" />
 
     <!-- Trash Drop Zone -->
     <Transition name="trash-fade">
@@ -2071,6 +2137,60 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
+.sidebar-footer {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  border-top: 1px solid var(--color-overlay-subtle);
+  background: var(--color-background);
+}
+
+.sidebar-header-buttons {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  flex-shrink: 0;
+}
+
+.sidebar-actions {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--color-overlay-subtle);
+}
+
+.sidebar-icon-button {
+  background: transparent;
+  border: none;
+  color: var(--color-muted);
+  cursor: pointer;
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 0.6;
+}
+
+.sidebar-icon-button:hover {
+  background: var(--color-overlay-subtle);
+  color: var(--color-foreground);
+  opacity: 1;
+}
+
+.sidebar-icon-button:active {
+  background: var(--color-overlay-active);
+  color: var(--color-foreground);
+  opacity: 1;
+}
+
+.sidebar-icon-button svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
 .sidebar-title {
   flex: 1;
   min-width: 0;
@@ -2172,8 +2292,19 @@ onUnmounted(() => {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 0 0 0.75rem 0;
+  padding: 1rem 0 0 0;
   width: 100%;
+  min-height: 0;
+}
+
+/* Hide the rune actions inside CodexRuneList since we show them separately */
+.sidebar-content :deep(.rune-actions) {
+  display: none;
+}
+
+/* Hide the section header inside CodexRuneList for mobile */
+.sidebar-content :deep(.section-header) {
+  display: none;
 }
 
 .sidebar-content::-webkit-scrollbar {

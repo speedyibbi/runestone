@@ -15,6 +15,7 @@ interface Props {
   isCreating?: boolean
   parentPath?: string
   dragOver?: boolean
+  isDragged?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -27,6 +28,7 @@ const props = withDefaults(defineProps<Props>(), {
   isCreating: false,
   parentPath: '',
   dragOver: false,
+  isDragged: false,
 })
 
 interface Emits {
@@ -207,6 +209,7 @@ function handleDrop(event: DragEvent) {
       editing: isEditing,
       creating: isCreating,
       'drag-over': dragOver,
+      'is-dragged': isDragged,
     }"
     :style="{ paddingLeft: `${0.875 + level * 1.25}rem` }"
     :title="
@@ -339,6 +342,16 @@ function handleDrop(event: DragEvent) {
   background: var(--color-overlay-light);
   border: 2px dashed var(--color-accent);
   box-shadow: 0 0 0 2px var(--color-selection);
+}
+
+.rune-item.is-dragged {
+  opacity: 0.5;
+  color: var(--color-muted);
+}
+
+.rune-item.is-dragged .rune-icon {
+  color: var(--color-muted);
+  opacity: 0.5;
 }
 
 .expand-icon {

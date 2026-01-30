@@ -20,6 +20,7 @@ interface Props {
   isDirectory: (title: string) => boolean
   editingState: EditingState
   dragOverRuneId?: string | null
+  draggedRuneId?: string | null
 }
 
 interface Emits {
@@ -135,6 +136,7 @@ function handleRootDrop(event: DragEvent) {
           :is-directory="isDirectory"
           :editing-state="editingState"
           :drag-over-rune-id="dragOverRuneId"
+          :dragged-rune-id="draggedRuneId"
           @rune-click="(rune: RuneInfo, event?: MouseEvent) => emit('runeClick', rune, event)"
           @rune-double-click="emit('runeDoubleClick', $event)"
           @rune-context-menu="
