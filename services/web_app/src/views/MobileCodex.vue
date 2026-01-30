@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { ref, watch, onMounted, onUnmounted, nextTick, computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ViewUpdate } from '@codemirror/view'
 import { useEditor, type PreviewMode } from '@/composables/useEditor'
 import { useCodex, type RuneInfo } from '@/composables/useCodex'
@@ -9,11 +9,22 @@ import { useMediaUpload } from '@/composables/useMediaUpload'
 import { MediaEntryType } from '@/interfaces/manifest'
 import CodexEditorArea from '@/components/codex/CodexEditorArea.vue'
 import CodexRuneList from '@/components/codex/CodexRuneList.vue'
+import Modal from '@/components/base/Modal.vue'
 
 const route = useRoute()
+const router = useRouter()
 
 // Sidebar state
 const sidebarOpen = ref(false)
+
+// Codex rename/delete state
+const isRenamingCodex = ref(false)
+const codexTitleInput = ref('')
+const codexTitleInputRef = ref<HTMLInputElement>()
+const showConfirmDialog = ref(false)
+const confirmDialogTitle = ref('')
+const confirmDialogMessage = ref('')
+const confirmDialogAction = ref<(() => void) | null>(null)
 
 // Scroll-based UI visibility
 const showMenuButton = ref(true)
@@ -301,6 +312,8 @@ const {
   isDirectory,
   createRune,
   searchRunes,
+  renameCodex,
+  deleteCodex,
 } = useCodex(editorViewRef, { autoSave: true })
 
 const autoSaveCallback = createAutoSaveCallback()
@@ -1105,6 +1118,120 @@ async function handleCreateDirectorySubmit(title: string) {
   }
 }
 
+// Codex title handlers
+let longPressTimer: ReturnType<typeof setTimeout> | null = null
+let isLongPress = false
+let hasMoved = false
+
+function handleCodexTitleClick(event: MouseEvent | TouchEvent) {
+  if (isRenamingCodex.value) return
+  
+  hasMoved = false
+  isLongPress = false
+  
+  // Start long press timer
+  longPressTimer = setTimeout(() => {
+    if (!hasMoved) {
+      isLongPress = true
+      handleCodexTitleLongPress()
+    }
+  }, 500) // 500ms for long press
+}
+
+function handleCodexTitleMouseUp(event: MouseEvent | TouchEvent) {
+  if (longPressTimer) {
+    clearTimeout(longPressTimer)
+    longPressTimer = null
+  }
+  
+  // If not a long press and didn't move, trigger rename
+  if (!isLongPress && !hasMoved) {
+    handleCodexTitleRename()
+  }
+  
+  isLongPress = false
+  hasMoved = false
+}
+
+function handleCodexTitleMove() {
+  hasMoved = true
+  if (longPressTimer) {
+    clearTimeout(longPressTimer)
+    longPressTimer = null
+  }
+}
+
+function handleCodexTitleRename() {
+  if (!currentCodex.value) return
+  isRenamingCodex.value = true
+  codexTitleInput.value = currentCodex.value.title
+  nextTick(() => {
+    codexTitleInputRef.value?.focus()
+    codexTitleInputRef.value?.select()
+  })
+}
+
+function handleCodexTitleLongPress() {
+  if (!currentCodex.value) return
+  
+  confirmDialogTitle.value = 'Delete Codex'
+  confirmDialogMessage.value = `Are you sure you want to delete "${currentCodex.value.title}"? This action cannot be undone.`
+  confirmDialogAction.value = async () => {
+    try {
+      await deleteCodex()
+      // Navigate back to codex selection after deletion
+      router.push('/select-codex')
+    } catch (err) {
+      console.error('Error deleting codex:', err)
+    }
+  }
+  showConfirmDialog.value = true
+}
+
+async function handleCodexTitleEditSubmit() {
+  if (!currentCodex.value || codexTitleInput.value.trim() === currentCodex.value.title) {
+    isRenamingCodex.value = false
+    return
+  }
+
+  try {
+    await renameCodex(codexTitleInput.value.trim())
+    isRenamingCodex.value = false
+  } catch (err) {
+    console.error('Error renaming codex:', err)
+    isRenamingCodex.value = false
+  }
+}
+
+function handleCodexTitleEditCancel() {
+  isRenamingCodex.value = false
+}
+
+function handleCodexTitleKeydown(event: KeyboardEvent) {
+  if (event.key === 'Enter') {
+    event.preventDefault()
+    handleCodexTitleEditSubmit()
+  } else if (event.key === 'Escape') {
+    event.preventDefault()
+    handleCodexTitleEditCancel()
+  }
+}
+
+function handleCodexTitleBlur() {
+  handleCodexTitleEditSubmit()
+}
+
+// Watch for rename mode to setup input
+watch(isRenamingCodex, (isRenaming) => {
+  if (isRenaming) {
+    codexTitleInput.value = currentCodex.value?.title || ''
+    nextTick(() => {
+      codexTitleInputRef.value?.focus()
+      codexTitleInputRef.value?.select()
+    })
+  }
+})
+
 onMounted(() => {
   const runeId = route.params.runeId as string | undefined
   if (runeId) {
@@ -1210,6 +1337,32 @@ onUnmounted(() => {
     <!-- Sidebar -->
     <div class="sidebar-overlay" :class="{ open: sidebarOpen }" @click="sidebarOpen = false">
       <aside class="sidebar" :class="{ open: sidebarOpen }" @click.stop>
+        <div class="sidebar-header">
+          <div
+            class="sidebar-title"
+            :class="{ editing: isRenamingCodex }"
+            @mousedown="handleCodexTitleClick"
+            @mouseup="handleCodexTitleMouseUp"
+            @mouseleave="handleCodexTitleMouseUp"
+            @mousemove="handleCodexTitleMove"
+            @touchstart="handleCodexTitleClick"
+            @touchend="handleCodexTitleMouseUp"
+            @touchcancel="handleCodexTitleMouseUp"
+            @touchmove="handleCodexTitleMove"
+          >
+            <h2 v-if="!isRenamingCodex">{{ currentCodex?.title || 'Codex' }}</h2>
+            <div v-else class="codex-title-input-wrapper">
+              <input
+                ref="codexTitleInputRef"
+                v-model="codexTitleInput"
+                type="text"
+                class="codex-title-input"
+                @keydown="handleCodexTitleKeydown"
+                @blur="handleCodexTitleBlur"
+              />
+            </div>
+          </div>
+        </div>
         <div class="sidebar-content">
           <CodexRuneList
             :rune-tree="runeTree"
@@ -1251,7 +1404,7 @@ onUnmounted(() => {
     </div>
 
     <!-- Bottom App Bar -->
-    <div class="app-bar" :class="{ hidden: !showAppBar }">
+    <div class="app-bar" :class="{ hidden: !showAppBar || sidebarOpen }">
       <button
         class="app-bar-button"
         :class="{ muted: !canUndo }"
@@ -1376,6 +1529,18 @@ onUnmounted(() => {
         </div>
       </div>
     </Transition>
+
+    <!-- Confirmation Dialog -->
+    <Modal
+      v-model:show="showConfirmDialog"
+      :title="confirmDialogTitle"
+      :message="confirmDialogMessage"
+      confirm-text="Delete"
+      cancel-text="Cancel"
+      :destructive="true"
+      max-width="calc(100vw - 2rem)"
+      @confirm="confirmDialogAction?.()"
+    />
   </main>
 </template>
 
@@ -1506,19 +1671,147 @@ onUnmounted(() => {
   transform: translateX(-100%);
   transition: transform 0.3s ease;
   z-index: 1001;
-  overflow-y: auto;
-  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .sidebar.open {
   transform: translateX(0);
 }
 
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1rem;
+  height: 3.5rem;
+  min-height: 3.5rem;
+  border-bottom: 1px solid var(--color-overlay-subtle);
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.sidebar-title {
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+  position: relative;
+  padding-left: 0.5rem;
+  margin-left: -0.5rem;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-title::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0.125rem;
+  height: 0;
+  background: var(--color-accent);
+  border-radius: 1px;
+  transition: height 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 0;
+}
+
+.sidebar-title:hover:not(.editing)::before {
+  height: 60%;
+  opacity: 1;
+}
+
+.sidebar-title:hover:not(.editing) h2 {
+  opacity: 1;
+  color: var(--color-foreground);
+  transform: translateX(0.125rem);
+}
+
+.sidebar-title h2 {
+  font-size: 1rem;
+  font-weight: 400;
+  color: var(--color-foreground);
+  margin: 0;
+  letter-spacing: -0.015em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.9;
+  padding: 0.25rem 0;
+  transition:
+    opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.codex-title-input-wrapper {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  height: 1.5em;
+}
+
+.codex-title-input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  color: var(--color-foreground);
+  font-size: 1rem;
+  font-family: inherit;
+  font-weight: 400;
+  outline: none;
+  line-height: 1.5;
+  box-sizing: border-box;
+  height: 1.5em;
+  letter-spacing: -0.015em;
+  transition: all 0.15s ease;
+}
+
+.sidebar-title.editing .codex-title-input {
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.sidebar-title.editing .codex-title-input:focus {
+  background: var(--color-overlay-light);
+  border: 1px solid var(--color-accent);
+  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  margin: 0;
+  box-shadow: 0 0 0 2px var(--color-selection);
+}
+
 .sidebar-content {
-  padding: 1rem;
-  padding-top: 1rem;
-  height: 100%;
+  flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0 0 0.75rem 0;
+  width: 100%;
+}
+
+.sidebar-content::-webkit-scrollbar {
+  width: 0.25rem;
+}
+
+.sidebar-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-content::-webkit-scrollbar-thumb {
+  background: var(--color-overlay-subtle);
+  border-radius: 2px;
+}
+
+.sidebar-content::-webkit-scrollbar-thumb:hover {
+  background: var(--color-overlay-light);
 }
 
 /* Editor Container */
@@ -1736,5 +2029,48 @@ onUnmounted(() => {
   outline: 2px dashed var(--color-accent);
   outline-offset: -2px;
   background: var(--color-overlay-light);
+}
+
+/* Mobile-specific modal styles */
+:deep(.modal-dialog) {
+  max-width: calc(100vw - 2rem) !important;
+  margin: auto !important;
+  padding: 1rem;
+  box-sizing: border-box;
+}
+
+:deep(.modal-container) {
+  max-width: 100% !important;
+  width: 100% !important;
+  margin: 0;
+}
+
+:deep(.modal-header) {
+  padding: 1rem !important;
+}
+
+:deep(.modal-header h3) {
+  font-size: 1rem !important;
+}
+
+:deep(.modal-body) {
+  padding: 1rem !important;
+}
+
+:deep(.modal-body p) {
+  font-size: 0.875rem !important;
+  line-height: 1.5;
+}
+
+:deep(.modal-footer) {
+  padding: 1rem !important;
+  flex-direction: column-reverse;
+  gap: 0.5rem;
+}
+
+:deep(.modal-footer .button) {
+  width: 100%;
+  padding: 0.75rem 1rem !important;
+  font-size: 0.9375rem !important;
 }
 </style>
