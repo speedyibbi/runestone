@@ -58,6 +58,7 @@ const showEditIcon = ref(false)
 const isOverEdit = ref(false)
 let dragLongPressTimer: ReturnType<typeof setTimeout> | null = null
 let dragHasMoved = false
+const sidebarContentRef = ref<HTMLElement | null>(null)
 
 // Scroll-based UI visibility
 const showMenuButton = ref(true)
@@ -1576,6 +1577,7 @@ function handleSidebarTouchStart(event: TouchEvent) {
   if (!foundRune) return
   
   // Prevent default to allow better touch handling
+  event.preventDefault()
   event.stopPropagation()
   
   currentTouchRune = foundRune
@@ -1594,6 +1596,11 @@ function handleSidebarTouchStart(event: TouchEvent) {
       if (runeItem) {
         runeItem.style.touchAction = 'none'
       }
+      // Also prevent scrolling on sidebar content
+      if (sidebarContentRef.value) {
+        sidebarContentRef.value.style.touchAction = 'none'
+        sidebarContentRef.value.style.overflowY = 'hidden'
+      }
     }
   }, 500) // 500ms for long press
 }
@@ -1610,7 +1617,7 @@ function handleSidebarTouchMove(event: TouchEvent) {
         dragLongPressTimer = null
       }
     }
-    // Don't prevent default here to allow scrolling
+    // Allow scrolling if not dragging
     return
   }
 
@@ -1666,16 +1673,16 @@ function handleSidebarTouchMove(event: TouchEvent) {
       // Check if it's not a child of the dragged directory
       if (draggedRune.value && isDirectory(draggedRune.value.title)) {
         if (targetRune.title.startsWith(draggedRune.value.title)) {
-      dragOverRune.value = null
-      return
+          dragOverRune.value = null
+          return
         }
       }
       dragOverRune.value = targetRune
       return
     }
-    }
+  }
 
-      dragOverRune.value = null
+  dragOverRune.value = null
 }
 
 function handleSidebarTouchEnd(event: TouchEvent) {
@@ -1716,13 +1723,11 @@ function handleSidebarTouchEnd(event: TouchEvent) {
   
   endDrag()
   currentTouchRune = null
-  
-  // Restore touch action
-  const target = event.target as HTMLElement
-  const runeItem = target.closest('.rune-item') as HTMLElement
-  if (runeItem) {
-    runeItem.style.touchAction = ''
-  }
+}
+
+function handleSidebarTouchCancel(event: TouchEvent) {
+  // Treat touch cancel same as touch end
+  handleSidebarTouchEnd(event)
 }
 
 function startDrag(rune: RuneInfo, position: { x: number; y: number }) {
@@ -1732,11 +1737,16 @@ function startDrag(rune: RuneInfo, position: { x: number; y: number }) {
   showTrashIcon.value = true
   showEditIcon.value = true
   dragHasMoved = false
+  
+  // Add dragging class to sidebar content
+  if (sidebarContentRef.value) {
+    sidebarContentRef.value.classList.add('dragging')
+  }
 }
 
 function endDrag() {
   draggedRune.value = null
-    dragOverRune.value = null
+  dragOverRune.value = null
   isDraggingRune.value = false
   showTrashIcon.value = false
   isOverTrash.value = false
@@ -1749,6 +1759,13 @@ function endDrag() {
   allRuneItems.forEach((item) => {
     (item as HTMLElement).style.touchAction = ''
   })
+  
+  // Restore sidebar content scrolling and remove dragging class
+  if (sidebarContentRef.value) {
+    sidebarContentRef.value.classList.remove('dragging')
+    sidebarContentRef.value.style.touchAction = ''
+    sidebarContentRef.value.style.overflowY = ''
+  }
 }
 
 async function handleRuneDrop(targetRune: RuneInfo | null) {
@@ -1849,6 +1866,17 @@ onMounted(() => {
   // Add global mouse event listeners for bottom sheet dragging
   document.addEventListener('mousemove', handleBottomSheetMouseMove)
   document.addEventListener('mouseup', handleBottomSheetMouseUp)
+  
+  // Add touch event listeners with passive: false for drag and drop
+  nextTick(() => {
+    if (sidebarContentRef.value) {
+      // Remove Vue's event handlers and add our own with passive: false
+      sidebarContentRef.value.addEventListener('touchstart', handleSidebarTouchStart, { passive: false })
+      sidebarContentRef.value.addEventListener('touchmove', handleSidebarTouchMove, { passive: false })
+      sidebarContentRef.value.addEventListener('touchend', handleSidebarTouchEnd, { passive: false })
+      sidebarContentRef.value.addEventListener('touchcancel', handleSidebarTouchCancel, { passive: false })
+    }
+  })
 })
 
 onUnmounted(() => {
@@ -1859,6 +1887,13 @@ onUnmounted(() => {
   // Cleanup preview editor
   if (previewView.value) {
     previewComposable.destroy()
+  }
+  // Cleanup touch event listeners
+  if (sidebarContentRef.value) {
+    sidebarContentRef.value.removeEventListener('touchstart', handleSidebarTouchStart)
+    sidebarContentRef.value.removeEventListener('touchmove', handleSidebarTouchMove)
+    sidebarContentRef.value.removeEventListener('touchend', handleSidebarTouchEnd)
+    sidebarContentRef.value.removeEventListener('touchcancel', handleSidebarTouchCancel)
   }
 
   // Cleanup upload handlers
@@ -1979,7 +2014,7 @@ onUnmounted(() => {
             @collapse="handleCollapseAll"
           />
         </div>
-        <div class="sidebar-content" @touchstart="handleSidebarTouchStart" @touchmove="handleSidebarTouchMove" @touchend="handleSidebarTouchEnd">
+        <div ref="sidebarContentRef" class="sidebar-content">
           <CodexRuneList
             :rune-tree="runeTree"
             :current-rune-id="currentRune?.uuid ?? null"
@@ -3178,6 +3213,10 @@ onUnmounted(() => {
 }
 
 /* Add data attributes to rune items for touch drag and drop */
+.sidebar-content {
+  touch-action: pan-y;
+}
+
 :deep(.sidebar-content .rune-item) {
   touch-action: pan-y;
   user-select: none;
@@ -3187,6 +3226,12 @@ onUnmounted(() => {
 /* When dragging, prevent all touch actions */
 :deep(.sidebar-content .rune-item.is-dragged) {
   touch-action: none;
+}
+
+/* When dragging, prevent scrolling on sidebar */
+.sidebar-content.dragging {
+  touch-action: none;
+  overflow-y: hidden !important;
 }
 
 /* Command Palette mobile styles */
