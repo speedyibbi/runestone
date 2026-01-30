@@ -58,7 +58,7 @@
 
 @media (max-width: 1023px) {
   :root {
-    font-size: calc(100vmax * var(--scale));
+    font-size: calc(100vmax * var(--scale) * 1.15);
   }
 }
 

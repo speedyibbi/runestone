@@ -212,6 +212,7 @@ function handleDrop(event: DragEvent) {
       'is-dragged': isDragged,
     }"
     :style="{ paddingLeft: `${0.875 + level * 1.25}rem` }"
+    :data-rune-uuid="rune?.uuid"
     :title="
       isEditing || isCreating
         ? undefined

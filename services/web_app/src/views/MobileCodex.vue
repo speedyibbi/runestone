@@ -1300,6 +1300,13 @@ function findRuneFromElement(element: HTMLElement): RuneInfo | null {
   const runeItem = element.closest('.rune-item')
   if (!runeItem) return null
   
+  // Try to get rune UUID from data attribute first (most reliable)
+  const runeUuid = (runeItem as HTMLElement).dataset?.runeUuid
+  if (runeUuid) {
+    const foundRune = runes.value.find(r => r.uuid === runeUuid)
+    if (foundRune) return foundRune
+  }
+  
   // Try to find rune by matching the text content with rune titles
   const itemText = (runeItem.textContent || '').trim()
   if (!itemText) return null
@@ -1345,6 +1352,9 @@ function handleSidebarTouchStart(event: TouchEvent) {
   const foundRune = findRuneFromElement(target)
   if (!foundRune) return
   
+  // Prevent default to allow better touch handling
+  event.stopPropagation()
+  
   currentTouchRune = foundRune
   dragHasMoved = false
   dragStartPosition.value = {
@@ -1356,6 +1366,11 @@ function handleSidebarTouchStart(event: TouchEvent) {
   dragLongPressTimer = setTimeout(() => {
     if (!dragHasMoved && currentTouchRune) {
       startDrag(currentTouchRune, dragStartPosition.value)
+      // Prevent scrolling when drag starts
+      const runeItem = target.closest('.rune-item') as HTMLElement
+      if (runeItem) {
+        runeItem.style.touchAction = 'none'
+      }
     }
   }, 500) // 500ms for long press
 }
@@ -1372,14 +1387,19 @@ function handleSidebarTouchMove(event: TouchEvent) {
         dragLongPressTimer = null
       }
     }
+    // Don't prevent default here to allow scrolling
     return
   }
   
   if (!isDraggingRune.value) return
   
+  // Prevent scrolling and other default behaviors during drag
   event.preventDefault()
+  event.stopPropagation()
   
   const touch = event.touches[0]
+  if (!touch) return
+  
   dragCurrentPosition.value = {
     x: touch.clientX,
     y: touch.clientY,
@@ -1444,10 +1464,17 @@ function handleSidebarTouchEnd(event: TouchEvent) {
   if (!isDraggingRune.value) {
     dragHasMoved = false
     currentTouchRune = null
+    // Restore touch action
+    const target = event.target as HTMLElement
+    const runeItem = target.closest('.rune-item') as HTMLElement
+    if (runeItem) {
+      runeItem.style.touchAction = ''
+    }
     return
   }
   
   event.preventDefault()
+  event.stopPropagation()
   
   // Handle drop
   if (isOverEdit.value && draggedRune.value) {
@@ -1466,6 +1493,13 @@ function handleSidebarTouchEnd(event: TouchEvent) {
   
   endDrag()
   currentTouchRune = null
+  
+  // Restore touch action
+  const target = event.target as HTMLElement
+  const runeItem = target.closest('.rune-item') as HTMLElement
+  if (runeItem) {
+    runeItem.style.touchAction = ''
+  }
 }
 
 function startDrag(rune: RuneInfo, position: { x: number; y: number }) {
@@ -1486,6 +1520,12 @@ function endDrag() {
   showEditIcon.value = false
   isOverEdit.value = false
   dragHasMoved = false
+  
+  // Restore touch action on all rune items
+  const allRuneItems = document.querySelectorAll('.sidebar-content .rune-item')
+  allRuneItems.forEach((item) => {
+    (item as HTMLElement).style.touchAction = ''
+  })
 }
 
 async function handleRuneDrop(targetRune: RuneInfo | null) {
@@ -2687,5 +2727,12 @@ onUnmounted(() => {
 /* Add data attributes to rune items for touch drag and drop */
 :deep(.sidebar-content .rune-item) {
   touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* When dragging, prevent all touch actions */
+:deep(.sidebar-content .rune-item.is-dragged) {
+  touch-action: none;
 }
 </style>
