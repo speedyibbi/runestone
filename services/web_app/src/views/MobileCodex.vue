@@ -7,6 +7,7 @@ import { useEditor, type PreviewMode } from '@/composables/useEditor'
 import { useCodex, type RuneInfo } from '@/composables/useCodex'
 import { useSessionStore } from '@/stores/session'
 import { useMediaUpload } from '@/composables/useMediaUpload'
+import { useToast } from '@/composables/useToast'
 import { MediaEntryType } from '@/interfaces/manifest'
 import CodexEditorArea from '@/components/codex/CodexEditorArea.vue'
 import CodexRuneList from '@/components/codex/CodexRuneList.vue'
@@ -298,6 +299,39 @@ function handleOptions() {
   }
 }
 
+async function handleSync() {
+  try {
+    await syncCurrentCodex()
+    toast.success('Codex synced successfully')
+    closeBottomSheet()
+  } catch (err) {
+    console.error('Error syncing codex:', err)
+    toast.error(err instanceof Error ? err.message : 'Failed to sync codex')
+  }
+}
+
+async function handleExportRune() {
+  try {
+    await exportRune()
+    toast.success('Rune exported successfully')
+    closeBottomSheet()
+  } catch (err) {
+    console.error('Error exporting rune:', err)
+    toast.error(err instanceof Error ? err.message : 'Failed to export rune')
+  }
+}
+
+async function handleExportCodex() {
+  try {
+    await exportCodex()
+    toast.success('Codex exported successfully')
+    closeBottomSheet()
+  } catch (err) {
+    console.error('Error exporting codex:', err)
+    toast.error(err instanceof Error ? err.message : 'Failed to export codex')
+  }
+}
+
 function handlePreviewToggle() {
   // Cycle between 'edit' and 'preview' only (exclude 'split')
   if (previewMode.value === 'edit') {
@@ -463,6 +497,7 @@ const {
   currentRune,
   currentCodex,
   hasOpenRune,
+  hasOpenCodex,
   openRune,
   isLoadingRune,
   getSigilUrl,
@@ -474,12 +509,17 @@ const {
   deleteCodex,
   renameRune,
   deleteRune,
+  exportRune,
+  exportCodex,
+  syncCurrentCodex,
+  isSyncing,
 } = useCodex(editorViewRef, { autoSave: true })
 
 const autoSaveCallback = createAutoSaveCallback()
 
 // Get session store for manifest entry type resolver
 const sessionStore = useSessionStore()
+const toast = useToast()
 
 // Create sigil resolver function
 const sigilResolver = async (sigilId: string): Promise<string> => {
@@ -584,7 +624,41 @@ const mediaUploadHandler = useMediaUpload({
     console.error('Media upload error:', error.message)
   },
 })
-const { isDraggingOver } = mediaUploadHandler
+const { isDraggingOver, handleFileUpload, insertMediaMarkdown } = mediaUploadHandler
+
+// Hidden file input for sigil upload
+const sigilFileInputRef = ref<HTMLInputElement>()
+
+function handleUploadSigil() {
+  if (!hasOpenRune.value) return
+  sigilFileInputRef.value?.click()
+}
+
+async function handleSigilFileSelected(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file || !hasOpenRune.value) return
+
+  try {
+    // Upload file and get sigil ID
+    const sigilId = await handleFileUpload(file)
+    
+    if (sigilId) {
+      // Insert markdown into editor
+      insertMediaMarkdown(sigilId, file.name)
+      toast.success(`Uploaded: ${file.name}`)
+      closeBottomSheet()
+    }
+  } catch (err) {
+    console.error('Error uploading sigil:', err)
+    toast.error(err instanceof Error ? err.message : 'Failed to upload sigil')
+  } finally {
+    // Reset input
+    if (input) {
+      input.value = ''
+    }
+  }
+}
 
 watch(hasOpenRune, (isOpen) => {
   if (!isOpen) {
@@ -2127,11 +2201,114 @@ onUnmounted(() => {
             <div class="bottom-sheet-handle" />
           </div>
           <div class="bottom-sheet-content">
-            <!-- Bottom sheet content will go here -->
+            <div class="bottom-sheet-options">
+              <button
+                class="bottom-sheet-option-button"
+                :class="{ disabled: isSyncing }"
+                :disabled="isSyncing"
+                @click="handleSync"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" />
+                </svg>
+                <span>Sync</span>
+              </button>
+            <div class="bottom-sheet-divider"></div>
+            <div class="bottom-sheet-options">
+              <button
+                class="bottom-sheet-option-button"
+                :class="{ disabled: !hasOpenRune }"
+                :disabled="!hasOpenRune"
+                @click="handleUploadSigil"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+                <span>Upload Sigil</span>
+              </button>
+              <button
+                class="bottom-sheet-option-button"
+                :class="{ disabled: !hasOpenRune }"
+                :disabled="!hasOpenRune"
+                @click="handleExportRune"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                <span>Export Rune</span>
+              </button>
+              <button
+                class="bottom-sheet-option-button"
+                :class="{ disabled: !hasOpenCodex }"
+                :disabled="!hasOpenCodex"
+                @click="handleExportCodex"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                <span>Export Codex</span>
+              </button>
+            </div>
+            </div>
           </div>
         </div>
       </div>
     </Transition>
+
+    <!-- Hidden file input for sigil upload -->
+    <input
+      ref="sigilFileInputRef"
+      type="file"
+      accept="image/*,video/*,audio/*"
+      style="display: none"
+      @change="handleSigilFileSelected"
+    />
 
     <!-- Confirmation Dialog -->
     <Modal
@@ -2760,6 +2937,77 @@ onUnmounted(() => {
   padding: 1rem;
   padding-bottom: calc(4rem + 1rem); /* Account for app bar */
   min-height: 0;
+}
+
+.bottom-sheet-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.0625rem;
+}
+
+.bottom-sheet-divider {
+  height: 1px;
+  background: var(--color-overlay-border);
+  margin: 0.75rem 0;
+  flex-shrink: 0;
+}
+
+.bottom-sheet-option-button {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  width: 100%;
+  padding: 0.625rem 0.875rem;
+  margin: 0.0625rem 0;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--color-foreground);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    transform 0.15s ease;
+  text-align: left;
+  will-change: transform;
+}
+
+.bottom-sheet-option-button:hover:not(:disabled) {
+  background: var(--color-overlay-subtle);
+}
+
+.bottom-sheet-option-button:active:not(:disabled) {
+  background: var(--color-overlay-light);
+  transform: scale(0.98);
+}
+
+.bottom-sheet-option-button:disabled,
+.bottom-sheet-option-button.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  color: var(--color-muted);
+}
+
+.bottom-sheet-option-button svg {
+  flex-shrink: 0;
+  width: 0.875rem;
+  height: 0.875rem;
+  color: var(--color-foreground);
+  opacity: 0.8;
+}
+
+.bottom-sheet-option-button:hover:not(:disabled) svg {
+  opacity: 1;
+}
+
+.bottom-sheet-option-button:disabled svg,
+.bottom-sheet-option-button.disabled svg {
+  opacity: 0.4;
+  color: var(--color-muted);
 }
 
 /* Bottom sheet transition animations */
