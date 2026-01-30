@@ -2,6 +2,7 @@
 import { ref, watch, onMounted, onUnmounted, nextTick, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ViewUpdate } from '@codemirror/view'
+import { undo, redo, undoDepth, redoDepth } from '@codemirror/commands'
 import { useEditor, type PreviewMode } from '@/composables/useEditor'
 import { useCodex, type RuneInfo } from '@/composables/useCodex'
 import { useSessionStore } from '@/stores/session'
@@ -129,17 +130,90 @@ const DEFAULT_HEIGHT = 0.5 // 50% of viewport height
 const MIN_HEIGHT = 0.2 // 20% of viewport height (collapse threshold)
 const MAX_HEIGHT = 0.9 // 90% of viewport height (max height)
 
-// Undo/redo availability (stubbed for now)
-const canUndo = ref(false)
-const canRedo = ref(false)
+// Track editor state changes to trigger undo/redo reactivity
+const editorStateVersion = ref(0)
 
-// App bar button handlers (no functionality yet)
+// Undo/redo availability - computed from editor state
+const canUndo = computed(() => {
+  // Access editorStateVersion to make this reactive
+  void editorStateVersion.value
+  const view = editorViewRef.value
+  if (!view) return false
+  return undoDepth(view.state) > 0
+})
+
+const canRedo = computed(() => {
+  // Access editorStateVersion to make this reactive
+  void editorStateVersion.value
+  const view = editorViewRef.value
+  if (!view) return false
+  return redoDepth(view.state) > 0
+})
+
+// App bar button handlers
 function handleUndo() {
-  // TODO: Implement undo
+  // Don't allow undo in preview mode
+  if (previewMode.value === 'preview') return
+  
+  // Don't allow undo while content is syncing
+  if (isSyncingContent) return
+  
+  // Get the view reference - use editorViewRef for stability
+  const view = editorViewRef.value
+  if (!view) return
+  
+  // Don't allow undo if editor is read-only
+  if (view.state.readOnly) return
+  
+  // Check if undo is available
+  if (undoDepth(view.state) === 0) return
+  
+  // Simulate Ctrl/Cmd-Z keyboard shortcut
+  const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform)
+  const event = new KeyboardEvent('keydown', {
+    key: 'z',
+    code: 'KeyZ',
+    keyCode: 90,
+    ctrlKey: !isMac,
+    metaKey: isMac,
+    bubbles: true,
+    cancelable: true,
+  })
+  
+  view.contentDOM.dispatchEvent(event)
 }
 
 function handleRedo() {
-  // TODO: Implement redo
+  // Don't allow redo in preview mode
+  if (previewMode.value === 'preview') return
+  
+  // Don't allow redo while content is syncing
+  if (isSyncingContent) return
+  
+  // Get the view reference - use editorViewRef for stability
+  const view = editorViewRef.value
+  if (!view) return
+  
+  // Don't allow redo if editor is read-only
+  if (view.state.readOnly) return
+  
+  // Check if redo is available
+  if (redoDepth(view.state) === 0) return
+  
+  // Simulate Ctrl/Cmd-Shift-Z keyboard shortcut (or Ctrl/Cmd-Y on Windows)
+  const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform)
+  const event = new KeyboardEvent('keydown', {
+    key: isMac ? 'z' : 'y',
+    code: isMac ? 'KeyZ' : 'KeyY',
+    keyCode: isMac ? 90 : 89,
+    ctrlKey: !isMac,
+    metaKey: isMac,
+    shiftKey: isMac,
+    bubbles: true,
+    cancelable: true,
+  })
+  
+  view.contentDOM.dispatchEvent(event)
 }
 
 function handleSearch() {
@@ -399,6 +473,11 @@ const combinedUpdateCallback = (update: ViewUpdate) => {
   // Call auto-save callback if it exists
   if (autoSaveCallback) {
     autoSaveCallback(update)
+  }
+
+  // Update editor state version to trigger undo/redo reactivity
+  if (update.transactions.length > 0) {
+    editorStateVersion.value++
   }
 
   // Sync to preview editor in split mode
