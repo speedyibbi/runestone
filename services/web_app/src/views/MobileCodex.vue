@@ -12,6 +12,8 @@ import CodexEditorArea from '@/components/codex/CodexEditorArea.vue'
 import CodexRuneList from '@/components/codex/CodexRuneList.vue'
 import CodexRuneActions from '@/components/codex/CodexRuneActions.vue'
 import SettingsModal from '@/components/codex/SettingsModal.vue'
+import CommandPalette from '@/components/codex/CommandPalette.vue'
+import CodexGraphView from '@/components/codex/CodexGraphView.vue'
 import Modal from '@/components/base/Modal.vue'
 
 const route = useRoute()
@@ -31,6 +33,12 @@ const confirmDialogAction = ref<(() => void) | null>(null)
 
 // Settings modal state
 const showSettingsModal = ref(false)
+
+// Command palette state
+const showCommandPalette = ref(false)
+
+// Graph view state
+const showGraphView = ref(false)
 
 // Touch-based drag and drop state
 const draggedRune = ref<RuneInfo | null>(null)
@@ -217,7 +225,25 @@ function handleRedo() {
 }
 
 function handleSearch() {
-  // TODO: Implement search
+  showCommandPalette.value = true
+}
+
+async function handleCommandPaletteSelect(runeId: string) {
+  await handleOpenRune(runeId)
+  showCommandPalette.value = false
+}
+
+function handleCommandPaletteCommand(command: string) {
+  // Handle commands from the palette
+  if (command === 'open-graph') {
+    showGraphView.value = true
+    sidebarOpen.value = false
+  }
+  showCommandPalette.value = false
+}
+
+function handleCloseGraphView() {
+  showGraphView.value = false
 }
 
 function handleAddRune() {
@@ -963,6 +989,10 @@ function focusEditor() {
  */
 async function handleOpenRune(runeId: string) {
   await openRune(runeId)
+  // Close graph view if open
+  if (showGraphView.value) {
+    showGraphView.value = false
+  }
   // Reset scroll state when opening a new rune
   lastScrollTop.value = 0
   showMenuButton.value = true
@@ -1899,7 +1929,28 @@ onUnmounted(() => {
     </div>
 
     <!-- Editor Area -->
-    <div class="editor-container" :class="{ 'sidebar-open': sidebarOpen }">
+    <!-- Graph View -->
+    <div v-if="showGraphView" class="graph-view-container">
+      <button class="graph-view-close-button" @click="handleCloseGraphView" aria-label="Close graph view">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="m15 18-6-6 6-6" />
+        </svg>
+      </button>
+      <CodexGraphView :open-rune="handleOpenRune" />
+    </div>
+
+    <!-- Editor Container -->
+    <div v-else class="editor-container" :class="{ 'sidebar-open': sidebarOpen }">
       <div class="editor-fade-top"></div>
       <CodexEditorArea
         :has-open-rune="hasOpenRune"
@@ -2056,6 +2107,19 @@ onUnmounted(() => {
 
     <!-- Settings Modal -->
     <SettingsModal v-model:show="showSettingsModal" />
+
+    <!-- Command Palette -->
+    <div class="command-palette-wrapper">
+      <CommandPalette
+        v-model:show="showCommandPalette"
+        :codex-title="currentCodex?.title || null"
+        :runes="runes"
+        :is-directory="isDirectory"
+        :search-runes="searchRunes"
+        @select="handleCommandPaletteSelect"
+        @command="handleCommandPaletteCommand"
+      />
+    </div>
 
     <!-- Trash Drop Zone -->
     <Transition name="trash-fade">
@@ -2813,5 +2877,139 @@ onUnmounted(() => {
 /* When dragging, prevent all touch actions */
 :deep(.sidebar-content .rune-item.is-dragged) {
   touch-action: none;
+}
+
+/* Command Palette mobile styles */
+/* Override CommandPalette's modal styles for mobile with higher specificity */
+/* The CommandPalette passes max-width="36rem" to Modal, which sets inline styles */
+/* We need to override both the scoped styles and inline styles */
+/* Using media query to ensure these only apply on mobile devices */
+
+@media (max-width: 768px) {
+  .command-palette-wrapper :deep(.modal-dialog) {
+    max-width: calc(100vw - 1rem) !important;
+    width: calc(100vw - 1rem) !important;
+    margin: 0.5rem auto !important;
+    padding: 0 !important;
+  }
+
+  /* Override inline styles from Modal component's max-width prop */
+  /* Modal sets :style="{ width: maxWidth, maxWidth: maxWidth }" */
+  /* Using attribute selector to increase specificity */
+  .command-palette-wrapper :deep(.modal-container),
+  .command-palette-wrapper :deep(.modal-container[style]) {
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+  }
+
+  .command-palette-wrapper :deep(.modal-header) {
+    padding: 0.75rem 1rem !important;
+  }
+
+  .command-palette-wrapper :deep(.modal-body) {
+    padding: 0 !important;
+    max-height: calc(100vh - 8rem) !important;
+  }
+
+  .command-palette-wrapper :deep(.command-palette-container) {
+    max-height: calc(100vh - 8rem) !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0.75rem !important;
+    box-sizing: border-box !important;
+  }
+
+  .command-palette-wrapper :deep(.command-palette-results) {
+    max-height: calc(100vh - 12rem) !important;
+    overflow-y: auto !important;
+  }
+
+  .command-palette-wrapper :deep(.command-palette-input) {
+    font-size: 1rem !important;
+    padding: 0.75rem !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .command-palette-wrapper :deep(.command-palette-item) {
+    padding: 0.75rem 1rem !important;
+    font-size: 0.9375rem !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .command-palette-wrapper :deep(.command-palette-item-content) {
+    gap: 0.25rem !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .command-palette-wrapper :deep(.command-palette-item-path) {
+    font-size: 0.75rem !important;
+  }
+
+  .command-palette-wrapper :deep(.command-palette-item-description) {
+    font-size: 0.75rem !important;
+  }
+
+  .command-palette-wrapper :deep(.command-palette-item-snippet) {
+    font-size: 0.75rem !important;
+  }
+}
+
+/* Graph View Styles */
+.graph-view-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  background: var(--color-background);
+}
+
+.graph-view-close-button {
+  position: fixed;
+  top: 1rem;
+  left: 1rem;
+  z-index: 1002;
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-overlay-light);
+  border: 1px solid var(--color-overlay-border);
+  border-radius: 0.5rem;
+  color: var(--color-foreground);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  opacity: 0.9;
+}
+
+.graph-view-close-button:hover {
+  opacity: 1;
+  background: var(--color-overlay);
+}
+
+.graph-view-close-button:active {
+  transform: scale(0.95);
+}
+
+/* Hide graph filters on mobile */
+.graph-view-container :deep(.graph-filters) {
+  display: none;
+}
+
+/* Ensure graph view takes full space */
+.graph-view-container :deep(.graph-view) {
+  width: 100%;
+  height: 100%;
+}
+
+.graph-view-container :deep(.graph-svg) {
+  width: 100%;
+  height: 100%;
 }
 </style>
