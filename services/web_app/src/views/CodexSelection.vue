@@ -550,7 +550,7 @@ h1 {
 
   .codex-item {
     width: 100%;
-    border-bottom: 2px solid var(--color-overlay-border);
+    border-bottom: 1px solid var(--color-accent);
   }
 
   .codex-item::after {

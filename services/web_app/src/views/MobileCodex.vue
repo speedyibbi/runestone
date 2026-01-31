@@ -1520,6 +1520,10 @@ function getBaseName(fullTitle: string): string {
 // Touch-based drag and drop handlers
 let currentTouchRune: RuneInfo | null = null
 
+function getRuneDisplayName(rune: RuneInfo): string {
+  return getBaseName(rune.title)
+}
+
 function findRuneFromElement(element: HTMLElement): RuneInfo | null {
   const runeItem = element.closest('.rune-item')
   if (!runeItem) return null
@@ -1576,9 +1580,8 @@ function handleSidebarTouchStart(event: TouchEvent) {
   const foundRune = findRuneFromElement(target)
   if (!foundRune) return
   
-  // Prevent default to allow better touch handling
-  event.preventDefault()
-  event.stopPropagation()
+  // Don't prevent default or stop propagation here - allow normal clicks to work
+  // Only prevent default when we actually start dragging (in the long press timer)
   
   currentTouchRune = foundRune
   dragHasMoved = false
@@ -1587,12 +1590,15 @@ function handleSidebarTouchStart(event: TouchEvent) {
     y: event.touches[0].clientY,
   }
   
+  // Store the event target for use in the timer
+  const runeItem = target.closest('.rune-item') as HTMLElement
+  
   // Start long press timer
   dragLongPressTimer = setTimeout(() => {
     if (!dragHasMoved && currentTouchRune) {
+      // Now prevent default when drag actually starts
       startDrag(currentTouchRune, dragStartPosition.value)
       // Prevent scrolling when drag starts
-      const runeItem = target.closest('.rune-item') as HTMLElement
       if (runeItem) {
         runeItem.style.touchAction = 'none'
       }
@@ -1617,13 +1623,13 @@ function handleSidebarTouchMove(event: TouchEvent) {
         dragLongPressTimer = null
       }
     }
-    // Allow scrolling if not dragging
+    // Don't prevent default here - allow normal scrolling and clicks
     return
   }
 
   if (!isDraggingRune.value) return
   
-  // Prevent scrolling and other default behaviors during drag
+  // Only prevent scrolling and other default behaviors when actually dragging
   event.preventDefault()
   event.stopPropagation()
   
@@ -1692,6 +1698,8 @@ function handleSidebarTouchEnd(event: TouchEvent) {
   }
   
   if (!isDraggingRune.value) {
+    // If we didn't drag, this was a quick tap - let the click event fire naturally
+    // Don't prevent default or stop propagation, so the click handler can work
     dragHasMoved = false
     currentTouchRune = null
     // Restore touch action
@@ -1703,6 +1711,7 @@ function handleSidebarTouchEnd(event: TouchEvent) {
     return
   }
   
+  // Only prevent default when we're actually dragging
   event.preventDefault()
   event.stopPropagation()
 
@@ -1741,6 +1750,11 @@ function startDrag(rune: RuneInfo, position: { x: number; y: number }) {
   // Add dragging class to sidebar content
   if (sidebarContentRef.value) {
     sidebarContentRef.value.classList.add('dragging')
+  }
+  
+  // Vibrate device to indicate drag is active
+  if ('vibrate' in navigator) {
+    navigator.vibrate(50) // Short vibration pulse
   }
 }
 
@@ -2441,6 +2455,47 @@ onUnmounted(() => {
           <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
           <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
         </svg>
+      </div>
+    </Transition>
+
+    <!-- Drag Indicator -->
+    <Transition name="drag-indicator-fade">
+      <div
+        v-if="isDraggingRune && draggedRune"
+        class="drag-indicator"
+        :style="{
+          left: `${dragCurrentPosition.x}px`,
+          top: `${dragCurrentPosition.y}px`,
+        }"
+      >
+        <span class="drag-indicator-icon">
+          <svg
+            v-if="isDirectory(draggedRune.title)"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+          </svg>
+          <svg
+            v-else
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" />
+          </svg>
+        </span>
+        <span class="drag-indicator-title">{{ getRuneDisplayName(draggedRune) }}</span>
       </div>
     </Transition>
   </main>
@@ -3212,6 +3267,62 @@ onUnmounted(() => {
   transform: translateX(-50%) translateY(1rem);
 }
 
+/* Drag Indicator */
+.drag-indicator {
+  position: fixed;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.625rem 0.875rem;
+  background: var(--color-overlay-light);
+  border: 1px solid var(--color-overlay-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px var(--color-modal-shadow);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 2001;
+  max-width: 70rem;
+  min-width: 10rem;
+}
+
+.drag-indicator-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 0.875rem;
+  height: 0.875rem;
+  color: var(--color-accent);
+  opacity: 1;
+}
+
+.drag-indicator-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.drag-indicator-title {
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  font-weight: 500;
+  color: var(--color-foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Drag indicator fade transition */
+.drag-indicator-fade-enter-active,
+.drag-indicator-fade-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.drag-indicator-fade-enter-from,
+.drag-indicator-fade-leave-to {
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.8);
+}
+
 /* Add data attributes to rune items for touch drag and drop */
 .sidebar-content {
   touch-action: pan-y;
@@ -3350,6 +3461,13 @@ onUnmounted(() => {
 
 .graph-view-close-button:active {
   transform: scale(0.95);
+}
+
+/* Hide graph view close button on mobile */
+@media (max-width: 1023px) {
+  .graph-view-close-button {
+    display: none;
+  }
 }
 
 /* Hide graph filters on mobile */
