@@ -1,5 +1,7 @@
 # Runestone
 
+![Runestone Banner](services/web_app/public/banner.gif)
+
 **A zero-knowledge, end-to-end encrypted note-taking application where your data remains truly yours.**
 
 Runestone is built on a fundamental principle: **the server should never see your data**. Not your notes, not your titles, not your metadata—nothing. All encryption and decryption happens entirely on your device, making it impossible for anyone—including us—to access your content.
@@ -8,7 +10,7 @@ Runestone is built on a fundamental principle: **the server should never see you
 
 ## Core Philosophy
 
-### 🔐 Zero-Knowledge Architecture
+### Zero-Knowledge Architecture
 
 The server in Runestone is intentionally "dumb." It functions purely as a storage mapper—receiving opaque, encrypted blobs and returning them on request. The server:
 
@@ -19,7 +21,7 @@ The server in Runestone is intentionally "dumb." It functions purely as a storag
 
 Even if the server were compromised, an attacker would find only meaningless encrypted files with no way to identify their contents or owners.
 
-### 🛡️ Multi-Layer Encryption
+### Multi-Layer Encryption
 
 Runestone employs a sophisticated three-tier key system to protect your data:
 
@@ -31,7 +33,7 @@ Runestone employs a sophisticated three-tier key system to protect your data:
 
 Each notebook (called a *Codex*) has its own independent encryption key, meaning compromising one doesn't expose the others.
 
-### 💭 Memory-Only Decryption
+### Memory-Only Decryption
 
 Your sensitive data exists in decrypted form only in memory, never on disk:
 
