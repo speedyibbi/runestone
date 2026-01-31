@@ -105,7 +105,7 @@ export default defineConfig(({ mode }) => {
       copySqlitePlugin(),
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: ['favicon.ico', 'logo.png', 'assets/*.wasm', 'assets/*.js'],
+        includeAssets: ['favicon.ico', 'app-logo.jpg', 'assets/*.wasm', 'assets/*.js'],
         manifest: {
           name: 'Runestone',
           short_name: 'Runestone',
@@ -118,10 +118,22 @@ export default defineConfig(({ mode }) => {
           start_url: '/',
           icons: [
             {
-              src: '/logo.png',
+              src: '/app-logo.jpg',
+              sizes: '192x192',
+              type: 'image/jpeg',
+              purpose: 'any',
+            },
+            {
+              src: '/app-logo.jpg',
               sizes: '512x512',
-              type: 'image/png',
+              type: 'image/jpeg',
               purpose: 'any maskable',
+            },
+            {
+              src: '/app-logo.jpg',
+              sizes: '180x180',
+              type: 'image/jpeg',
+              purpose: 'any',
             },
             {
               src: '/favicon.ico',
@@ -131,7 +143,7 @@ export default defineConfig(({ mode }) => {
           ],
         },
         workbox: {
-          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,wasm}'],
+          globPatterns: ['**/*.{js,css,html,ico,png,jpg,jpeg,svg,woff,woff2,wasm}'],
         },
         devOptions: {
           enabled: false, // Disable PWA in dev mode
