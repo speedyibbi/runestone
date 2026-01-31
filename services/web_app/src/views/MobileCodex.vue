@@ -61,6 +61,17 @@ let dragHasMoved = false
 const sidebarContentRef = ref<HTMLElement | null>(null)
 let draggableObserver: MutationObserver | null = null
 
+// Function to disable draggable on all rune items
+function disableDraggableOnRuneItems() {
+  if (!sidebarContentRef.value) return
+  const runeItems = sidebarContentRef.value.querySelectorAll('.rune-item')
+  runeItems.forEach((item) => {
+    if (item instanceof HTMLElement) {
+      item.setAttribute('draggable', 'false')
+    }
+  })
+}
+
 // Scroll-based UI visibility
 const showMenuButton = ref(true)
 const showAppBar = ref(true)
@@ -1261,6 +1272,36 @@ function buildTree(runes: RuneInfo[]): TreeNode[] {
 
 const runeTree = computed(() => buildTree(runes.value))
 
+// Watch for runes list changes and disable draggable on new items
+watch(
+  () => runes.value.length,
+  () => {
+    // When runes list changes (after drag operations), disable draggable on all items
+    nextTick(() => {
+      disableDraggableOnRuneItems()
+      // Also check again after a short delay to catch any delayed re-renders
+      setTimeout(() => {
+        disableDraggableOnRuneItems()
+      }, 50)
+    })
+  },
+  { flush: 'post' }
+)
+
+// Also watch the runeTree to catch structural changes
+watch(
+  runeTree,
+  () => {
+    nextTick(() => {
+      disableDraggableOnRuneItems()
+      setTimeout(() => {
+        disableDraggableOnRuneItems()
+      }, 50)
+    })
+  },
+  { deep: true, flush: 'post' }
+)
+
 // File explorer handlers
 function handleRuneClick(rune: RuneInfo, event?: MouseEvent) {
   if (isDirectory(rune.title)) {
@@ -1736,12 +1777,28 @@ function handleSidebarTouchEnd(event: TouchEvent) {
   }
   
   endDrag()
-  currentTouchRune = null
 }
 
 function handleSidebarTouchCancel(event: TouchEvent) {
-  // Treat touch cancel same as touch end
-  handleSidebarTouchEnd(event)
+  // Clear any pending long press timer
+  if (dragLongPressTimer) {
+    clearTimeout(dragLongPressTimer)
+    dragLongPressTimer = null
+  }
+  
+  // If we were dragging, end the drag
+  if (isDraggingRune.value) {
+    endDrag()
+  } else {
+    // Reset state for cancelled touch
+    dragHasMoved = false
+    currentTouchRune = null
+    const target = event.target as HTMLElement
+    const runeItem = target.closest('.rune-item') as HTMLElement
+    if (runeItem) {
+      runeItem.style.touchAction = ''
+    }
+  }
 }
 
 function startDrag(rune: RuneInfo, position: { x: number; y: number }) {
@@ -1772,6 +1829,7 @@ function endDrag() {
   showEditIcon.value = false
   isOverEdit.value = false
   dragHasMoved = false
+  currentTouchRune = null
   
   // Restore touch action on all rune items
   const allRuneItems = document.querySelectorAll('.sidebar-content .rune-item')
@@ -1785,6 +1843,18 @@ function endDrag() {
     sidebarContentRef.value.style.touchAction = ''
     sidebarContentRef.value.style.overflowY = ''
   }
+  
+  // Re-disable draggable after Vue re-renders (which happens after drag operations)
+  // Use multiple timeouts to catch re-renders at different times
+  nextTick(() => {
+    disableDraggableOnRuneItems()
+    setTimeout(() => {
+      disableDraggableOnRuneItems()
+    }, 100)
+    setTimeout(() => {
+      disableDraggableOnRuneItems()
+    }, 300)
+  })
 }
 
 async function handleRuneDrop(targetRune: RuneInfo | null) {
@@ -1897,18 +1967,15 @@ onMounted(() => {
       sidebarContentRef.value.addEventListener('touchcancel', handleSidebarTouchCancel, { passive: false })
       
       // Also disable draggable on all rune items to prevent interference with touch events
-      const runeItems = sidebarContentRef.value.querySelectorAll('.rune-item')
-      runeItems.forEach((item) => {
-        if (item instanceof HTMLElement) {
-          item.setAttribute('draggable', 'false')
-        }
-      })
+      disableDraggableOnRuneItems()
     }
   })
   
   // Watch for new rune items being added and disable draggable on them
+  // Also watch for attribute changes in case Vue re-enables draggable
   draggableObserver = new MutationObserver((mutations) => {
     mutations.forEach((mutation) => {
+      // Handle new nodes being added
       mutation.addedNodes.forEach((node) => {
         if (node instanceof HTMLElement) {
           const runeItems = node.querySelectorAll?.('.rune-item') || []
@@ -1923,6 +1990,14 @@ onMounted(() => {
           }
         }
       })
+      
+      // Handle attribute changes (in case draggable gets re-enabled)
+      if (mutation.type === 'attributes' && mutation.attributeName === 'draggable') {
+        const target = mutation.target as HTMLElement
+        if (target.classList?.contains('rune-item') && target.getAttribute('draggable') === 'true') {
+          target.setAttribute('draggable', 'false')
+        }
+      }
     })
   })
   
@@ -1931,6 +2006,8 @@ onMounted(() => {
       draggableObserver?.observe(sidebarContentRef.value, {
         childList: true,
         subtree: true,
+        attributes: true,
+        attributeFilter: ['draggable'],
       })
     }
   })
