@@ -70,18 +70,25 @@ onMounted(() => {
     updateVisualViewport()
     const handleVisualViewportChange = () => {
       updateVisualViewport()
-      // Reposition menu if visible
+      // Reposition menu if visible - use requestAnimationFrame to ensure smooth updates
       if (isVisible.value && editorViewRef.value) {
-        const selection = editorViewRef.value.state.selection.main
-        if (!selection.empty) {
-          const coords = editorViewRef.value.coordsAtPos(selection.from)
-          const endCoords = editorViewRef.value.coordsAtPos(selection.to)
-          if (coords && endCoords) {
-            const centerX = (coords.left + endCoords.right) / 2
-            const topY = coords.top + window.scrollY
-            position.value = calculateMenuPosition(centerX, topY)
+        requestAnimationFrame(() => {
+          if (isVisible.value && editorViewRef.value) {
+            const selection = editorViewRef.value.state.selection.main
+            if (!selection.empty) {
+              const coords = editorViewRef.value.coordsAtPos(selection.from)
+              const endCoords = editorViewRef.value.coordsAtPos(selection.to)
+              if (coords && endCoords) {
+                const centerX = (coords.left + endCoords.right) / 2
+                const topY = coords.top + window.scrollY
+                position.value = calculateMenuPosition(centerX, topY)
+              }
+            } else if (isRightClickMenu) {
+              // For right-click menu, reposition based on stored position
+              position.value = calculateMenuPosition(rightClickPosition.x + window.scrollX, rightClickPosition.y + window.scrollY)
+            }
           }
-        }
+        })
       }
     }
     
@@ -648,25 +655,33 @@ function calculateMenuPosition(targetX: number, targetY: number): { top: number;
     const viewportWidth = visualViewport.width
     
     // Position menu above the keyboard (at the bottom of visual viewport)
-    const padding = 16
+    // Use a small padding from the bottom to ensure it's visible above keyboard
+    const padding = 12
     const menuBottom = viewportTop + viewportHeight - padding
     const top = menuBottom - menuHeight
     
+    // Ensure menu doesn't go above the viewport
+    const minTop = viewportTop + padding
+    const finalTop = Math.max(minTop, top)
+    
     // Center horizontally or align to selection
-    // Convert targetX to viewport coordinates first
+    // For mobile, we want to center the menu in the viewport or align to selection
+    // Convert targetX to viewport coordinates
     const targetXInViewport = targetX - window.scrollX - viewportLeft
     let left = targetXInViewport - menuWidth / 2
     
     // Keep menu within viewport bounds
-    if (left < padding) {
-      left = padding
-    } else if (left + menuWidth > viewportWidth - padding) {
-      left = viewportWidth - menuWidth - padding
+    const horizontalPadding = 16
+    if (left < horizontalPadding) {
+      left = horizontalPadding
+    } else if (left + menuWidth > viewportWidth - horizontalPadding) {
+      left = viewportWidth - menuWidth - horizontalPadding
     }
     
-    // Convert back to page coordinates
+    // Convert back to page coordinates (visual viewport coordinates are relative to the layout viewport)
+    // The visual viewport's offsetTop/offsetLeft already account for scrolling
     return {
-      top: top + window.scrollY,
+      top: finalTop + window.scrollY,
       left: left + viewportLeft + window.scrollX
     }
   }
@@ -927,8 +942,14 @@ function setupBubbleMenu() {
     hideBubbleMenu()
   }
 
-  // Hide menu on window resize
+  // Hide menu on window resize (but not on mobile visual viewport changes)
   const handleResize = () => {
+    // On mobile, visual viewport changes (keyboard open/close) should not hide the menu
+    // Only hide on actual window resize
+    if (isMobile.value && typeof window !== 'undefined' && window.visualViewport) {
+      // Don't hide on mobile - let visual viewport handler manage positioning
+      return
+    }
     hideBubbleMenu()
   }
 
@@ -1196,6 +1217,11 @@ onUnmounted(() => {
     transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
   will-change: opacity, transform;
   font-family: var(--font-primary);
+}
+
+/* Ensure bubble menu appears above keyboard on mobile */
+.bubble-menu.is-mobile {
+  z-index: 10000; /* Very high z-index to appear above keyboard */
 }
 
 .bubble-menu.is-positioned {
