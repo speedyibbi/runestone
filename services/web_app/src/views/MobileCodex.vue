@@ -59,6 +59,7 @@ const isOverEdit = ref(false)
 let dragLongPressTimer: ReturnType<typeof setTimeout> | null = null
 let dragHasMoved = false
 const sidebarContentRef = ref<HTMLElement | null>(null)
+let draggableObserver: MutationObserver | null = null
 
 // Scroll-based UI visibility
 const showMenuButton = ref(true)
@@ -1576,8 +1577,15 @@ function findRuneFromElement(element: HTMLElement): RuneInfo | null {
 function handleSidebarTouchStart(event: TouchEvent) {
   if (editingState.value || isDraggingRune.value) return
   
+  // In capture phase, event.target is still the actual touched element
   const target = event.target as HTMLElement
-  const foundRune = findRuneFromElement(target)
+  if (!target) return
+  
+  // Find the rune item - check if target is a rune-item or find the closest one
+  const runeItem = target.closest('.rune-item') as HTMLElement
+  if (!runeItem) return
+  
+  const foundRune = findRuneFromElement(runeItem)
   if (!foundRune) return
   
   // Don't prevent default or stop propagation here - allow normal clicks to work
@@ -1589,9 +1597,6 @@ function handleSidebarTouchStart(event: TouchEvent) {
     x: event.touches[0].clientX,
     y: event.touches[0].clientY,
   }
-  
-  // Store the event target for use in the timer
-  const runeItem = target.closest('.rune-item') as HTMLElement
   
   // Start long press timer
   dragLongPressTimer = setTimeout(() => {
@@ -1882,13 +1887,51 @@ onMounted(() => {
   document.addEventListener('mouseup', handleBottomSheetMouseUp)
   
   // Add touch event listeners with passive: false for drag and drop
+  // Disable draggable on mobile to prevent interference with touch events
   nextTick(() => {
     if (sidebarContentRef.value) {
-      // Remove Vue's event handlers and add our own with passive: false
+      // Add our own touch event listeners with passive: false
       sidebarContentRef.value.addEventListener('touchstart', handleSidebarTouchStart, { passive: false })
       sidebarContentRef.value.addEventListener('touchmove', handleSidebarTouchMove, { passive: false })
       sidebarContentRef.value.addEventListener('touchend', handleSidebarTouchEnd, { passive: false })
       sidebarContentRef.value.addEventListener('touchcancel', handleSidebarTouchCancel, { passive: false })
+      
+      // Also disable draggable on all rune items to prevent interference with touch events
+      const runeItems = sidebarContentRef.value.querySelectorAll('.rune-item')
+      runeItems.forEach((item) => {
+        if (item instanceof HTMLElement) {
+          item.setAttribute('draggable', 'false')
+        }
+      })
+    }
+  })
+  
+  // Watch for new rune items being added and disable draggable on them
+  draggableObserver = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      mutation.addedNodes.forEach((node) => {
+        if (node instanceof HTMLElement) {
+          const runeItems = node.querySelectorAll?.('.rune-item') || []
+          runeItems.forEach((item) => {
+            if (item instanceof HTMLElement) {
+              item.setAttribute('draggable', 'false')
+            }
+          })
+          // Also check if the node itself is a rune-item
+          if (node.classList?.contains('rune-item')) {
+            node.setAttribute('draggable', 'false')
+          }
+        }
+      })
+    })
+  })
+  
+  nextTick(() => {
+    if (sidebarContentRef.value) {
+      draggableObserver?.observe(sidebarContentRef.value, {
+        childList: true,
+        subtree: true,
+      })
     }
   })
 })
@@ -1908,6 +1951,12 @@ onUnmounted(() => {
     sidebarContentRef.value.removeEventListener('touchmove', handleSidebarTouchMove)
     sidebarContentRef.value.removeEventListener('touchend', handleSidebarTouchEnd)
     sidebarContentRef.value.removeEventListener('touchcancel', handleSidebarTouchCancel)
+  }
+  
+  // Cleanup mutation observer
+  if (draggableObserver) {
+    draggableObserver.disconnect()
+    draggableObserver = null
   }
 
   // Cleanup upload handlers
