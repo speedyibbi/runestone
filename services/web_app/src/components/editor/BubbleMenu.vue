@@ -62,6 +62,40 @@ watch(
 
 // Initialize on mount
 onMounted(() => {
+  // Detect mobile
+  isMobile.value = detectMobile()
+  
+  // Setup visual viewport listener for mobile
+  if (isMobile.value && typeof window !== 'undefined' && window.visualViewport) {
+    updateVisualViewport()
+    const handleVisualViewportChange = () => {
+      updateVisualViewport()
+      // Reposition menu if visible
+      if (isVisible.value && editorViewRef.value) {
+        const selection = editorViewRef.value.state.selection.main
+        if (!selection.empty) {
+          const coords = editorViewRef.value.coordsAtPos(selection.from)
+          const endCoords = editorViewRef.value.coordsAtPos(selection.to)
+          if (coords && endCoords) {
+            const centerX = (coords.left + endCoords.right) / 2
+            const topY = coords.top + window.scrollY
+            position.value = calculateMenuPosition(centerX, topY)
+          }
+        }
+      }
+    }
+    
+    window.visualViewport.addEventListener('resize', handleVisualViewportChange)
+    window.visualViewport.addEventListener('scroll', handleVisualViewportChange)
+    
+    visualViewportCleanup = () => {
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', handleVisualViewportChange)
+        window.visualViewport.removeEventListener('scroll', handleVisualViewportChange)
+      }
+    }
+  }
+  
   if (props.editorView && !cleanupFn) {
     editorViewRef.value = props.editorView
     setupBubbleMenu()
@@ -568,11 +602,29 @@ const isVisible = ref(false)
 const isPositioned = ref(false) // Track if position is calculated
 const isHiding = ref(false) // Track if menu is hiding (for fade-out animation)
 const position = ref({ top: 0, left: 0 })
+const isMobile = ref(false)
+const visualViewportHeight = ref(0)
 let selectionTimeout: ReturnType<typeof setTimeout> | null = null
 let hideTimeout: ReturnType<typeof setTimeout> | null = null
 let cleanupFn: (() => void) | null = null
 let isRightClickMenu = false
 let rightClickPosition = { x: 0, y: 0 } // Store right-click position for cursor tracking
+let visualViewportCleanup: (() => void) | null = null
+
+// Detect mobile device
+function detectMobile(): boolean {
+  if (typeof window === 'undefined') return false
+  return window.innerWidth <= 1023 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+}
+
+// Update visual viewport height
+function updateVisualViewport() {
+  if (typeof window !== 'undefined' && window.visualViewport) {
+    visualViewportHeight.value = window.visualViewport.height
+  } else {
+    visualViewportHeight.value = window.innerHeight
+  }
+}
 
 // Smart positioning that keeps menu on-screen
 function calculateMenuPosition(targetX: number, targetY: number): { top: number; left: number } {
@@ -587,7 +639,39 @@ function calculateMenuPosition(targetX: number, targetY: number): { top: number;
   const menuWidth = menuRect.width || 400 // fallback width
   const menuHeight = menuRect.height || 50 // fallback height
 
-  // Get viewport dimensions
+  // On mobile, position above keyboard using visual viewport
+  if (isMobile.value && typeof window !== 'undefined' && window.visualViewport) {
+    const visualViewport = window.visualViewport
+    const viewportTop = visualViewport.offsetTop
+    const viewportLeft = visualViewport.offsetLeft
+    const viewportHeight = visualViewport.height
+    const viewportWidth = visualViewport.width
+    
+    // Position menu above the keyboard (at the bottom of visual viewport)
+    const padding = 16
+    const menuBottom = viewportTop + viewportHeight - padding
+    const top = menuBottom - menuHeight
+    
+    // Center horizontally or align to selection
+    // Convert targetX to viewport coordinates first
+    const targetXInViewport = targetX - window.scrollX - viewportLeft
+    let left = targetXInViewport - menuWidth / 2
+    
+    // Keep menu within viewport bounds
+    if (left < padding) {
+      left = padding
+    } else if (left + menuWidth > viewportWidth - padding) {
+      left = viewportWidth - menuWidth - padding
+    }
+    
+    // Convert back to page coordinates
+    return {
+      top: top + window.scrollY,
+      left: left + viewportLeft + window.scrollX
+    }
+  }
+
+  // Desktop positioning (original logic)
   const viewportWidth = window.innerWidth
   const viewportHeight = window.innerHeight
   const scrollX = window.scrollX
@@ -677,7 +761,10 @@ function handleSelectionChange() {
   const hasSelection = !selection.empty
 
   if (hasSelection) {
-    // Set timeout to show menu after 1 second
+    // On mobile, show immediately; on desktop, show after 1 second
+    const delay = isMobile.value ? 0 : 1000
+    
+    // Set timeout to show menu
     selectionTimeout = setTimeout(() => {
       // Don't show if in preview mode
       if (isInPreviewMode()) {
@@ -717,7 +804,7 @@ function handleSelectionChange() {
           })
         })
       }
-    }, 1000)
+    }, delay)
   }
 }
 
@@ -951,6 +1038,10 @@ onUnmounted(() => {
   if (cleanupFn) {
     cleanupFn()
   }
+  if (visualViewportCleanup) {
+    visualViewportCleanup()
+    visualViewportCleanup = null
+  }
 })
 </script>
 
@@ -960,7 +1051,11 @@ onUnmounted(() => {
       v-if="isVisible"
       ref="menuRef"
       class="bubble-menu"
-      :class="{ 'is-positioned': isPositioned, 'is-hiding': isHiding }"
+      :class="{ 
+        'is-positioned': isPositioned, 
+        'is-hiding': isHiding,
+        'is-mobile': isMobile
+      }"
       :style="{
         top: `${position.top}px`,
         left: `${position.left}px`,
@@ -1130,8 +1225,40 @@ onUnmounted(() => {
   position: relative;
 }
 
-/* Hide scrollbar but keep functionality */
-.bubble-menu-content::-webkit-scrollbar {
+/* Mobile-specific styles */
+.bubble-menu.is-mobile .bubble-menu-content {
+  max-width: calc(100vw - 2rem);
+  width: calc(100vw - 2rem);
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-overlay-border) transparent;
+  /* Enable smooth scrolling on mobile */
+  scroll-behavior: smooth;
+}
+
+.bubble-menu.is-mobile .bubble-menu-content::-webkit-scrollbar {
+  height: 4px;
+  width: 4px;
+}
+
+.bubble-menu.is-mobile .bubble-menu-content::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 2px;
+}
+
+.bubble-menu.is-mobile .bubble-menu-content::-webkit-scrollbar-thumb {
+  background: var(--color-overlay-border);
+  border-radius: 2px;
+}
+
+.bubble-menu.is-mobile .bubble-menu-content::-webkit-scrollbar-thumb:hover {
+  background: var(--color-overlay-light);
+}
+
+/* Hide scrollbar but keep functionality on desktop */
+.bubble-menu:not(.is-mobile) .bubble-menu-content::-webkit-scrollbar {
   height: 0;
   width: 0;
 }
@@ -1140,6 +1267,7 @@ onUnmounted(() => {
   display: flex;
   gap: 0.125rem;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .menu-divider {
@@ -1174,6 +1302,16 @@ onUnmounted(() => {
   height: 1.75rem;
   flex-shrink: 0;
   outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Mobile-specific button styles */
+.bubble-menu.is-mobile .menu-btn {
+  padding: 0.5rem 0.625rem;
+  min-width: 2.25rem;
+  height: 2.25rem;
+  font-size: 0.875rem;
+  touch-action: manipulation;
 }
 
 .menu-btn:hover {

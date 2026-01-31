@@ -16,6 +16,7 @@ import SettingsModal from '@/components/codex/SettingsModal.vue'
 import CommandPalette from '@/components/codex/CommandPalette.vue'
 import CodexGraphView from '@/components/codex/CodexGraphView.vue'
 import Modal from '@/components/base/Modal.vue'
+import BubbleMenu from '@/components/editor/BubbleMenu.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -2693,9 +2694,16 @@ onUnmounted(() => {
             <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" />
           </svg>
         </span>
-        <span class="drag-indicator-title">{{ getRuneDisplayName(draggedRune) }}</span>
+        <span class="drag-indicator-title">{{ getRuneDisplayName(draggedRune) }}        </span>
       </div>
     </Transition>
+
+    <!-- Bubble Menu -->
+    <BubbleMenu 
+      :editor-view="editorViewRef as import('@codemirror/view').EditorView | null" 
+      :runes="runes" 
+      :is-directory="isDirectory" 
+    />
   </main>
 </template>
 
