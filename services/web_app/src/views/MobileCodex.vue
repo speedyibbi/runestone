@@ -60,6 +60,8 @@ let dragLongPressTimer: ReturnType<typeof setTimeout> | null = null
 let dragHasMoved = false
 const sidebarContentRef = ref<HTMLElement | null>(null)
 let draggableObserver: MutationObserver | null = null
+let activeTouchId: number | null = null // Track the active touch ID during drag
+let touchCancelTimeout: ReturnType<typeof setTimeout> | null = null
 
 // Function to disable draggable on all rune items
 function disableDraggableOnRuneItems() {
@@ -1634,9 +1636,19 @@ function handleSidebarTouchStart(event: TouchEvent) {
   
   currentTouchRune = foundRune
   dragHasMoved = false
-  dragStartPosition.value = {
-    x: event.touches[0].clientX,
-    y: event.touches[0].clientY,
+  const touch = event.touches[0]
+  if (touch) {
+    activeTouchId = touch.identifier
+    dragStartPosition.value = {
+      x: touch.clientX,
+      y: touch.clientY,
+    }
+  }
+  
+  // Clear any pending touch cancel timeout
+  if (touchCancelTimeout) {
+    clearTimeout(touchCancelTimeout)
+    touchCancelTimeout = null
   }
   
   // Start long press timer
@@ -1658,15 +1670,24 @@ function handleSidebarTouchStart(event: TouchEvent) {
 }
 
 function handleSidebarTouchMove(event: TouchEvent) {
+  // Clear any pending touch cancel timeout when we get a touchmove
+  if (touchCancelTimeout) {
+    clearTimeout(touchCancelTimeout)
+    touchCancelTimeout = null
+  }
+  
   if (!isDraggingRune.value && currentTouchRune) {
     // Check if moved enough to cancel long press
-    const deltaX = Math.abs(event.touches[0].clientX - dragStartPosition.value.x)
-    const deltaY = Math.abs(event.touches[0].clientY - dragStartPosition.value.y)
-    if (deltaX > 10 || deltaY > 10) {
-      dragHasMoved = true
-      if (dragLongPressTimer) {
-        clearTimeout(dragLongPressTimer)
-        dragLongPressTimer = null
+    const touch = event.touches[0]
+    if (touch) {
+      const deltaX = Math.abs(touch.clientX - dragStartPosition.value.x)
+      const deltaY = Math.abs(touch.clientY - dragStartPosition.value.y)
+      if (deltaX > 10 || deltaY > 10) {
+        dragHasMoved = true
+        if (dragLongPressTimer) {
+          clearTimeout(dragLongPressTimer)
+          dragLongPressTimer = null
+        }
       }
     }
     // Don't prevent default here - allow normal scrolling and clicks
@@ -1679,7 +1700,17 @@ function handleSidebarTouchMove(event: TouchEvent) {
   event.preventDefault()
   event.stopPropagation()
   
-  const touch = event.touches[0]
+  // Find the touch with our tracked ID, or use the first touch
+  let touch = event.touches[0]
+  if (activeTouchId !== null) {
+    for (let i = 0; i < event.touches.length; i++) {
+      if (event.touches[i].identifier === activeTouchId) {
+        touch = event.touches[i]
+        break
+      }
+    }
+  }
+  
   if (!touch) return
   
   dragCurrentPosition.value = {
@@ -1738,6 +1769,12 @@ function handleSidebarTouchMove(event: TouchEvent) {
 }
 
 function handleSidebarTouchEnd(event: TouchEvent) {
+  // Clear any pending touch cancel timeout
+  if (touchCancelTimeout) {
+    clearTimeout(touchCancelTimeout)
+    touchCancelTimeout = null
+  }
+  
   if (dragLongPressTimer) {
     clearTimeout(dragLongPressTimer)
     dragLongPressTimer = null
@@ -1748,6 +1785,7 @@ function handleSidebarTouchEnd(event: TouchEvent) {
     // Don't prevent default or stop propagation, so the click handler can work
     dragHasMoved = false
     currentTouchRune = null
+    activeTouchId = null
     // Restore touch action
     const target = event.target as HTMLElement
     const runeItem = target.closest('.rune-item') as HTMLElement
@@ -1786,13 +1824,34 @@ function handleSidebarTouchCancel(event: TouchEvent) {
     dragLongPressTimer = null
   }
   
-  // If we were dragging, end the drag
-  if (isDraggingRune.value) {
-    endDrag()
-  } else {
-    // Reset state for cancelled touch
+  // Check if the cancelled touch is the one we're tracking
+  const cancelledTouchId = event.changedTouches[0]?.identifier
+  const isOurTouch = activeTouchId === null || cancelledTouchId === activeTouchId
+  
+  // If we were dragging, don't immediately end - wait a bit to see if touch resumes
+  // This handles cases where the browser fires touchcancel prematurely (e.g., during pauses)
+  if (isDraggingRune.value && isOurTouch) {
+    // Clear any existing timeout
+    if (touchCancelTimeout) {
+      clearTimeout(touchCancelTimeout)
+    }
+    
+    // Wait a short time to see if touch resumes (touchmove might come after touchcancel)
+    touchCancelTimeout = setTimeout(() => {
+      // Only end drag if we still don't have an active touch
+      // Check if there are any active touches on the sidebar
+      if (isDraggingRune.value) {
+        // Double-check by trying to find if touch actually resumed
+        // If we get here, the touch was really cancelled
+        endDrag()
+      }
+      touchCancelTimeout = null
+    }, 100) // 100ms grace period
+  } else if (!isDraggingRune.value) {
+    // Reset state for cancelled touch (only if not dragging)
     dragHasMoved = false
     currentTouchRune = null
+    activeTouchId = null
     const target = event.target as HTMLElement
     const runeItem = target.closest('.rune-item') as HTMLElement
     if (runeItem) {
@@ -1830,6 +1889,13 @@ function endDrag() {
   isOverEdit.value = false
   dragHasMoved = false
   currentTouchRune = null
+  activeTouchId = null
+  
+  // Clear any pending touch cancel timeout
+  if (touchCancelTimeout) {
+    clearTimeout(touchCancelTimeout)
+    touchCancelTimeout = null
+  }
   
   // Restore touch action on all rune items
   const allRuneItems = document.querySelectorAll('.sidebar-content .rune-item')
@@ -2034,6 +2100,12 @@ onUnmounted(() => {
   if (draggableObserver) {
     draggableObserver.disconnect()
     draggableObserver = null
+  }
+  
+  // Cleanup touch cancel timeout
+  if (touchCancelTimeout) {
+    clearTimeout(touchCancelTimeout)
+    touchCancelTimeout = null
   }
 
   // Cleanup upload handlers
