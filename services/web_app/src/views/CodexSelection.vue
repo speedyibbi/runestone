@@ -104,7 +104,10 @@ onMounted(() => {
           <!-- Main Content Area -->
           <div class="content-area">
             <!-- Codex List -->
-            <div v-if="hasCodexes" :class="['codex-list', { 'few-items': isFewItems, 'many-items': !isFewItems }]">
+            <div
+              v-if="hasCodexes"
+              :class="['codex-list', { 'few-items': isFewItems, 'many-items': !isFewItems }]"
+            >
               <div v-for="codex in codexes" :key="codex.uuid" class="codex-item-wrapper">
                 <button
                   :class="['codex-item', { loading: openingCodexId === codex.uuid }]"

@@ -15,7 +15,7 @@ export function useMediaQuery(query: string) {
   onMounted(() => {
     updateMatches()
     const mediaQuery = window.matchMedia(query)
-    
+
     if (mediaQuery.addEventListener) {
       mediaQuery.addEventListener('change', updateMatches)
     } else {

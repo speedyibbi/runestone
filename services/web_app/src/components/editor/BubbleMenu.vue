@@ -64,7 +64,7 @@ watch(
 onMounted(() => {
   // Detect mobile
   isMobile.value = detectMobile()
-  
+
   // Setup visual viewport listener for mobile
   if (isMobile.value && typeof window !== 'undefined' && window.visualViewport) {
     updateVisualViewport()
@@ -85,16 +85,19 @@ onMounted(() => {
               }
             } else if (isRightClickMenu) {
               // For right-click menu, reposition based on stored position
-              position.value = calculateMenuPosition(rightClickPosition.x + window.scrollX, rightClickPosition.y + window.scrollY)
+              position.value = calculateMenuPosition(
+                rightClickPosition.x + window.scrollX,
+                rightClickPosition.y + window.scrollY,
+              )
             }
           }
         })
       }
     }
-    
+
     window.visualViewport.addEventListener('resize', handleVisualViewportChange)
     window.visualViewport.addEventListener('scroll', handleVisualViewportChange)
-    
+
     visualViewportCleanup = () => {
       if (window.visualViewport) {
         window.visualViewport.removeEventListener('resize', handleVisualViewportChange)
@@ -102,7 +105,7 @@ onMounted(() => {
       }
     }
   }
-  
+
   if (props.editorView && !cleanupFn) {
     editorViewRef.value = props.editorView
     setupBubbleMenu()
@@ -621,7 +624,10 @@ let visualViewportCleanup: (() => void) | null = null
 // Detect mobile device
 function detectMobile(): boolean {
   if (typeof window === 'undefined') return false
-  return window.innerWidth <= 1023 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+  return (
+    window.innerWidth <= 1023 ||
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+  )
 }
 
 // Update visual viewport height
@@ -653,23 +659,23 @@ function calculateMenuPosition(targetX: number, targetY: number): { top: number;
     const viewportLeft = visualViewport.offsetLeft
     const viewportHeight = visualViewport.height
     const viewportWidth = visualViewport.width
-    
+
     // Position menu above the keyboard (at the bottom of visual viewport)
     // Use a small padding from the bottom to ensure it's visible above keyboard
     const padding = 12
     const menuBottom = viewportTop + viewportHeight - padding
     const top = menuBottom - menuHeight
-    
+
     // Ensure menu doesn't go above the viewport
     const minTop = viewportTop + padding
     const finalTop = Math.max(minTop, top)
-    
+
     // Center horizontally or align to selection
     // For mobile, we want to center the menu in the viewport or align to selection
     // Convert targetX to viewport coordinates
     const targetXInViewport = targetX - window.scrollX - viewportLeft
     let left = targetXInViewport - menuWidth / 2
-    
+
     // Keep menu within viewport bounds
     const horizontalPadding = 16
     if (left < horizontalPadding) {
@@ -677,12 +683,12 @@ function calculateMenuPosition(targetX: number, targetY: number): { top: number;
     } else if (left + menuWidth > viewportWidth - horizontalPadding) {
       left = viewportWidth - menuWidth - horizontalPadding
     }
-    
+
     // Convert back to page coordinates (visual viewport coordinates are relative to the layout viewport)
     // The visual viewport's offsetTop/offsetLeft already account for scrolling
     return {
       top: finalTop + window.scrollY,
-      left: left + viewportLeft + window.scrollX
+      left: left + viewportLeft + window.scrollX,
     }
   }
 
@@ -778,7 +784,7 @@ function handleSelectionChange() {
   if (hasSelection) {
     // On mobile, show immediately; on desktop, show after 1 second
     const delay = isMobile.value ? 0 : 1000
-    
+
     // Set timeout to show menu
     selectionTimeout = setTimeout(() => {
       // Don't show if in preview mode
@@ -1072,10 +1078,10 @@ onUnmounted(() => {
       v-if="isVisible"
       ref="menuRef"
       class="bubble-menu"
-      :class="{ 
-        'is-positioned': isPositioned, 
+      :class="{
+        'is-positioned': isPositioned,
         'is-hiding': isHiding,
-        'is-mobile': isMobile
+        'is-mobile': isMobile,
       }"
       :style="{
         top: `${position.top}px`,

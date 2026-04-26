@@ -114,7 +114,6 @@ function handleInputBlur() {
   }, 0)
 }
 
-
 // Watch settings and update form when they change
 watch(
   () => settings.value,

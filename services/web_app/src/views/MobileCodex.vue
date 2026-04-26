@@ -184,20 +184,20 @@ const canRedo = computed(() => {
 function handleUndo() {
   // Don't allow undo in preview mode
   if (previewMode.value === 'preview') return
-  
+
   // Don't allow undo while content is syncing
   if (isSyncingContent) return
-  
+
   // Get the view reference - use editorViewRef for stability
   const view = editorViewRef.value
   if (!view) return
-  
+
   // Don't allow undo if editor is read-only
   if (view.state.readOnly) return
-  
+
   // Check if undo is available
   if (undoDepth(view.state) === 0) return
-  
+
   // Simulate Ctrl/Cmd-Z keyboard shortcut
   const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform)
   const event = new KeyboardEvent('keydown', {
@@ -209,27 +209,27 @@ function handleUndo() {
     bubbles: true,
     cancelable: true,
   })
-  
+
   view.contentDOM.dispatchEvent(event)
 }
 
 function handleRedo() {
   // Don't allow redo in preview mode
   if (previewMode.value === 'preview') return
-  
+
   // Don't allow redo while content is syncing
   if (isSyncingContent) return
-  
+
   // Get the view reference - use editorViewRef for stability
   const view = editorViewRef.value
   if (!view) return
-  
+
   // Don't allow redo if editor is read-only
   if (view.state.readOnly) return
-  
+
   // Check if redo is available
   if (redoDepth(view.state) === 0) return
-  
+
   // Simulate Ctrl/Cmd-Shift-Z keyboard shortcut (or Ctrl/Cmd-Y on Windows)
   const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform)
   const event = new KeyboardEvent('keydown', {
@@ -242,7 +242,7 @@ function handleRedo() {
     bubbles: true,
     cancelable: true,
   })
-  
+
   view.contentDOM.dispatchEvent(event)
 }
 
@@ -280,7 +280,7 @@ function handleAddRune() {
 async function handleAddRuneConfirm() {
   const name = newRuneName.value.trim()
   if (!name) return
-  
+
   try {
     const runeId = await createRune(name)
     showAddRuneModal.value = false
@@ -358,7 +358,7 @@ function handlePreviewToggle() {
     // If in 'split' mode, switch to 'edit'
     previewMode.value = 'edit'
   }
-  
+
   // Apply the preview mode change to the editor
   applyPreviewMode()
 }
@@ -394,7 +394,7 @@ function handleBottomSheetTouchStart(event: TouchEvent) {
   if (!target.closest('.bottom-sheet-handle') && !target.closest('.bottom-sheet-drag-area')) {
     return
   }
-  
+
   isDragging.value = true
   dragStartY.value = event.touches[0].clientY
   dragStartHeight.value = bottomSheetHeight.value
@@ -403,16 +403,16 @@ function handleBottomSheetTouchStart(event: TouchEvent) {
 
 function handleBottomSheetTouchMove(event: TouchEvent) {
   if (!isDragging.value) return
-  
+
   const currentY = event.touches[0].clientY
   const deltaY = dragStartY.value - currentY // Inverted: dragging up increases height
   const viewportHeight = window.innerHeight
   const newHeight = dragStartHeight.value + deltaY
-  
+
   // Clamp height between 0 and max height
   const minHeightPx = viewportHeight * MIN_HEIGHT
   const maxHeightPx = viewportHeight * MAX_HEIGHT
-  
+
   if (newHeight < minHeightPx) {
     bottomSheetHeight.value = Math.max(0, newHeight)
   } else if (newHeight > maxHeightPx) {
@@ -420,18 +420,18 @@ function handleBottomSheetTouchMove(event: TouchEvent) {
   } else {
     bottomSheetHeight.value = newHeight
   }
-  
+
   event.preventDefault()
 }
 
 function handleBottomSheetTouchEnd() {
   if (!isDragging.value) return
-  
+
   isDragging.value = false
-  
+
   const viewportHeight = window.innerHeight
   const minHeightPx = viewportHeight * MIN_HEIGHT
-  
+
   // If height is below collapse threshold, close the sheet
   if (bottomSheetHeight.value < minHeightPx) {
     closeBottomSheet()
@@ -452,7 +452,7 @@ function handleBottomSheetMouseDown(event: MouseEvent) {
   if (!target.closest('.bottom-sheet-handle') && !target.closest('.bottom-sheet-drag-area')) {
     return
   }
-  
+
   isDragging.value = true
   dragStartY.value = event.clientY
   dragStartHeight.value = bottomSheetHeight.value
@@ -461,16 +461,16 @@ function handleBottomSheetMouseDown(event: MouseEvent) {
 
 function handleBottomSheetMouseMove(event: MouseEvent) {
   if (!isDragging.value) return
-  
+
   const currentY = event.clientY
   const deltaY = dragStartY.value - currentY // Inverted: dragging up increases height
   const viewportHeight = window.innerHeight
   const newHeight = dragStartHeight.value + deltaY
-  
+
   // Clamp height between 0 and max height
   const minHeightPx = viewportHeight * MIN_HEIGHT
   const maxHeightPx = viewportHeight * MAX_HEIGHT
-  
+
   if (newHeight < minHeightPx) {
     bottomSheetHeight.value = Math.max(0, newHeight)
   } else if (newHeight > maxHeightPx) {
@@ -478,18 +478,18 @@ function handleBottomSheetMouseMove(event: MouseEvent) {
   } else {
     bottomSheetHeight.value = newHeight
   }
-  
+
   event.preventDefault()
 }
 
 function handleBottomSheetMouseUp() {
   if (!isDragging.value) return
-  
+
   isDragging.value = false
-  
+
   const viewportHeight = window.innerHeight
   const minHeightPx = viewportHeight * MIN_HEIGHT
-  
+
   // If height is below collapse threshold, close the sheet
   if (bottomSheetHeight.value < minHeightPx) {
     closeBottomSheet()
@@ -505,8 +505,12 @@ function handleBottomSheetMouseUp() {
 
 const editorElement = ref<HTMLElement>()
 const previewElement = ref<HTMLElement>()
-const editorViewRef = ref<import('@codemirror/view').EditorView | null>(null) as import('vue').Ref<import('@codemirror/view').EditorView | null>
-const previewViewRef = ref<import('@codemirror/view').EditorView | null>(null) as import('vue').Ref<import('@codemirror/view').EditorView | null>
+const editorViewRef = ref<import('@codemirror/view').EditorView | null>(null) as import('vue').Ref<
+  import('@codemirror/view').EditorView | null
+>
+const previewViewRef = ref<import('@codemirror/view').EditorView | null>(null) as import('vue').Ref<
+  import('@codemirror/view').EditorView | null
+>
 
 const {
   runes,
@@ -658,7 +662,7 @@ async function handleSigilFileSelected(event: Event) {
   try {
     // Upload file and get sigil ID
     const sigilId = await handleFileUpload(file)
-    
+
     if (sigilId) {
       // Insert markdown into editor
       insertMediaMarkdown(sigilId, file.name)
@@ -853,7 +857,7 @@ watch(currentRune, () => {
   lastScrollTop.value = 0
   showMenuButton.value = true
   showAppBar.value = true
-  
+
   if (editorView.value) {
     nextTick(() => {
       applyPreviewMode()
@@ -1128,7 +1132,7 @@ async function handleOpenRune(runeId: string) {
   showMenuButton.value = true
   showAppBar.value = true
   lastScrollDirection = 'up'
-  
+
   await nextTick()
   requestAnimationFrame(() => {
     setTimeout(() => {
@@ -1141,7 +1145,7 @@ async function handleOpenRune(runeId: string) {
 watch([isLoadingRune, currentRune], ([loading, rune], [oldLoading]) => {
   // Focus when loading completes and we have an open rune
   if (oldLoading && !loading && rune && hasOpenRune.value) {
-        focusEditor()
+    focusEditor()
   }
 })
 
@@ -1288,7 +1292,7 @@ watch(
       }, 50)
     })
   },
-  { flush: 'post' }
+  { flush: 'post' },
 )
 
 // Also watch the runeTree to catch structural changes
@@ -1302,7 +1306,7 @@ watch(
       }, 50)
     })
   },
-  { deep: true, flush: 'post' }
+  { deep: true, flush: 'post' },
 )
 
 // File explorer handlers
@@ -1439,10 +1443,10 @@ let hasMoved = false
 
 function handleCodexTitleClick(event: MouseEvent | TouchEvent) {
   if (isRenamingCodex.value) return
-  
+
   hasMoved = false
   isLongPress = false
-  
+
   // Start long press timer
   longPressTimer = setTimeout(() => {
     if (!hasMoved) {
@@ -1457,12 +1461,12 @@ function handleCodexTitleMouseUp(event: MouseEvent | TouchEvent) {
     clearTimeout(longPressTimer)
     longPressTimer = null
   }
-  
+
   // If not a long press and didn't move, trigger rename
   if (!isLongPress && !hasMoved) {
     handleCodexTitleRename()
   }
-  
+
   isLongPress = false
   hasMoved = false
 }
@@ -1487,7 +1491,7 @@ function handleCodexTitleRename() {
 
 function handleCodexTitleLongPress() {
   if (!currentCodex.value) return
-  
+
   confirmDialogTitle.value = 'Delete Codex'
   confirmDialogMessage.value = `Are you sure you want to delete "${currentCodex.value.title}"? This action cannot be undone.`
   confirmDialogAction.value = async () => {
@@ -1572,25 +1576,29 @@ function getRuneDisplayName(rune: RuneInfo): string {
 function findRuneFromElement(element: HTMLElement): RuneInfo | null {
   const runeItem = element.closest('.rune-item')
   if (!runeItem) return null
-  
+
   // Try to get rune UUID from data attribute first (most reliable)
   const runeUuid = (runeItem as HTMLElement).dataset?.runeUuid
   if (runeUuid) {
-    const foundRune = runes.value.find(r => r.uuid === runeUuid)
+    const foundRune = runes.value.find((r) => r.uuid === runeUuid)
     if (foundRune) return foundRune
   }
-  
+
   // Try to find rune by matching the text content with rune titles
   const itemText = (runeItem.textContent || '').trim()
   if (!itemText) return null
-  
+
   // Get all rune items in order
   const allRuneItems = Array.from(document.querySelectorAll('.sidebar-content .rune-item'))
   const itemIndex = allRuneItems.indexOf(runeItem)
-  
+
   // Try to match by index in the tree
   const treeNodes = runeTree.value
-  function findRuneInTree(nodes: typeof treeNodes, targetIndex: number, currentIndex: { value: number }): RuneInfo | null {
+  function findRuneInTree(
+    nodes: typeof treeNodes,
+    targetIndex: number,
+    currentIndex: { value: number },
+  ): RuneInfo | null {
     for (const node of nodes) {
       if (currentIndex.value === targetIndex) {
         return node.rune
@@ -1603,10 +1611,10 @@ function findRuneFromElement(element: HTMLElement): RuneInfo | null {
     }
     return null
   }
-  
+
   const foundByIndex = findRuneInTree(treeNodes, itemIndex, { value: 0 })
   if (foundByIndex) return foundByIndex
-  
+
   // Fallback: match by text content
   for (const rune of runes.value) {
     const displayName = getBaseName(rune.title)
@@ -1614,27 +1622,27 @@ function findRuneFromElement(element: HTMLElement): RuneInfo | null {
       return rune
     }
   }
-  
+
   return null
 }
 
 function handleSidebarTouchStart(event: TouchEvent) {
   if (editingState.value || isDraggingRune.value) return
-  
+
   // In capture phase, event.target is still the actual touched element
   const target = event.target as HTMLElement
   if (!target) return
-  
+
   // Find the rune item - check if target is a rune-item or find the closest one
   const runeItem = target.closest('.rune-item') as HTMLElement
   if (!runeItem) return
-  
+
   const foundRune = findRuneFromElement(runeItem)
   if (!foundRune) return
-  
+
   // Don't prevent default or stop propagation here - allow normal clicks to work
   // Only prevent default when we actually start dragging (in the long press timer)
-  
+
   currentTouchRune = foundRune
   dragHasMoved = false
   const touch = event.touches[0]
@@ -1645,13 +1653,13 @@ function handleSidebarTouchStart(event: TouchEvent) {
       y: touch.clientY,
     }
   }
-  
+
   // Clear any pending touch cancel timeout
   if (touchCancelTimeout) {
     clearTimeout(touchCancelTimeout)
     touchCancelTimeout = null
   }
-  
+
   // Start long press timer
   dragLongPressTimer = setTimeout(() => {
     if (!dragHasMoved && currentTouchRune) {
@@ -1676,7 +1684,7 @@ function handleSidebarTouchMove(event: TouchEvent) {
     clearTimeout(touchCancelTimeout)
     touchCancelTimeout = null
   }
-  
+
   if (!isDraggingRune.value && currentTouchRune) {
     // Check if moved enough to cancel long press
     const touch = event.touches[0]
@@ -1696,11 +1704,11 @@ function handleSidebarTouchMove(event: TouchEvent) {
   }
 
   if (!isDraggingRune.value) return
-  
+
   // Only prevent scrolling and other default behaviors when actually dragging
   event.preventDefault()
   event.stopPropagation()
-  
+
   // Find the touch with our tracked ID, or use the first touch
   let touch = event.touches[0]
   if (activeTouchId !== null) {
@@ -1711,49 +1719,51 @@ function handleSidebarTouchMove(event: TouchEvent) {
       }
     }
   }
-  
+
   if (!touch) return
-  
+
   dragCurrentPosition.value = {
     x: touch.clientX,
     y: touch.clientY,
   }
-  
+
   // Check if over trash icon
   const trashElement = document.querySelector('.trash-drop-zone') as HTMLElement
   if (trashElement) {
     const trashRect = trashElement.getBoundingClientRect()
-    const isOver = (
+    const isOver =
       touch.clientX >= trashRect.left &&
       touch.clientX <= trashRect.right &&
       touch.clientY >= trashRect.top &&
       touch.clientY <= trashRect.bottom
-    )
     isOverTrash.value = isOver
   } else {
     isOverTrash.value = false
   }
-  
+
   // Check if over edit icon
   const editElement = document.querySelector('.edit-drop-zone') as HTMLElement
   if (editElement) {
     const editRect = editElement.getBoundingClientRect()
-    const isOver = (
+    const isOver =
       touch.clientX >= editRect.left &&
       touch.clientX <= editRect.right &&
       touch.clientY >= editRect.top &&
       touch.clientY <= editRect.bottom
-    )
     isOverEdit.value = isOver
   } else {
     isOverEdit.value = false
   }
-  
+
   // Check if over a directory
   const elementUnderTouch = document.elementFromPoint(touch.clientX, touch.clientY)
   if (elementUnderTouch) {
     const targetRune = findRuneFromElement(elementUnderTouch as HTMLElement)
-    if (targetRune && isDirectory(targetRune.title) && targetRune.uuid !== draggedRune.value?.uuid) {
+    if (
+      targetRune &&
+      isDirectory(targetRune.title) &&
+      targetRune.uuid !== draggedRune.value?.uuid
+    ) {
       // Check if it's not a child of the dragged directory
       if (draggedRune.value && isDirectory(draggedRune.value.title)) {
         if (targetRune.title.startsWith(draggedRune.value.title)) {
@@ -1775,12 +1785,12 @@ function handleSidebarTouchEnd(event: TouchEvent) {
     clearTimeout(touchCancelTimeout)
     touchCancelTimeout = null
   }
-  
+
   if (dragLongPressTimer) {
     clearTimeout(dragLongPressTimer)
     dragLongPressTimer = null
   }
-  
+
   if (!isDraggingRune.value) {
     // If we didn't drag, this was a quick tap - let the click event fire naturally
     // Don't prevent default or stop propagation, so the click handler can work
@@ -1795,7 +1805,7 @@ function handleSidebarTouchEnd(event: TouchEvent) {
     }
     return
   }
-  
+
   // Only prevent default when we're actually dragging
   event.preventDefault()
   event.stopPropagation()
@@ -1814,7 +1824,7 @@ function handleSidebarTouchEnd(event: TouchEvent) {
     // Drop at root level
     handleRuneDrop(null)
   }
-  
+
   endDrag()
 }
 
@@ -1824,11 +1834,11 @@ function handleSidebarTouchCancel(event: TouchEvent) {
     clearTimeout(dragLongPressTimer)
     dragLongPressTimer = null
   }
-  
+
   // Check if the cancelled touch is the one we're tracking
   const cancelledTouchId = event.changedTouches[0]?.identifier
   const isOurTouch = activeTouchId === null || cancelledTouchId === activeTouchId
-  
+
   // If we were dragging, don't immediately end - wait a bit to see if touch resumes
   // This handles cases where the browser fires touchcancel prematurely (e.g., during pauses)
   if (isDraggingRune.value && isOurTouch) {
@@ -1836,7 +1846,7 @@ function handleSidebarTouchCancel(event: TouchEvent) {
     if (touchCancelTimeout) {
       clearTimeout(touchCancelTimeout)
     }
-    
+
     // Wait a short time to see if touch resumes (touchmove might come after touchcancel)
     touchCancelTimeout = setTimeout(() => {
       // Only end drag if we still don't have an active touch
@@ -1868,12 +1878,12 @@ function startDrag(rune: RuneInfo, position: { x: number; y: number }) {
   showTrashIcon.value = true
   showEditIcon.value = true
   dragHasMoved = false
-  
+
   // Add dragging class to sidebar content
   if (sidebarContentRef.value) {
     sidebarContentRef.value.classList.add('dragging')
   }
-  
+
   // Vibrate device to indicate drag is active
   if ('vibrate' in navigator) {
     navigator.vibrate(50) // Short vibration pulse
@@ -1891,26 +1901,26 @@ function endDrag() {
   dragHasMoved = false
   currentTouchRune = null
   activeTouchId = null
-  
+
   // Clear any pending touch cancel timeout
   if (touchCancelTimeout) {
     clearTimeout(touchCancelTimeout)
     touchCancelTimeout = null
   }
-  
+
   // Restore touch action on all rune items
   const allRuneItems = document.querySelectorAll('.sidebar-content .rune-item')
   allRuneItems.forEach((item) => {
-    (item as HTMLElement).style.touchAction = ''
+    ;(item as HTMLElement).style.touchAction = ''
   })
-  
+
   // Restore sidebar content scrolling and remove dragging class
   if (sidebarContentRef.value) {
     sidebarContentRef.value.classList.remove('dragging')
     sidebarContentRef.value.style.touchAction = ''
     sidebarContentRef.value.style.overflowY = ''
   }
-  
+
   // Re-disable draggable after Vue re-renders (which happens after drag operations)
   // Use multiple timeouts to catch re-renders at different times
   nextTick(() => {
@@ -1971,7 +1981,9 @@ async function handleRuneDrop(targetRune: RuneInfo | null) {
     // Check if the new title already exists
     const existingRune = runes.value.find((r) => r.title === newTitle && r.uuid !== sourceRune.uuid)
     if (existingRune) {
-      console.error(`A ${isSourceDir ? 'directory' : 'file'} with that name already exists in the target location`)
+      console.error(
+        `A ${isSourceDir ? 'directory' : 'file'} with that name already exists in the target location`,
+      )
       return
     }
 
@@ -1990,22 +2002,22 @@ async function handleRuneDrop(targetRune: RuneInfo | null) {
 
 async function handleTrashDrop() {
   if (!draggedRune.value) return
-  
+
   const runeToDelete = draggedRune.value
   try {
     await deleteRune(runeToDelete.uuid)
-            } catch (err) {
+  } catch (err) {
     console.error('Error deleting rune:', err)
   }
 }
 
 function handleEditDrop() {
   if (!draggedRune.value) return
-  
+
   const runeToEdit = draggedRune.value
   // Enter rename mode
   editingState.value = { type: 'renaming', runeId: runeToEdit.uuid }
-  
+
   // Expand parent directories if needed
   const parentPath = getParentPath(runeToEdit.title)
   if (parentPath) {
@@ -2022,22 +2034,30 @@ onMounted(() => {
   // Add global mouse event listeners for bottom sheet dragging
   document.addEventListener('mousemove', handleBottomSheetMouseMove)
   document.addEventListener('mouseup', handleBottomSheetMouseUp)
-  
+
   // Add touch event listeners with passive: false for drag and drop
   // Disable draggable on mobile to prevent interference with touch events
   nextTick(() => {
     if (sidebarContentRef.value) {
       // Add our own touch event listeners with passive: false
-      sidebarContentRef.value.addEventListener('touchstart', handleSidebarTouchStart, { passive: false })
-      sidebarContentRef.value.addEventListener('touchmove', handleSidebarTouchMove, { passive: false })
-      sidebarContentRef.value.addEventListener('touchend', handleSidebarTouchEnd, { passive: false })
-      sidebarContentRef.value.addEventListener('touchcancel', handleSidebarTouchCancel, { passive: false })
-      
+      sidebarContentRef.value.addEventListener('touchstart', handleSidebarTouchStart, {
+        passive: false,
+      })
+      sidebarContentRef.value.addEventListener('touchmove', handleSidebarTouchMove, {
+        passive: false,
+      })
+      sidebarContentRef.value.addEventListener('touchend', handleSidebarTouchEnd, {
+        passive: false,
+      })
+      sidebarContentRef.value.addEventListener('touchcancel', handleSidebarTouchCancel, {
+        passive: false,
+      })
+
       // Also disable draggable on all rune items to prevent interference with touch events
       disableDraggableOnRuneItems()
     }
   })
-  
+
   // Watch for new rune items being added and disable draggable on them
   // Also watch for attribute changes in case Vue re-enables draggable
   draggableObserver = new MutationObserver((mutations) => {
@@ -2057,17 +2077,20 @@ onMounted(() => {
           }
         }
       })
-      
+
       // Handle attribute changes (in case draggable gets re-enabled)
       if (mutation.type === 'attributes' && mutation.attributeName === 'draggable') {
         const target = mutation.target as HTMLElement
-        if (target.classList?.contains('rune-item') && target.getAttribute('draggable') === 'true') {
+        if (
+          target.classList?.contains('rune-item') &&
+          target.getAttribute('draggable') === 'true'
+        ) {
           target.setAttribute('draggable', 'false')
         }
       }
     })
   })
-  
+
   nextTick(() => {
     if (sidebarContentRef.value) {
       draggableObserver?.observe(sidebarContentRef.value, {
@@ -2096,13 +2119,13 @@ onUnmounted(() => {
     sidebarContentRef.value.removeEventListener('touchend', handleSidebarTouchEnd)
     sidebarContentRef.value.removeEventListener('touchcancel', handleSidebarTouchCancel)
   }
-  
+
   // Cleanup mutation observer
   if (draggableObserver) {
     draggableObserver.disconnect()
     draggableObserver = null
   }
-  
+
   // Cleanup touch cancel timeout
   if (touchCancelTimeout) {
     clearTimeout(touchCancelTimeout)
@@ -2293,7 +2316,11 @@ onUnmounted(() => {
     <!-- Editor Area -->
     <!-- Graph View -->
     <div v-if="showGraphView" class="graph-view-container">
-      <button class="graph-view-close-button" @click="handleCloseGraphView" aria-label="Close graph view">
+      <button
+        class="graph-view-close-button"
+        @click="handleCloseGraphView"
+        aria-label="Close graph view"
+      >
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="20"
@@ -2390,7 +2417,11 @@ onUnmounted(() => {
           <path d="m21 21-4.35-4.35" />
         </svg>
       </button>
-      <button class="app-bar-button app-bar-button-add" @click="handleAddRune" aria-label="Add rune">
+      <button
+        class="app-bar-button app-bar-button-add"
+        @click="handleAddRune"
+        aria-label="Add rune"
+      >
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="20"
@@ -2428,11 +2459,7 @@ onUnmounted(() => {
 
     <!-- Bottom Sheet -->
     <Transition name="bottom-sheet">
-      <div
-        v-if="bottomSheetOpen"
-        class="bottom-sheet-overlay"
-        @click="closeBottomSheet"
-      >
+      <div v-if="bottomSheetOpen" class="bottom-sheet-overlay" @click="closeBottomSheet">
         <div
           class="bottom-sheet"
           :class="{ dragging: isDragging }"
@@ -2467,82 +2494,84 @@ onUnmounted(() => {
                   stroke-linecap="round"
                   stroke-linejoin="round"
                 >
-                  <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" />
+                  <path
+                    d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"
+                  />
                 </svg>
                 <span>Sync</span>
               </button>
-            <div class="bottom-sheet-divider"></div>
-            <div class="bottom-sheet-options">
-              <button
-                class="bottom-sheet-option-button"
-                :class="{ disabled: !hasOpenRune }"
-                :disabled="!hasOpenRune"
-                @click="handleUploadSigil"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
+              <div class="bottom-sheet-divider"></div>
+              <div class="bottom-sheet-options">
+                <button
+                  class="bottom-sheet-option-button"
+                  :class="{ disabled: !hasOpenRune }"
+                  :disabled="!hasOpenRune"
+                  @click="handleUploadSigil"
                 >
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="17 8 12 3 7 8" />
-                  <line x1="12" y1="3" x2="12" y2="15" />
-                </svg>
-                <span>Upload Sigil</span>
-              </button>
-              <button
-                class="bottom-sheet-option-button"
-                :class="{ disabled: !hasOpenRune }"
-                :disabled="!hasOpenRune"
-                @click="handleExportRune"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" y1="3" x2="12" y2="15" />
+                  </svg>
+                  <span>Upload Sigil</span>
+                </button>
+                <button
+                  class="bottom-sheet-option-button"
+                  :class="{ disabled: !hasOpenRune }"
+                  :disabled="!hasOpenRune"
+                  @click="handleExportRune"
                 >
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="7 10 12 15 17 10" />
-                  <line x1="12" y1="15" x2="12" y2="3" />
-                </svg>
-                <span>Export Rune</span>
-              </button>
-              <button
-                class="bottom-sheet-option-button"
-                :class="{ disabled: !hasOpenCodex }"
-                :disabled="!hasOpenCodex"
-                @click="handleExportCodex"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                  <span>Export Rune</span>
+                </button>
+                <button
+                  class="bottom-sheet-option-button"
+                  :class="{ disabled: !hasOpenCodex }"
+                  :disabled="!hasOpenCodex"
+                  @click="handleExportCodex"
                 >
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="7 10 12 15 17 10" />
-                  <line x1="12" y1="15" x2="12" y2="3" />
-                </svg>
-                <span>Export Codex</span>
-              </button>
-            </div>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                  <span>Export Codex</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -2610,11 +2639,7 @@ onUnmounted(() => {
 
     <!-- Trash Drop Zone -->
     <Transition name="trash-fade">
-      <div
-        v-if="showTrashIcon"
-        class="trash-drop-zone"
-        :class="{ 'drag-over': isOverTrash }"
-      >
+      <div v-if="showTrashIcon" class="trash-drop-zone" :class="{ 'drag-over': isOverTrash }">
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="24"
@@ -2635,11 +2660,7 @@ onUnmounted(() => {
 
     <!-- Edit Drop Zone -->
     <Transition name="edit-fade">
-      <div
-        v-if="showEditIcon"
-        class="edit-drop-zone"
-        :class="{ 'drag-over': isOverEdit }"
-      >
+      <div v-if="showEditIcon" class="edit-drop-zone" :class="{ 'drag-over': isOverEdit }">
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="24"
@@ -2694,15 +2715,15 @@ onUnmounted(() => {
             <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" />
           </svg>
         </span>
-        <span class="drag-indicator-title">{{ getRuneDisplayName(draggedRune) }}        </span>
+        <span class="drag-indicator-title">{{ getRuneDisplayName(draggedRune) }} </span>
       </div>
     </Transition>
 
     <!-- Bubble Menu -->
-    <BubbleMenu 
-      :editor-view="editorViewRef as import('@codemirror/view').EditorView | null" 
-      :runes="runes" 
-      :is-directory="isDirectory" 
+    <BubbleMenu
+      :editor-view="editorViewRef as import('@codemirror/view').EditorView | null"
+      :runes="runes"
+      :is-directory="isDirectory"
     />
   </main>
 </template>
@@ -2734,7 +2755,10 @@ onUnmounted(() => {
   border: none;
   color: var(--color-foreground);
   cursor: pointer;
-  transition: transform 0.3s ease, opacity 0.3s ease, visibility 0.3s ease;
+  transition:
+    transform 0.3s ease,
+    opacity 0.3s ease,
+    visibility 0.3s ease;
   opacity: 1;
   visibility: visible;
   transform: translateY(0);
@@ -2775,7 +2799,10 @@ onUnmounted(() => {
   border: none;
   color: var(--color-foreground);
   cursor: pointer;
-  transition: transform 0.3s ease, opacity 0.3s ease, visibility 0.3s ease;
+  transition:
+    transform 0.3s ease,
+    opacity 0.3s ease,
+    visibility 0.3s ease;
   opacity: 1;
   visibility: visible;
   transform: translateY(0);
@@ -2812,7 +2839,9 @@ onUnmounted(() => {
   z-index: 1000;
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.3s ease, visibility 0.3s ease;
+  transition:
+    opacity 0.3s ease,
+    visibility 0.3s ease;
   pointer-events: none;
 }
 
@@ -3064,7 +3093,9 @@ onUnmounted(() => {
 /* Add extra padding to editor content for scrollability */
 .editor-container :deep(.cm-content) {
   padding-top: 4rem !important; /* Extra top margin */
-  padding-bottom: calc(2rem + 4rem + 50vh) !important; /* 2rem base + 4rem app bar + 50vh extra space */
+  padding-bottom: calc(
+    2rem + 4rem + 50vh
+  ) !important; /* 2rem base + 4rem app bar + 50vh extra space */
 }
 
 .editor-container :deep(.cm-scroller) {
@@ -3122,7 +3153,10 @@ onUnmounted(() => {
   justify-content: space-around;
   padding: 0 1rem;
   z-index: 100; /* Above editor (z-index: 1) but below sidebar (z-index: 1001) */
-  transition: transform 0.3s ease, opacity 0.3s ease, visibility 0.3s ease;
+  transition:
+    transform 0.3s ease,
+    opacity 0.3s ease,
+    visibility 0.3s ease;
   transform: translateY(0);
   opacity: 1;
   visibility: visible;
@@ -3150,7 +3184,6 @@ onUnmounted(() => {
   padding: 0;
 }
 
-
 .app-bar-button:disabled {
   cursor: not-allowed;
 }
@@ -3166,7 +3199,6 @@ onUnmounted(() => {
   color: var(--color-foreground);
   border-radius: 0.5rem;
 }
-
 
 .app-bar-button svg {
   width: 1.25rem;
@@ -3411,7 +3443,9 @@ onUnmounted(() => {
 /* Trash fade transition */
 .trash-fade-enter-active,
 .trash-fade-leave-active {
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
 }
 
 .trash-fade-enter-from,
@@ -3464,7 +3498,9 @@ onUnmounted(() => {
 /* Edit fade transition */
 .edit-fade-enter-active,
 .edit-fade-leave-active {
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
 }
 
 .edit-fade-enter-from,
@@ -3520,7 +3556,9 @@ onUnmounted(() => {
 /* Drag indicator fade transition */
 .drag-indicator-fade-enter-active,
 .drag-indicator-fade-leave-active {
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
 }
 
 .drag-indicator-fade-enter-from,
