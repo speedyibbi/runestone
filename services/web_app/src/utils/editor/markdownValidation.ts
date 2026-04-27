@@ -211,7 +211,7 @@ export function autoFormatMarkdown(content: string): string {
     const nextLine = i < lines.length - 1 ? lines[i + 1] : ''
 
     // Fix headings without space
-    let fixedLine = line.replace(/^(#{1,6})([^\s#])/, '$1 $2')
+    const fixedLine = line.replace(/^(#{1,6})([^\s#])/, '$1 $2')
 
     // Add blank line before heading if needed
     if (fixedLine.match(/^#{1,6}\s/) && prevLine.trim() !== '' && formatted.length > 0) {
