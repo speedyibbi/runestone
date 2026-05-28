@@ -110,9 +110,9 @@ Work proceeds in phases so the app remains buildable and reviewable. Each phase 
    - [x] Add an **unsupported viewport** view or layout guard: if `window.innerWidth < 1024`, show static message; do not mount main app routes
    - [x] Remove `global.css` rule that rescales root font for `max-width: 1023px`
 
-4. **Cleanup**
-   - Remove `@media` rules that only exist for sub-1024 layouts (audit per file; keep rules that apply at ≥1024 for responsive desktop)
-   - Update README if it still emphasizes “cross-platform PWA” or mobile install
+4. **Cleanup** ✓
+   - [x] Remove `@media` rules that only exist for sub-1024 layouts (`Toast.vue`, `CodexSelection.vue`, `AmbientBackground.vue`)
+   - [x] Update README (desktop browser positioning; removed cross-platform / mobile framing)
 
 **Exit criteria:** `npm run build` succeeds; no PWA plugin; no `MobileCodex`; narrow windows see unsupported screen only; desktop codex still works at ≥1024px with existing UI.
 
@@ -242,3 +242,4 @@ services/web_app/src/
 | 2026-05-23 | Initial plan: desktop ≥1024px, PWA/mobile removal, visual overhaul, phased approach; headless library and icon set TBD |
 | 2026-05-28 | Phase 1 part 1 (PWA removal) and part 2 (mobile UI removal) complete |
 | 2026-05-29 | Phase 1 part 3 (viewport gate, unsupported screen, remove sub-1024 root font scaling) |
+| 2026-05-29 | Phase 1 part 4 (sub-1024 CSS cleanup, README update); Phase 1 complete |

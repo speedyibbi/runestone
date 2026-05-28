@@ -52,7 +52,7 @@ When you close a note, the decrypted content is gone. When you close the app, ev
 - **Knowledge Graph** — Visualize connections between notes through wiki-style links and hashtags
 - **Multi-Notebook Support** — Organize your thoughts into separate Codexes, each independently encrypted
 - **Offline-First** — Work without an internet connection; sync when you're ready
-- **Cross-Platform** — Access your encrypted notes from any device with a modern browser
+- **Desktop Browser** — Built for modern desktop browsers (1024px viewport and wider)
 
 ---
 
