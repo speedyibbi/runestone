@@ -106,9 +106,9 @@ Work proceeds in phases so the app remains buildable and reviewable. Each phase 
    - [x] Remove `CodexWrapper.vue`; route `/codex/*` directly to `Codex.vue`
    - [x] Remove mobile-specific branches in `src/components/editor/BubbleMenu.vue` (`detectMobile`, `visualViewport`, `is-mobile` class, etc.)
 
-3. **Viewport gate**
-   - Add an **unsupported viewport** view or layout guard: if `window.innerWidth < 1024`, show static message; do not mount main app routes
-   - Remove `global.css` rule that rescales root font for `max-width: 1023px`
+3. **Viewport gate** ✓
+   - [x] Add an **unsupported viewport** view or layout guard: if `window.innerWidth < 1024`, show static message; do not mount main app routes
+   - [x] Remove `global.css` rule that rescales root font for `max-width: 1023px`
 
 4. **Cleanup**
    - Remove `@media` rules that only exist for sub-1024 layouts (audit per file; keep rules that apply at ≥1024 for responsive desktop)
@@ -241,3 +241,4 @@ services/web_app/src/
 |------|--------|
 | 2026-05-23 | Initial plan: desktop ≥1024px, PWA/mobile removal, visual overhaul, phased approach; headless library and icon set TBD |
 | 2026-05-28 | Phase 1 part 1 (PWA removal) and part 2 (mobile UI removal) complete |
+| 2026-05-29 | Phase 1 part 3 (viewport gate, unsupported screen, remove sub-1024 root font scaling) |
