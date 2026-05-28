@@ -59,15 +59,15 @@ Approximate current UI surface: **~17,500 lines** of `.vue` across views and com
 
 ---
 
-## Open decisions (TBD)
+## Open decisions
 
 Record choices here when made; link to PR or commit.
 
-| Decision | Options under consideration | Status |
-|----------|----------------------------|--------|
-| **Headless UI library** | e.g. Reka UI, Radix Vue, other Vue 3 headless primitives | **TBD** — used for Modal, Dropdown, Context menu, Command palette, focus traps, a11y |
-| **Icon set** | e.g. Lucide (`lucide-vue-next`), Iconify, Phosphor | **TBD** — replace inline SVGs in ribbon, top bar, buttons |
-| **Routing / `CodexWrapper`** | Direct route to single codex view vs. thin wrapper | **Done (Phase 1)** — `/codex/*` routes to `Codex.vue` |
+| Decision | Choice | Status |
+|----------|--------|--------|
+| **Headless UI library** | **[Reka UI](https://reka-ui.com/)** (`reka-ui`) | **Decided** — Modal, Dropdown, Context menu, Command palette, focus traps, a11y |
+| **Icon set** | **[Lucide](https://lucide.dev/)** (`@lucide/vue`) | **Decided** — tree-shaken named icon imports; replace inline SVGs in shell and primitives |
+| **Routing / `CodexWrapper`** | Direct route to `Codex.vue` | **Done (Phase 1)** — `/codex/*` routes to `Codex.vue` |
 | **Visual direction** | Typography, color, density, motion | **TBD** — complete overhaul; no requirement to keep current dark + accent palette |
 
 ---
@@ -131,12 +131,12 @@ Work proceeds in phases so the app remains buildable and reviewable. Each phase 
    - Align `useTheme.ts` and `utils/themePresets.ts` with new token set
    - Desktop-oriented sizing (no `vmin` phone scaling as primary rhythm)
 
-2. **Headless library** (once chosen)
-   - Add dependency and document choice in [Open decisions](#open-decisions-tbd)
-   - Implement primitives: Button, Input, Dialog/Modal, Dropdown/Menu, Tooltip, Command palette shell
+2. **Headless library** — Reka UI (`reka-ui`)
+   - Add dependency; wrap or compose Reka primitives in `components/ui/`
+   - Implement: Button, Input, Dialog/Modal, Dropdown/Menu, Tooltip, Command palette shell
 
-3. **Icon set** (once chosen)
-   - Add dependency; establish import pattern (e.g. tree-shaken named icons)
+3. **Icon set** — Lucide (`@lucide/vue`)
+   - Add dependency; establish import pattern (named icon components, tree-shaken)
    - Replace inline SVGs in new primitives first; migrate shell icons in Phase 3
 
 4. **Layout shell**
@@ -147,9 +147,9 @@ Work proceeds in phases so the app remains buildable and reviewable. Each phase 
 5. **Unsupported viewport screen**
    - Final visual design for sub-1024 message (can ship minimal in Phase 1, polish here)
 
-**Exit criteria:** Tokens documented; primitives usable in isolation; headless + icon choices recorded in this file; no requirement to migrate full Codex yet.
+**Exit criteria:** Tokens documented; primitives usable in isolation; `reka-ui` + `@lucide/vue` integrated; visual direction decided or explicitly deferred with interim tokens; no requirement to migrate full Codex yet.
 
-**Risk:** Medium — blocks Phase 3; decide library early in this phase.
+**Risk:** Medium — blocks Phase 3; **visual direction** is the remaining Phase 2 blocker.
 
 ---
 
@@ -197,13 +197,13 @@ Work proceeds in phases so the app remains buildable and reviewable. Each phase 
 
 ## Suggested folder direction (after Phase 2)
 
-Not final until headless library and shell are chosen:
+Not final until visual direction and shell are settled:
 
 ```
 services/web_app/src/
   components/
-    ui/          # Primitives (buttons, inputs, dialogs) — headless-backed
-    icons/       # Thin wrappers or re-exports from chosen icon set
+    ui/          # Primitives (buttons, inputs, dialogs) — Reka UI–backed
+    icons/       # Optional thin wrappers; prefer direct `@lucide/vue` imports
     codex/       # Feature-specific codex shell pieces
     editor/      # Editor-adjacent UI (bubble menu, palettes)
   composables/   # Existing + extracted useTabs, useRuneTree, etc.
@@ -243,3 +243,4 @@ services/web_app/src/
 | 2026-05-28 | Phase 1 part 1 (PWA removal) and part 2 (mobile UI removal) complete |
 | 2026-05-29 | Phase 1 part 3 (viewport gate, unsupported screen, remove sub-1024 root font scaling) |
 | 2026-05-29 | Phase 1 part 4 (sub-1024 CSS cleanup, README update); Phase 1 complete |
+| 2026-05-29 | Pre–Phase 2 decisions: headless = Reka UI (`reka-ui`), icons = Lucide (`@lucide/vue`); visual direction still TBD |
