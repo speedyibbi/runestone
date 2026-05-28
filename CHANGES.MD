@@ -93,12 +93,12 @@ Work proceeds in phases so the app remains buildable and reviewable. Each phase 
 
 **Tasks:**
 
-1. **PWA removal**
-   - Remove `vite-plugin-pwa` from `services/web_app/package.json`
-   - Remove `VitePWA({ ... })` from `services/web_app/vite.config.ts`
-   - Strip PWA-related tags from `services/web_app/index.html` (`theme-color`, `mobile-web-app-capable`, Apple web app meta, `apple-touch-icon`)
-   - Delete or gitignore generated `services/web_app/dev-dist/` (service worker artifacts)
-   - Run install/build to confirm no SW registration in production bundle
+1. **PWA removal** ✓
+   - [x] Remove `vite-plugin-pwa` from `services/web_app/package.json`
+   - [x] Remove `VitePWA({ ... })` from `services/web_app/vite.config.ts`
+   - [x] Strip PWA-related tags from `services/web_app/index.html` (`theme-color`, `mobile-web-app-capable`, Apple web app meta, `apple-touch-icon`)
+   - [x] Delete or gitignore generated `services/web_app/dev-dist/` (service worker artifacts; already in root `.gitignore`)
+   - [x] Run install/build to confirm no SW registration in production bundle
 
 2. **Mobile UI removal**
    - Delete `src/views/MobileCodex.vue`
