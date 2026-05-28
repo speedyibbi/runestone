@@ -67,7 +67,7 @@ Record choices here when made; link to PR or commit.
 |----------|----------------------------|--------|
 | **Headless UI library** | e.g. Reka UI, Radix Vue, other Vue 3 headless primitives | **TBD** — used for Modal, Dropdown, Context menu, Command palette, focus traps, a11y |
 | **Icon set** | e.g. Lucide (`lucide-vue-next`), Iconify, Phosphor | **TBD** — replace inline SVGs in ribbon, top bar, buttons |
-| **Routing / `CodexWrapper`** | Direct route to single codex view vs. thin wrapper | **TBD** — depends on final shell layout (Phase 2–3) |
+| **Routing / `CodexWrapper`** | Direct route to single codex view vs. thin wrapper | **Done (Phase 1)** — `/codex/*` routes to `Codex.vue` |
 | **Visual direction** | Typography, color, density, motion | **TBD** — complete overhaul; no requirement to keep current dark + accent palette |
 
 ---
@@ -100,11 +100,11 @@ Work proceeds in phases so the app remains buildable and reviewable. Each phase 
    - [x] Delete or gitignore generated `services/web_app/dev-dist/` (service worker artifacts; already in root `.gitignore`)
    - [x] Run install/build to confirm no SW registration in production bundle
 
-2. **Mobile UI removal**
-   - Delete `src/views/MobileCodex.vue`
-   - Delete `src/composables/useMediaQuery.ts` (or reduce to desktop-only helpers if still needed later)
-   - Remove `CodexWrapper.vue` mobile branching; route `/codex/*` to the single desktop codex view (exact routing TBD in Phase 2)
-   - Remove mobile-specific branches in `src/components/editor/BubbleMenu.vue` (`detectMobile`, `visualViewport`, `is-mobile` class, etc.)
+2. **Mobile UI removal** ✓
+   - [x] Delete `src/views/MobileCodex.vue`
+   - [x] Delete `src/composables/useMediaQuery.ts`
+   - [x] Remove `CodexWrapper.vue`; route `/codex/*` directly to `Codex.vue`
+   - [x] Remove mobile-specific branches in `src/components/editor/BubbleMenu.vue` (`detectMobile`, `visualViewport`, `is-mobile` class, etc.)
 
 3. **Viewport gate**
    - Add an **unsupported viewport** view or layout guard: if `window.innerWidth < 1024`, show static message; do not mount main app routes
@@ -220,9 +220,9 @@ services/web_app/src/
 | `VitePWA` in `vite.config.ts` | Remove |
 | PWA meta in `index.html` | Remove |
 | `dev-dist/` | Delete / ignore |
-| `MobileCodex.vue` | Delete |
-| `useMediaQuery.ts` / `useIsMobile` | Delete or replace |
-| `CodexWrapper.vue` | Remove or simplify (Phase 1/3) |
+| `MobileCodex.vue` | Deleted |
+| `useMediaQuery.ts` / `useIsMobile` | Deleted |
+| `CodexWrapper.vue` | Deleted; routes use `Codex.vue` |
 | COOP/COEP + SQLite plugins | **Keep** |
 
 ---
@@ -240,3 +240,4 @@ services/web_app/src/
 | Date | Change |
 |------|--------|
 | 2026-05-23 | Initial plan: desktop ≥1024px, PWA/mobile removal, visual overhaul, phased approach; headless library and icon set TBD |
+| 2026-05-28 | Phase 1 part 1 (PWA removal) and part 2 (mobile UI removal) complete |
