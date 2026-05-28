@@ -101,13 +101,6 @@ onMounted(() => {
     tail-fade var(--tail-fade-duration) var(--fall-delay) ease-out infinite;
 }
 
-/* Mobile optimization - remove tail-fade for better performance */
-@media screen and (max-width: 750px) {
-  .star {
-    animation: fall var(--fall-duration) var(--fall-delay) linear infinite;
-  }
-}
-
 @keyframes fall {
   to {
     transform: translate3d(-50em, 0, 0);
