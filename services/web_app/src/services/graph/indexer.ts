@@ -1,4 +1,4 @@
-import { ManifestEntryType } from '@/interfaces/manifest'
+import { ManifestEntryType } from '@/services/interfaces/manifest'
 import DatabaseService from '@/services/database/db'
 import IndexerService, { type DefaultBlobData } from '@/services/database/indexer'
 import LinkExtractorService, {

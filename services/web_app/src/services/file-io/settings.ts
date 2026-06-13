@@ -1,4 +1,4 @@
-import type { Settings, SyncSettings } from '@/interfaces/settings'
+import type { Settings, SyncSettings } from '@/services/interfaces/settings'
 
 /**
  * SettingsService handles settings data operations

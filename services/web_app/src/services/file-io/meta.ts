@@ -1,5 +1,5 @@
-import type { EncryptedData, PBKDF2Params, Argon2idParams } from '@/interfaces/crypto'
-import type { RootMeta, NotebookMeta } from '@/interfaces/meta'
+import type { EncryptedData, PBKDF2Params, Argon2idParams } from '@/services/interfaces/crypto'
+import type { RootMeta, NotebookMeta } from '@/services/interfaces/meta'
 
 /**
  * MetaService handles meta data operations for both root and notebook meta files

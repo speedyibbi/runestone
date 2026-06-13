@@ -1,4 +1,4 @@
-import type { EncryptedData, PBKDF2Params, Argon2idParams } from '@/interfaces/crypto'
+import type { EncryptedData, PBKDF2Params, Argon2idParams } from './crypto'
 
 /**
  * Encryption configuration for meta files

@@ -1,8 +1,8 @@
 import FileService from '@/services/l1-storage/file'
 import MetaService from '@/services/file-io/meta'
 import { toArrayBuffer } from '@/utils/helpers'
-import type { PathParams } from '@/interfaces/storage'
-import type { RootMeta, NotebookMeta } from '@/interfaces/meta'
+import type { PathParams } from '@/services/interfaces/storage'
+import type { RootMeta, NotebookMeta } from '@/services/interfaces/meta'
 
 /**
  * RemoteService handles pure remote storage operations

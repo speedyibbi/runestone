@@ -1,7 +1,7 @@
-import type { RootMeta, NotebookMeta } from '@/interfaces/meta'
-import type { Map } from '@/interfaces/map'
-import type { Manifest, ManifestEntryType } from '@/interfaces/manifest'
-import type { Settings } from '@/interfaces/settings'
+import type { RootMeta, NotebookMeta } from './meta'
+import type { Map } from './map'
+import type { Manifest, ManifestEntryType } from './manifest'
+import type { Settings } from './settings'
 
 /**
  * Result of initialize operation

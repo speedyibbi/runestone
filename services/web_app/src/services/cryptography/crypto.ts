@@ -1,5 +1,5 @@
-import type { Argon2idParams, PBKDF2Params, EncryptedData } from '@/interfaces/crypto'
-import type { SerializedCryptoKey } from '@/interfaces/crypto-worker'
+import type { Argon2idParams, PBKDF2Params, EncryptedData } from '@/services/interfaces/crypto'
+import type { SerializedCryptoKey } from '@/services/interfaces/crypto-worker'
 import { cryptoWorker } from '@/services/cryptography/crypto-worker-client'
 
 /**

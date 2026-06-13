@@ -1,4 +1,4 @@
-import type { SchedulerOptions } from '@/interfaces/scheduler'
+import type { SchedulerOptions } from '@/services/interfaces/scheduler'
 
 /**
  * SchedulerService manages recurring callbacks at specified intervals

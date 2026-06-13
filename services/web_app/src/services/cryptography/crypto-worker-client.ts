@@ -3,8 +3,8 @@ import type {
   CryptoWorkerResponse,
   SerializedCryptoKey,
   SerializedEncryptedData,
-} from '@/interfaces/crypto-worker'
-import { CryptoWorkerMessageType as MessageType } from '@/interfaces/crypto-worker'
+} from '@/services/interfaces/crypto-worker'
+import { CryptoWorkerMessageType as MessageType } from '@/services/interfaces/crypto-worker'
 
 /**
  * CryptoWorkerClient - Provides a clean API for communicating with the crypto worker
@@ -19,7 +19,7 @@ export class CryptoWorkerClient {
   private requestIdCounter: number
 
   constructor() {
-    this.worker = new Worker(new URL('@/workers/crypto.worker.ts', import.meta.url), {
+    this.worker = new Worker(new URL('@/services/workers/crypto.worker.ts', import.meta.url), {
       type: 'module',
     })
 

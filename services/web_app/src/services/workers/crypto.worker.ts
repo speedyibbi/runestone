@@ -6,7 +6,7 @@ import type {
   CryptoWorkerResponse,
   SerializedCryptoKey,
   SerializedEncryptedData,
-} from '@/interfaces/crypto-worker'
+} from '@/services/interfaces/crypto-worker'
 
 /**
  * Crypto Worker - Handles heavy cryptographic operations in a separate thread

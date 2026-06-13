@@ -1,5 +1,5 @@
 import { toArrayBuffer } from '@/utils/helpers'
-import type { ManifestEntry, Manifest } from '@/interfaces/manifest'
+import type { ManifestEntry, Manifest } from '@/services/interfaces/manifest'
 
 /**
  * ManifestService handles manifest data operations
