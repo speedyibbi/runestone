@@ -39,18 +39,6 @@ export function createContributionRegistry(): ContributionRegistry {
   }
 }
 
-export function createKeymapStub() {
-  return {
-    add: (binding?: unknown) => {
-      void binding
-      return () => {}
-    },
-    remove: () => {},
-    list: () => [] as { id: string; keys: string | string[]; command: string }[],
-    setUserBinding: () => {},
-  }
-}
-
 export function createNotifyStub() {
   const noop = () => ({ dismiss: () => {} })
   return { info: noop, success: noop, warn: noop, error: noop }

@@ -4,11 +4,11 @@ import { useContextStore } from '@/kernel/context'
 import { createEventBus, type EventBus } from '@/kernel/events'
 import { createCommandRegistry, type CommandRegistry } from '@/kernel/commands'
 import { createModuleRegistry, type ModuleRegistry } from '@/kernel/modules'
+import { createKeymapManager, type KeymapManager } from '@/kernel/keymap/manager'
 import {
   createContributionRegistry,
   createDataStub,
   createDialogStub,
-  createKeymapStub,
   createNotifyStub,
   type ContributionRegistry,
 } from '@/kernel/stubs'
@@ -22,7 +22,7 @@ export interface Kernel {
   modules: ModuleRegistry
   events: EventBus
   commands: CommandRegistry
-  keymap: ReturnType<typeof createKeymapStub> // optional capability; real listener in Phase 3
+  keymap: KeymapManager // optional capability; host attaches the listener (later phase)
   contributions: ContributionRegistry
   notify: ReturnType<typeof createNotifyStub> // optional host capability (Phase 4)
   dialog: ReturnType<typeof createDialogStub> // optional host capability (Phase 4)
@@ -42,7 +42,7 @@ export function createKernel(): Kernel {
   const events = createEventBus()
   const commands = createCommandRegistry(() => context.snapshot())
   const contributions = createContributionRegistry()
-  const keymap = createKeymapStub()
+  const keymap = createKeymapManager({ commands, getContext: () => context.snapshot() })
   const notify = createNotifyStub()
   const dialog = createDialogStub()
   const data = createDataStub()
