@@ -1,7 +1,7 @@
 import DatabaseService from '@/services/database/db'
 import IndexerService from '@/services/database/indexer'
-import type { SearchResult, SearchOptions, SearchServiceResult } from '@/interfaces/search'
-import { ManifestEntryType } from '@/interfaces/manifest'
+import type { SearchResult, SearchOptions, SearchServiceResult } from '@/services/interfaces/search'
+import { ManifestEntryType } from '@/services/interfaces/manifest'
 
 /**
  * SearchService handles full-text search using SQLite FTS5

@@ -6,7 +6,7 @@ import type {
   GraphData,
   GraphFilters,
   GraphQueryOptions,
-} from '@/interfaces/graph'
+} from '@/services/interfaces/graph'
 
 /**
  * GraphService provides high-level graph query APIs with filtering

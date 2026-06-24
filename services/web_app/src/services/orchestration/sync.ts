@@ -4,11 +4,11 @@ import CryptoService from '@/services/cryptography/crypto'
 import ManifestService from '@/services/file-io/manifest'
 import MapService from '@/services/file-io/map'
 import SettingsService from '@/services/file-io/settings'
-import type { Manifest, ManifestEntry } from '@/interfaces/manifest'
-import type { Map } from '@/interfaces/map'
-import type { Settings } from '@/interfaces/settings'
-import type { RootMeta, NotebookMeta } from '@/interfaces/meta'
-import type { SyncProgress, SyncResult, SyncOptions, RootSyncOptions } from '@/interfaces/sync'
+import type { Manifest, ManifestEntry } from '@/services/interfaces/manifest'
+import type { Map } from '@/services/interfaces/map'
+import type { Settings } from '@/services/interfaces/settings'
+import type { RootMeta, NotebookMeta } from '@/services/interfaces/meta'
+import type { SyncProgress, SyncResult, SyncOptions, RootSyncOptions } from '@/services/interfaces/sync'
 
 /**
  * SyncService handles synchronization between remote and local cache

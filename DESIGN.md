@@ -22,6 +22,7 @@ The following technical terms are presented to users with different names:
 
 - **meta.json** _(unencrypted)_: contains KDF parameters + encrypted MEK for decrypting the map.
 - **map.json.enc** _(encrypted with MEK)_: lists all notebooks (UUID + title only).
+- **settings.json.enc** _(encrypted with MEK)_: per-user client preferences (e.g. sync schedule). Not notebook content.
 
 ### Notebook Level (per notebook):
 
@@ -181,6 +182,19 @@ FEK → decrypt manifest.json.enc, blobs
 }
 ```
 
+### Root settings.json.enc (decrypted form):
+
+```json
+{
+  "version": 1,
+  "last_updated": "2025-11-11T12:00:00Z",
+  "sync": {
+    "autoSync": true,
+    "syncInterval": 300000
+  }
+}
+```
+
 ## 5. Filenames & IDs
 
 - **Lookup Hash**: SHA256(passphrase) → used as root storage directory.
@@ -191,6 +205,7 @@ FEK → decrypt manifest.json.enc, blobs
   ```
   <lookup_hash>/meta.json
   <lookup_hash>/map.json.enc
+  <lookup_hash>/settings.json.enc
   <lookup_hash>/<notebook_id>/meta.json
   <lookup_hash>/<notebook_id>/manifest.json.enc
   <lookup_hash>/<notebook_id>/blobs/<uuid>.enc
@@ -263,6 +278,7 @@ FEK → decrypt manifest.json.enc, blobs
 opfs/
   <lookup_hash>/
     map.json.enc          # cached notebook list
+    settings.json.enc     # cached user settings
     <notebook_id>/
       blobs/
         <uuid>.enc        # encrypted blob

@@ -2,7 +2,6 @@ import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
-import { VitePWA } from 'vite-plugin-pwa'
 import type { Plugin } from 'vite'
 import path from 'node:path'
 import fs from 'node:fs'
@@ -103,40 +102,6 @@ export default defineConfig(({ mode }) => {
       vueDevTools(),
       wasmMimeTypePlugin(),
       copySqlitePlugin(),
-      VitePWA({
-        registerType: 'autoUpdate',
-        includeAssets: ['favicon.ico', 'logo.png', 'assets/*.wasm', 'assets/*.js'],
-        manifest: {
-          name: 'Runestone',
-          short_name: 'Runestone',
-          description: 'Privacy-first knowledgebase',
-          theme_color: '#4f535b',
-          background_color: '#000000',
-          display: 'standalone',
-          orientation: 'portrait',
-          scope: '/',
-          start_url: '/',
-          icons: [
-            {
-              src: '/logo.png',
-              sizes: '512x512',
-              type: 'image/png',
-              purpose: 'any maskable',
-            },
-            {
-              src: '/favicon.ico',
-              sizes: '48x48',
-              type: 'image/x-icon',
-            },
-          ],
-        },
-        workbox: {
-          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,wasm}'],
-        },
-        devOptions: {
-          enabled: false, // Disable PWA in dev mode
-        },
-      }),
     ],
     resolve: {
       alias: {

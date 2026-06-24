@@ -2,8 +2,8 @@ import { sha256 } from '@noble/hashes/sha2'
 import OPFSService from '@/services/l1-storage/opfs'
 import MetaService from '@/services/file-io/meta'
 import { toBase64 } from '@/utils/helpers'
-import type { PathParams } from '@/interfaces/storage'
-import type { RootMeta, NotebookMeta } from '@/interfaces/meta'
+import type { PathParams } from '@/services/interfaces/storage'
+import type { RootMeta, NotebookMeta } from '@/services/interfaces/meta'
 
 /**
  * CacheService manages local OPFS cache for notebook data

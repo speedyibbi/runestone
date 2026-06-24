@@ -1,4 +1,4 @@
-import type { ExtractedLink, ExtractedHashtag } from '@/interfaces/graph'
+import type { ExtractedLink, ExtractedHashtag } from '@/services/interfaces/graph'
 
 /**
  * Resolver function to look up note UUID by title

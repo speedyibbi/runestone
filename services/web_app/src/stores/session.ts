@@ -1,12 +1,12 @@
 import { ref, computed, watch } from 'vue'
 import { defineStore } from 'pinia'
 import OrchestrationService from '@/services/orchestration/orchestrator'
-import type { Map } from '@/interfaces/map'
-import { ManifestEntryType, MediaEntryType, type Manifest } from '@/interfaces/manifest'
-import type { Settings } from '@/interfaces/settings'
-import type { SyncProgress, SyncResult } from '@/interfaces/sync'
-import type { SearchServiceResult, SearchOptions } from '@/interfaces/search'
-import type { GraphData, GraphQueryOptions } from '@/interfaces/graph'
+import type { Map } from '@/services/interfaces/map'
+import { ManifestEntryType, MediaEntryType, type Manifest } from '@/services/interfaces/manifest'
+import type { Settings } from '@/services/interfaces/settings'
+import type { SyncProgress, SyncResult } from '@/services/interfaces/sync'
+import type { SearchServiceResult, SearchOptions } from '@/services/interfaces/search'
+import type { GraphData, GraphQueryOptions } from '@/services/interfaces/graph'
 
 const MAX_FILE_SIZE = __APP_CONFIG__.fileUpload.maxSize
 

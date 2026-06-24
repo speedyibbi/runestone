@@ -1,4 +1,4 @@
-import type { MapEntry, Map } from '@/interfaces/map'
+import type { MapEntry, Map } from '@/services/interfaces/map'
 
 /**
  * MapService handles map data operations

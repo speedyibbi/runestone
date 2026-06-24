@@ -25,13 +25,13 @@ import type {
   UpdateBlobResult,
   DeleteBlobResult,
   BlobMetadata,
-} from '@/interfaces/orchestrator'
-import type { Map } from '@/interfaces/map'
-import { ManifestEntryType, MediaEntryType, type Manifest } from '@/interfaces/manifest'
-import type { SyncProgress, SyncResult } from '@/interfaces/sync'
-import type { GraphData, GraphQueryOptions } from '@/interfaces/graph'
-import type { SearchServiceResult, SearchOptions } from '@/interfaces/search'
-import type { Settings } from '@/interfaces/settings'
+} from '@/services/interfaces/orchestrator'
+import type { Map } from '@/services/interfaces/map'
+import { ManifestEntryType, MediaEntryType, type Manifest } from '@/services/interfaces/manifest'
+import type { SyncProgress, SyncResult } from '@/services/interfaces/sync'
+import type { GraphData, GraphQueryOptions } from '@/services/interfaces/graph'
+import type { SearchServiceResult, SearchOptions } from '@/services/interfaces/search'
+import type { Settings } from '@/services/interfaces/settings'
 
 /**
  * OrchestrationService handles high-level operations for notebook management

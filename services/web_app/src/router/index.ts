@@ -1,82 +1,59 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
+import AuthPage from '@/pages/AuthPage.vue'
+import CodexSelectPage from '@/pages/CodexSelectPage.vue'
+import WorkspacePage from '@/pages/WorkspacePage.vue'
+import UnsupportedPage from '@/pages/UnsupportedPage.vue'
 
-import Auth from '@/views/Auth.vue'
-import CodexSelection from '@/views/CodexSelection.vue'
-import CodexWrapper from '@/views/CodexWrapper.vue'
+export const ROUTES = {
+  AUTH: 'auth',
+  CODEXES: 'codexes',
+  WORKSPACE: 'workspace',
+  UNSUPPORTED: 'unsupported',
+}
 
-const router = createRouter({
-  history: createWebHistory(import.meta.env.BASE_URL),
-  routes: [
-    {
-      path: '/',
-      redirect: '/select-codex',
-    },
-    {
-      path: '/auth',
-      name: 'auth',
-      meta: {
-        title: 'Unlock Vault',
-        description: 'Enter the vault',
-      },
-      component: Auth,
-    },
-    {
-      path: '/select-codex',
-      name: 'select-codex',
-      meta: {
-        title: 'Select Codex',
-        description: 'Browse your collection',
-        requiresAuth: true,
-      },
-      component: CodexSelection,
-    },
-    {
-      path: '/codex/:codexId',
-      name: 'codex',
-      meta: {
-        title: 'Codex',
-        description: 'Explore your runes',
-        requiresAuth: true,
-        requiresCodex: true,
-      },
-      component: CodexWrapper,
-    },
-    {
-      path: '/codex/:codexId/rune/:runeId',
-      name: 'rune',
-      meta: {
-        title: 'Rune',
-        description: 'Edit and inscribe',
-        requiresAuth: true,
-        requiresCodex: true,
-      },
-      component: CodexWrapper,
-    },
-  ],
-})
+const routes = [
+  { path: '/', redirect: '/auth' },
+  { path: '/auth', name: ROUTES.AUTH, component: AuthPage },
+  { path: '/codexes', name: ROUTES.CODEXES, component: CodexSelectPage },
+  { path: '/codex/:codexId', name: ROUTES.WORKSPACE, component: WorkspacePage },
+  { path: '/unsupported', name: ROUTES.UNSUPPORTED, component: UnsupportedPage },
+]
 
-// Navigation guard to protect routes
-router.beforeEach((to, from, next) => {
-  const sessionStore = useSessionStore()
+const router = createRouter({ history: createWebHistory(), routes })
 
-  // if page does not exist, redirect to home
-  if (!to.matched.length) {
-    next('/')
-    return
+router.beforeEach(async (to, from) => {
+  const session = useSessionStore()
+
+  // Authenticated users skip the auth page
+  if (to.name === ROUTES.AUTH && session.isActive) {
+    return { name: ROUTES.CODEXES }
   }
 
-  if (to.meta.requiresAuth && !sessionStore.isActive) {
-    // Redirect to auth if trying to access protected route without session
-    next('/auth')
-  } else if (to.path === '/auth' && sessionStore.isActive) {
-    // Redirect to codex selection if already authenticated
-    next('/select-codex')
-  } else if (to.meta.requiresCodex && !sessionStore.hasOpenCodex) {
-    // Redirect to codex selection if trying to access codex without one open
-    next('/select-codex')
-  } else {
-    next()
+  // Protected routes require an active session
+  if ((to.name === ROUTES.CODEXES || to.name === ROUTES.WORKSPACE) && !session.isActive) {
+    return { name: ROUTES.AUTH }
+  }
+
+  // Leaving the workspace to a non-workspace route: close the open codex
+  if (from.name === ROUTES.WORKSPACE && to.name !== ROUTES.WORKSPACE && session.hasOpenCodex) {
+    await session.closeCodex()
+  }
+
+  // Entering the workspace: ensure the correct codex is loaded
+  if (to.name === ROUTES.WORKSPACE && session.isActive) {
+    const codexId = to.params.codexId as string
+    if (session.getCurrentCodex()?.uuid !== codexId) {
+      // Close any other open codex before opening the requested one
+      if (session.hasOpenCodex) {
+        await session.closeCodex()
+      }
+      try {
+        await session.openCodex(codexId)
+      } catch {
+        return { name: ROUTES.CODEXES }
+      }
+    }
   }
 })
 
