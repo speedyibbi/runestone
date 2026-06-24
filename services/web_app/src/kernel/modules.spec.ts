@@ -5,12 +5,9 @@ import { createEventBus } from '@/kernel/events'
 import { createCommandRegistry } from '@/kernel/commands'
 import { useContextStore } from '@/kernel/context'
 import { createKeymapManager } from '@/kernel/keymap/manager'
-import {
-  createContributionRegistry,
-  createDataStub,
-  createDialogStub,
-  createNotifyStub,
-} from '@/kernel/stubs'
+import { createNotificationService } from '@/kernel/notify'
+import { createDialogService } from '@/kernel/dialog'
+import { createContributionRegistry, createDataStub } from '@/kernel/stubs'
 
 function makeDeps() {
   const context = useContextStore()
@@ -20,8 +17,8 @@ function makeDeps() {
     commands,
     keymap: createKeymapManager({ commands, getContext: () => context.snapshot() }),
     contributions: createContributionRegistry(),
-    notify: createNotifyStub(),
-    dialog: createDialogStub(),
+    notify: createNotificationService(),
+    dialog: createDialogService(),
     data: createDataStub(),
     context,
   }

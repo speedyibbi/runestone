@@ -1,4 +1,7 @@
-/** Placeholders for kernel services fleshed out in later phases. */
+/**
+ * The generic contribution registry (a real kernel service) plus the data-facade stub
+ * that throws until the session facade lands in Phase 5.
+ */
 
 import { shallowReactive } from 'vue'
 
@@ -36,19 +39,6 @@ export function createContributionRegistry(): ContributionRegistry {
       const all = [...items.values()]
       return kind ? all.filter((c) => c.kind === kind) : all
     },
-  }
-}
-
-export function createNotifyStub() {
-  const noop = () => ({ dismiss: () => {} })
-  return { info: noop, success: noop, warn: noop, error: noop }
-}
-
-export function createDialogStub() {
-  return {
-    confirm: async () => false,
-    prompt: async () => null as string | null,
-    open: () => ({ close: () => {} }),
   }
 }
 

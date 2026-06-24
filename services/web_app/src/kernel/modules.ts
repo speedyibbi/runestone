@@ -2,12 +2,9 @@ import type { CommandRegistry } from '@/kernel/commands'
 import type { EventBus, EventKey, AppEvents } from '@/kernel/events'
 import type { useContextStore } from '@/kernel/context'
 import type { KeymapManager } from '@/kernel/keymap/manager'
-import {
-  createDataStub,
-  createDialogStub,
-  createNotifyStub,
-  type ContributionRegistry,
-} from '@/kernel/stubs'
+import type { NotificationService } from '@/kernel/notify'
+import type { DialogService } from '@/kernel/dialog'
+import { createDataStub, type ContributionRegistry } from '@/kernel/stubs'
 
 /** A module registers/removes keybindings; attaching the listener is a host concern. */
 type ModuleKeymap = Omit<KeymapManager, 'attach'>
@@ -24,8 +21,8 @@ export interface ModuleContext {
   commands: CommandRegistry
   keymap: ModuleKeymap
   contributions: ContributionRegistry
-  notify: ReturnType<typeof createNotifyStub>
-  dialog: ReturnType<typeof createDialogStub>
+  notify: NotificationService
+  dialog: DialogService
   data: ReturnType<typeof createDataStub>
   context: ReturnType<typeof useContextStore>
   subscribe: <K extends EventKey>(event: K, cb: (payload: AppEvents[K]) => void) => void
@@ -44,8 +41,8 @@ interface ModuleRegistryDeps {
   commands: CommandRegistry
   keymap: ModuleKeymap
   contributions: ContributionRegistry
-  notify: ReturnType<typeof createNotifyStub>
-  dialog: ReturnType<typeof createDialogStub>
+  notify: NotificationService
+  dialog: DialogService
   data: ReturnType<typeof createDataStub>
   context: ReturnType<typeof useContextStore>
 }

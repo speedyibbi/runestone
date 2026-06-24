@@ -5,13 +5,9 @@ import { createEventBus, type EventBus } from '@/kernel/events'
 import { createCommandRegistry, type CommandRegistry } from '@/kernel/commands'
 import { createModuleRegistry, type ModuleRegistry } from '@/kernel/modules'
 import { createKeymapManager, type KeymapManager } from '@/kernel/keymap/manager'
-import {
-  createContributionRegistry,
-  createDataStub,
-  createDialogStub,
-  createNotifyStub,
-  type ContributionRegistry,
-} from '@/kernel/stubs'
+import { createNotificationService, type NotificationService } from '@/kernel/notify'
+import { createDialogService, type DialogService } from '@/kernel/dialog'
+import { createContributionRegistry, createDataStub, type ContributionRegistry } from '@/kernel/stubs'
 
 /**
  * The kernel: a plain object created once, provided app-wide via provide/inject
@@ -24,8 +20,8 @@ export interface Kernel {
   commands: CommandRegistry
   keymap: KeymapManager // optional capability; host attaches the listener (later phase)
   contributions: ContributionRegistry
-  notify: ReturnType<typeof createNotifyStub> // optional host capability (Phase 4)
-  dialog: ReturnType<typeof createDialogStub> // optional host capability (Phase 4)
+  notify: NotificationService // optional host capability; design/scaffold renders the queue
+  dialog: DialogService // optional host capability; design/scaffold renders the stack
   context: ReturnType<typeof useContextStore>
   data: ReturnType<typeof createDataStub> // real session facade in Phase 5
   /** Vue plugin hook so `app.use(kernel)` provides it app-wide. */
@@ -43,8 +39,8 @@ export function createKernel(): Kernel {
   const commands = createCommandRegistry(() => context.snapshot())
   const contributions = createContributionRegistry()
   const keymap = createKeymapManager({ commands, getContext: () => context.snapshot() })
-  const notify = createNotifyStub()
-  const dialog = createDialogStub()
+  const notify = createNotificationService()
+  const dialog = createDialogService()
   const data = createDataStub()
 
   const modules = createModuleRegistry({
